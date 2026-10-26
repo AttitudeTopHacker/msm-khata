@@ -3,6 +3,7 @@ name: Build Native Releases (.exe, .deb, .apk)
 on:
   push:
     branches: [ main ]
+    tags: [ 'v*' ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -222,3 +223,54 @@ jobs:
           name: msmkhata_1.0.0_android.apk
           path: msmkhata_1.0.0_android.apk
           retention-days: 14
+
+  # =========================================================================
+  # 4. AUTOMATIC GITHUB RELEASE PUBLISHER
+  # =========================================================================
+  publish-release:
+    name: 🚀 Publish Official GitHub Release
+    needs: [build-linux-deb, build-windows-exe, build-android-apk]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Download All Platform Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-binaries
+          merge-multiple: true
+
+      - name: Inspect Release Artifacts
+        run: |
+          echo "Downloaded assets for release:"
+          ls -la release-binaries
+
+      - name: Create or Update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v1.0.0' }}
+          name: "MsmKhata v1.0.0 — Native Release (.exe, .deb, .apk)"
+          body: |
+            ## 🚀 MsmKhata v1.0.0 Native Cross-Platform Release
+
+            Pure Native Cross-Platform Build powered by Flutter and GitHub Actions (0% local compilation load).
+
+            ### 📦 Download Packages:
+            - 🐧 **Linux (.deb)**: `msmkhata_1.0.0_linux_amd64.deb`
+              ```bash
+              sudo dpkg -i msmkhata_1.0.0_linux_amd64.deb
+              ```
+            - 🪟 **Windows (.exe / .zip)**:
+              - **`msmkhata_1.0.0_windows_x64.zip`**: Complete portable bundle (Extract and run `msmkhata_app.exe`)
+              - **`msmkhata.exe`**: Standalone Windows executable
+            - 📱 **Android (.apk)**: `msmkhata_1.0.0_android.apk`
+              - Install directly on Android devices
+
+            ---
+            *Built and maintained by AttitudeTopHacker (msm.movin, Est. 2022)*
+          files: release-binaries/*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

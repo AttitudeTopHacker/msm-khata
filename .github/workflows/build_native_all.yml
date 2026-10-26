@@ -1,0 +1,224 @@
+name: Build Native Releases (.exe, .deb, .apk)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  # =========================================================================
+  # 1. LINUX NATIVE DEBIAN (.deb) PACKAGE
+  # =========================================================================
+  build-linux-deb:
+    name: 🐧 Build Linux Native (.deb)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Install Linux Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang \
+            cmake \
+            ninja-build \
+            pkg-config \
+            libgtk-3-dev \
+            liblzma-dev \
+            dpkg-dev
+
+      - name: Setup Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Enable Linux Desktop & Check Environment
+        run: |
+          flutter config --enable-linux-desktop
+          flutter doctor -v
+
+      - name: Build Flutter Linux Release
+        run: |
+          cd msmkhata_app
+          flutter pub get
+          flutter build linux --release
+
+      - name: Package into Debian (.deb)
+        run: |
+          PKG_NAME="msmkhata"
+          VERSION="1.0.0"
+          ARCH="amd64"
+          DEB_ROOT="dist/deb/${PKG_NAME}_${VERSION}_${ARCH}"
+
+          echo "==> Creating Debian package layout at ${DEB_ROOT}..."
+          mkdir -p "${DEB_ROOT}/DEBIAN"
+          mkdir -p "${DEB_ROOT}/opt/${PKG_NAME}"
+          mkdir -p "${DEB_ROOT}/usr/bin"
+          mkdir -p "${DEB_ROOT}/usr/share/applications"
+          mkdir -p "${DEB_ROOT}/usr/share/icons/hicolor/scalable/apps"
+
+          echo "==> Copying Flutter release bundle..."
+          cp -r msmkhata_app/build/linux/x64/release/bundle/* "${DEB_ROOT}/opt/${PKG_NAME}/"
+          chmod +x "${DEB_ROOT}/opt/${PKG_NAME}/msmkhata_app"
+
+          echo "==> Creating /usr/bin/msmkhata launcher..."
+          cat << 'EOF' > "${DEB_ROOT}/usr/bin/msmkhata"
+          #!/usr/bin/env bash
+          exec /opt/msmkhata/msmkhata_app "$@"
+          EOF
+          chmod 755 "${DEB_ROOT}/usr/bin/msmkhata"
+
+          echo "==> Creating desktop entry..."
+          cat << 'EOF' > "${DEB_ROOT}/usr/share/applications/msmkhata.desktop"
+          [Desktop Entry]
+          Name=MsmKhata
+          GenericName=Financial Ledger
+          Comment=Personal Financial Ledger & Tracker by msm.movin
+          Exec=/usr/bin/msmkhata
+          Icon=msmkhata
+          Terminal=false
+          Type=Application
+          Categories=Finance;Office;Utility;
+          Keywords=ledger;finance;money;khata;accounting;
+          StartupWMClass=msmkhata_app
+          EOF
+          chmod 644 "${DEB_ROOT}/usr/share/applications/msmkhata.desktop"
+
+          echo "==> Copying scalable SVG icon..."
+          if [ -f "assets/icon.svg" ]; then
+            cp "assets/icon.svg" "${DEB_ROOT}/usr/share/icons/hicolor/scalable/apps/msmkhata.svg"
+            chmod 644 "${DEB_ROOT}/usr/share/icons/hicolor/scalable/apps/msmkhata.svg"
+          fi
+
+          echo "==> Generating DEBIAN/control file..."
+          INSTALLED_SIZE=$(du -sk "${DEB_ROOT}" | cut -f1)
+          cat << EOF > "${DEB_ROOT}/DEBIAN/control"
+          Package: ${PKG_NAME}
+          Version: ${VERSION}
+          Section: utils
+          Priority: optional
+          Architecture: ${ARCH}
+          Installed-Size: ${INSTALLED_SIZE}
+          Maintainer: AttitudeTopHacker <msm.movin@gmail.com>
+          Depends: libc6, libgtk-3-0, libglib2.0-0
+          Description: MsmKhata - Native Financial Ledger & Tracker
+           Native cross-platform financial ledger and tracker desktop application
+           built with Flutter and Supabase, maintained by msm.movin (Est. 2022).
+          EOF
+
+          echo "==> Building .deb package..."
+          OUTPUT_DEB="${PKG_NAME}_${VERSION}_linux_${ARCH}.deb"
+          dpkg-deb --build --root-owner-group "${DEB_ROOT}" "${OUTPUT_DEB}"
+          ls -lh "${OUTPUT_DEB}"
+
+      - name: Upload Linux .deb Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: msmkhata_1.0.0_linux_amd64.deb
+          path: msmkhata_1.0.0_linux_amd64.deb
+          retention-days: 14
+
+  # =========================================================================
+  # 2. WINDOWS NATIVE (.exe) BUNDLE & ZIP
+  # =========================================================================
+  build-windows-exe:
+    name: 🪟 Build Windows Native (.exe)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Enable Windows Desktop & Check Environment
+        run: |
+          flutter config --enable-windows-desktop
+          flutter doctor -v
+
+      - name: Build Flutter Windows Release
+        run: |
+          cd msmkhata_app
+          flutter pub get
+          flutter build windows --release
+
+      - name: Package Windows Release ZIP & Executable
+        shell: pwsh
+        run: |
+          $ReleaseDir = "msmkhata_app/build/windows/x64/runner/Release"
+          $ZipName = "msmkhata_1.0.0_windows_x64.zip"
+          Write-Host "==> Compressing Windows release bundle into $ZipName..."
+          Compress-Archive -Path "$ReleaseDir/*" -DestinationPath $ZipName -Force
+          Write-Host "==> Copying standalone executable..."
+          Copy-Item -Path "$ReleaseDir/msmkhata_app.exe" -Destination "msmkhata.exe"
+          Get-Item $ZipName, "msmkhata.exe" | Format-Table Name, Length, LastWriteTime
+
+      - name: Upload Windows Bundle ZIP Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: msmkhata_1.0.0_windows_x64.zip
+          path: msmkhata_1.0.0_windows_x64.zip
+          retention-days: 14
+
+      - name: Upload Windows Standalone .exe Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: msmkhata_1.0.0_windows.exe
+          path: msmkhata.exe
+          retention-days: 14
+
+  # =========================================================================
+  # 3. ANDROID NATIVE RELEASE (.apk)
+  # =========================================================================
+  build-android-apk:
+    name: 📱 Build Android Release (.apk)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Verify Flutter Environment
+        run: flutter doctor -v
+
+      - name: Build Flutter Android APK Release
+        run: |
+          cd msmkhata_app
+          flutter pub get
+          flutter build apk --release
+
+      - name: Prepare APK Package
+        run: |
+          cp msmkhata_app/build/app/outputs/flutter-apk/app-release.apk msmkhata_1.0.0_android.apk
+          ls -lh msmkhata_1.0.0_android.apk
+
+      - name: Upload Android .apk Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: msmkhata_1.0.0_android.apk
+          path: msmkhata_1.0.0_android.apk
+          retention-days: 14

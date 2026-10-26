@@ -1,0 +1,46 @@
+# Environments and Secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+*.key
+*.pem
+
+# Python
+.venv/
+venv/
+ENV/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Flutter / Dart
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.packages
+**/.pub-cache/
+**/.pub/
+msmkhata_app/build/
+
+# Build and Distribution Packages
+dist/
+build/
+deb_dist/
+*.deb
+*.rpm
+*.apk
+*.aab
+*.exe
+*.msi
+*.zip
+
+# Editor & OS files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db

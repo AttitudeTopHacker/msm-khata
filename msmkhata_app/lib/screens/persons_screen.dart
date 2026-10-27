@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/person.dart';
 import '../services/api_service.dart';
+import '../widgets/shimmer_loading.dart';
+import '../widgets/sync_status_badge.dart';
 
 class PersonsScreen extends StatefulWidget {
   const PersonsScreen({super.key});
@@ -13,6 +15,7 @@ class PersonsScreen extends StatefulWidget {
 class _PersonsScreenState extends State<PersonsScreen> {
   String? _statusFilter;
   late Future<List<Person>> _personsFuture;
+  bool _isSyncing = false;
 
   @override
   void initState() {
@@ -20,10 +23,19 @@ class _PersonsScreenState extends State<PersonsScreen> {
     _loadPersons();
   }
 
-  void _loadPersons() {
+  Future<void> _loadPersons() async {
+    if (_isSyncing) return;
+    setState(() => _isSyncing = true);
+    final f = ApiService.getPersons(status: _statusFilter);
     setState(() {
-      _personsFuture = ApiService.getPersons(status: _statusFilter);
+      _personsFuture = f;
     });
+    try {
+      await f;
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => _isSyncing = false);
+    }
   }
 
   @override
@@ -35,7 +47,14 @@ class _PersonsScreenState extends State<PersonsScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text('Len-Den Contacts', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text('Contacts Ledger', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        actions: [
+          SyncStatusBadge(
+            isSyncing: _isSyncing,
+            onSync: _loadPersons,
+          ),
+          const SizedBox(width: 14),
+        ],
       ),
       body: Column(
         children: [
@@ -46,28 +65,39 @@ class _PersonsScreenState extends State<PersonsScreen> {
             child: Row(
               children: [
                 _filterChip(null, 'All Contacts'),
-                _filterChip('TO_RECEIVE', 'Lena Hai', const Color(0xFF10B981)),
-                _filterChip('TO_PAY', 'Dena Hai', const Color(0xFFEF4444)),
+                _filterChip('TO_RECEIVE', 'To Receive', const Color(0xFF10B981)),
+                _filterChip('TO_PAY', 'To Pay', const Color(0xFFEF4444)),
                 _filterChip('SETTLED', 'Settled', const Color(0xFF64748B)),
               ],
             ),
           ),
 
           Expanded(
-            child: FutureBuilder<List<Person>>(
-              future: _personsFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                final list = snapshot.data ?? [];
-                if (list.isEmpty) {
-                  return const Center(
-                    child: Text('Koi contact nahi mila', style: TextStyle(color: Color(0xFF94A3B8))),
-                  );
-                }
+            child: RefreshIndicator(
+              color: const Color(0xFF818CF8),
+              backgroundColor: const Color(0xFF1E293B),
+              onRefresh: _loadPersons,
+              child: FutureBuilder<List<Person>>(
+                future: _personsFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const ShimmerContactList(count: 6);
+                  }
+                  final list = snapshot.data ?? [];
+                  if (list.isEmpty) {
+                    return ListView(
+                      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                      children: const [
+                        SizedBox(height: 100),
+                        Center(
+                          child: Text('No contacts found', style: TextStyle(color: Color(0xFF94A3B8))),
+                        ),
+                      ],
+                    );
+                  }
 
-                return ListView.separated(
+                  return ListView.separated(
+                    physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
                   padding: const EdgeInsets.all(16),
                   itemCount: list.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 10),
@@ -115,9 +145,9 @@ class _PersonsScreenState extends State<PersonsScreen> {
                                 const SizedBox(height: 4),
                                 Row(
                                   children: [
-                                    Text('Diye: ${currency.format(person.totalGiven)}', style: const TextStyle(color: Color(0xFF64748B), fontSize: 11)),
+                                    Text('Lent: ${currency.format(person.totalGiven)}', style: const TextStyle(color: Color(0xFF64748B), fontSize: 11)),
                                     const SizedBox(width: 10),
-                                    Text('Liye: ${currency.format(person.totalTaken)}', style: const TextStyle(color: Color(0xFF64748B), fontSize: 11)),
+                                    Text('Borrowed: ${currency.format(person.totalTaken)}', style: const TextStyle(color: Color(0xFF64748B), fontSize: 11)),
                                   ],
                                 ),
                               ],
@@ -142,7 +172,7 @@ class _PersonsScreenState extends State<PersonsScreen> {
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
-                                  isReceive ? 'Lena Hai' : isPay ? 'Dena Hai' : 'Settled',
+                                  isReceive ? 'To Receive' : isPay ? 'To Pay' : 'Settled',
                                   style: TextStyle(color: badgeColor, fontSize: 10, fontWeight: FontWeight.bold),
                                 ),
                               ),
@@ -156,7 +186,8 @@ class _PersonsScreenState extends State<PersonsScreen> {
               },
             ),
           ),
-        ],
+        ),
+      ],
       ),
     );
   }

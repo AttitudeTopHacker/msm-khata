@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/transaction.dart';
 import '../services/api_service.dart';
+import '../widgets/shimmer_loading.dart';
+import '../widgets/sync_status_badge.dart';
 
 class HistoryScreen extends StatefulWidget {
   final String? initialTypeFilter;
@@ -16,6 +18,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   late Future<List<TransactionItem>> _transactionsFuture;
   List<TransactionItem> _allTransactions = [];
   List<TransactionItem> _filteredTransactions = [];
+  bool _isSyncing = false;
 
   String _searchQuery = '';
   String _selectedType = 'ALL'; // ALL, GIVEN, TAKEN, EXPENSE, INCOME
@@ -31,14 +34,23 @@ class _HistoryScreenState extends State<HistoryScreen> {
     _loadTransactions();
   }
 
-  void _loadTransactions() {
+  Future<void> _loadTransactions() async {
+    if (_isSyncing) return;
+    setState(() => _isSyncing = true);
+    final f = ApiService.getTransactions();
     setState(() {
-      _transactionsFuture = ApiService.getTransactions().then((list) {
+      _transactionsFuture = f.then((list) {
         _allTransactions = list;
         _applyFilters();
         return list;
       });
     });
+    try {
+      await f;
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => _isSyncing = false);
+    }
   }
 
   void _applyFilters() {
@@ -118,18 +130,21 @@ class _HistoryScreenState extends State<HistoryScreen> {
           ],
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded, color: Colors.white70),
-            onPressed: _loadTransactions,
+          SyncStatusBadge(
+            isSyncing: _isSyncing,
+            onSync: _loadTransactions,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 14),
         ],
       ),
       body: FutureBuilder<List<TransactionItem>>(
         future: _transactionsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting && _allTransactions.isEmpty) {
-            return const Center(child: CircularProgressIndicator());
+            return const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+              child: ShimmerTransactionList(count: 6),
+            );
           }
           if (snapshot.hasError && _allTransactions.isEmpty) {
             return Center(
@@ -180,10 +195,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 18),
                 child: Row(
                   children: [
-                    _buildTypeChip('ALL', 'Sabhi (All)'),
-                    _buildTypeChip('GIVEN', 'Maine Diye', color: const Color(0xFF10B981)),
-                    _buildTypeChip('TAKEN', 'Maine Liye', color: const Color(0xFFEF4444)),
-                    _buildTypeChip('EXPENSE', 'Kharcha', color: const Color(0xFFF59E0B)),
+                    _buildTypeChip('ALL', 'All'),
+                    _buildTypeChip('GIVEN', 'Lent', color: const Color(0xFF10B981)),
+                    _buildTypeChip('TAKEN', 'Borrowed', color: const Color(0xFFEF4444)),
+                    _buildTypeChip('EXPENSE', 'Expense', color: const Color(0xFFF59E0B)),
                     _buildTypeChip('INCOME', 'Income', color: const Color(0xFF38BDF8)),
                   ],
                 ),
@@ -247,9 +262,26 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      '${_filteredTransactions.length} entries match',
-                      style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontWeight: FontWeight.w600),
+                    Row(
+                      children: [
+                        Text(
+                          '${_filteredTransactions.length} entries match',
+                          style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(width: 8),
+                        InkWell(
+                          onTap: _isSyncing ? null : _loadTransactions,
+                          borderRadius: BorderRadius.circular(10),
+                          child: Padding(
+                            padding: const EdgeInsets.all(3),
+                            child: Icon(
+                              Icons.sync_rounded,
+                              size: 15,
+                              color: _isSyncing ? const Color(0xFF818CF8) : const Color(0xFF64748B),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     Text(
                       'Total: ${currency.format(totalFilteredAmount)}',
@@ -267,34 +299,45 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
               // 5. Transactions List
               Expanded(
-                child: _filteredTransactions.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
+                child: RefreshIndicator(
+                  color: const Color(0xFF818CF8),
+                  backgroundColor: const Color(0xFF1E293B),
+                  onRefresh: _loadTransactions,
+                  child: _filteredTransactions.isEmpty
+                      ? ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
                           children: [
-                            const Icon(Icons.search_off_rounded, size: 48, color: Color(0xFF64748B)),
-                            const SizedBox(height: 12),
-                            const Text(
-                              'Koi matching records nahi mile',
-                              style: TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
-                            ),
-                            const SizedBox(height: 8),
-                            TextButton(
-                              onPressed: () {
-                                setState(() {
-                                  _searchQuery = '';
-                                  _selectedType = 'ALL';
-                                  _selectedTime = 'ALL';
-                                  _selectedStatus = 'ALL';
-                                  _applyFilters();
-                                });
-                              },
-                              child: const Text('Reset All Filters', style: TextStyle(color: Color(0xFF818CF8))),
+                            const SizedBox(height: 80),
+                            Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.search_off_rounded, size: 48, color: Color(0xFF64748B)),
+                                  const SizedBox(height: 12),
+                                  const Text(
+                                    'No matching records found',
+                                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  TextButton(
+                                    onPressed: () {
+                                      setState(() {
+                                        _searchQuery = '';
+                                        _selectedType = 'ALL';
+                                        _selectedTime = 'ALL';
+                                        _selectedStatus = 'ALL';
+                                        _applyFilters();
+                                      });
+                                    },
+                                    child: const Text('Reset All Filters', style: TextStyle(color: Color(0xFF818CF8))),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
-                        ),
-                      )
-                    : ListView.separated(
+                        )
+                      : ListView.separated(
+                          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
                         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
                         itemCount: _filteredTransactions.length,
                         separatorBuilder: (_, __) => const SizedBox(height: 8),
@@ -313,12 +356,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                       : const Color(0xFFF59E0B);
 
                           final typeBadge = isGiven
-                              ? 'Maine Diye'
+                              ? 'Lent'
                               : isTaken
-                                  ? 'Maine Liye'
+                                  ? 'Borrowed'
                                   : isIncome
                                       ? 'Income'
-                                      : 'Kharcha';
+                                      : 'Expense';
 
                           return Container(
                             padding: const EdgeInsets.all(14),
@@ -445,6 +488,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           );
                         },
                       ),
+                ),
               ),
             ],
           );

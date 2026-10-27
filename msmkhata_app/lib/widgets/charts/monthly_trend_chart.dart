@@ -48,7 +48,7 @@ class _MonthlyTrendChartState extends State<MonthlyTrendChart> {
               Icon(Icons.bar_chart_rounded, size: 48, color: Color(0xFF64748B)),
               SizedBox(height: 10),
               Text(
-                'Abhi koi monthly trend record nahi mila',
+                'No monthly trend data recorded yet',
                 style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
               ),
             ],
@@ -107,7 +107,7 @@ class _MonthlyTrendChartState extends State<MonthlyTrendChart> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _buildToggleItem(index: 0, label: 'Income/Exp'),
-                    _buildToggleItem(index: 1, label: 'Len-Den'),
+                    _buildToggleItem(index: 1, label: 'Lent/Borrow'),
                   ],
                 ),
               ),
@@ -120,12 +120,12 @@ class _MonthlyTrendChartState extends State<MonthlyTrendChart> {
             children: [
               _buildLegend(
                 color: _viewMode == 0 ? const Color(0xFF10B981) : const Color(0xFF38BDF8),
-                label: _viewMode == 0 ? 'Total Income' : 'Maine Diye (Udhar)',
+                label: _viewMode == 0 ? 'Total Income' : 'Money Lent',
               ),
               const SizedBox(width: 16),
               _buildLegend(
                 color: _viewMode == 0 ? const Color(0xFFEF4444) : const Color(0xFFF59E0B),
-                label: _viewMode == 0 ? 'Total Expense' : 'Maine Liye (Liya)',
+                label: _viewMode == 0 ? 'Total Expense' : 'Money Borrowed',
               ),
             ],
           ),
@@ -146,7 +146,7 @@ class _MonthlyTrendChartState extends State<MonthlyTrendChart> {
                       final isFirst = rodIndex == 0;
                       final label = _viewMode == 0
                           ? (isFirst ? 'Income: ₹${item.totalIncome.toStringAsFixed(0)}' : 'Expense: ₹${item.totalExpense.toStringAsFixed(0)}')
-                          : (isFirst ? 'Diye: ₹${item.totalGiven.toStringAsFixed(0)}' : 'Liye: ₹${item.totalTaken.toStringAsFixed(0)}');
+                          : (isFirst ? 'Lent: ₹${item.totalGiven.toStringAsFixed(0)}' : 'Borrowed: ₹${item.totalTaken.toStringAsFixed(0)}');
                       return BarTooltipItem(
                         '${_formatMonth(item.month)}\n$label',
                         const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),

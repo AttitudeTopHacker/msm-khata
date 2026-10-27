@@ -37,7 +37,7 @@ class NetPositionCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                'Len-Den Net Position',
+                'Net Ledger Position',
                 style: TextStyle(
                   color: Color(0xFFC7D2FE),
                   fontSize: 14,
@@ -58,7 +58,7 @@ class NetPositionCard extends StatelessWidget {
                   ),
                 ),
                 child: Text(
-                  isNetPositive ? 'Lena Hai' : 'Dena Hai',
+                  isNetPositive ? 'To Receive' : 'To Pay',
                   style: TextStyle(
                     color: isNetPositive ? const Color(0xFF34D399) : const Color(0xFFF87171),
                     fontSize: 12,
@@ -85,7 +85,7 @@ class NetPositionCard extends StatelessWidget {
             children: [
               Expanded(
                 child: _buildMetric(
-                  label: 'Total Lena Hai (Market)',
+                  label: 'Total Receivable',
                   amount: currency.format(stats.totalReceivable),
                   count: '${stats.peopleToReceiveCount} people',
                   color: const Color(0xFF34D399),
@@ -97,7 +97,7 @@ class NetPositionCard extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.only(left: 16),
                   child: _buildMetric(
-                    label: 'Total Dena Hai (Due)',
+                    label: 'Total Payable',
                     amount: currency.format(stats.totalPayable),
                     count: '${stats.peopleToPayCount} people',
                     color: const Color(0xFFF87171),

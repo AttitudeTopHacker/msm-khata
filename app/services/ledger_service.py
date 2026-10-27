@@ -181,7 +181,7 @@ class LedgerService:
         # 3. Categories for breakdown
         c_query = client.table("categories").select("*")
         if user_id:
-            c_query = c_query.eq("user_id", user_id)
+            c_query = c_query.or_(f"user_id.is.null,user_id.eq.{user_id}")
         categories_dict = {c["id"]: c for c in (c_query.execute().data or [])}
         
         cat_breakdown: List[CategoryBreakdownItem] = []

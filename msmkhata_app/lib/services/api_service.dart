@@ -4,13 +4,16 @@ import '../config/api_config.dart';
 import '../models/person.dart';
 import '../models/transaction.dart';
 import '../models/stats.dart';
+import '../models/category.dart';
+import 'auth_service.dart';
 
 class ApiService {
   static final String _base = ApiConfig.baseUrl;
 
-  // 1. Fetch Dashboard Stats
+  // 1. Fetch Dashboard Stats (Isolated to current logged in user)
   static Future<DashboardStats> getDashboardStats({String? userId}) async {
-    final uri = Uri.parse('$_base/stats/summary${userId != null ? '?user_id=$userId' : ''}');
+    final uid = userId ?? AuthService.currentUserId;
+    final uri = Uri.parse('$_base/stats/summary${uid != null ? '?user_id=$uid' : ''}');
     final res = await http.get(uri);
     if (res.statusCode == 200) {
       return DashboardStats.fromJson(jsonDecode(res.body));
@@ -18,11 +21,12 @@ class ApiService {
     throw Exception('Failed to load dashboard stats: ${res.statusCode}');
   }
 
-  // 2. Fetch Persons with balances
+  // 2. Fetch Persons with balances (Isolated to current user)
   static Future<List<Person>> getPersons({String? status, String? userId}) async {
+    final uid = userId ?? AuthService.currentUserId;
     final params = <String, String>{};
     if (status != null) params['status'] = status;
-    if (userId != null) params['user_id'] = userId;
+    if (uid != null) params['user_id'] = uid;
 
     final uri = Uri.parse('$_base/persons').replace(queryParameters: params.isNotEmpty ? params : null);
     final res = await http.get(uri);
@@ -33,12 +37,25 @@ class ApiService {
     throw Exception('Failed to load persons');
   }
 
-  // 3. Create Person
-  static Future<Person> createPerson({required String name, String? phone, String? notes}) async {
+  // 3. Create Person (Tagged with current user)
+  static Future<Person> createPerson({
+    required String name,
+    String? phone,
+    String? notes,
+    String? userId,
+  }) async {
+    final uid = userId ?? AuthService.currentUserId;
+    final payload = <String, dynamic>{
+      'name': name.trim(),
+      if (phone != null && phone.isNotEmpty) 'phone': phone.trim(),
+      if (notes != null && notes.isNotEmpty) 'notes': notes.trim(),
+      if (uid != null) 'user_id': uid,
+    };
+
     final res = await http.post(
       Uri.parse('$_base/persons'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'name': name, 'phone': phone, 'notes': notes}),
+      body: jsonEncode(payload),
     );
     if (res.statusCode == 201) {
       return Person.fromJson(jsonDecode(res.body));
@@ -46,18 +63,21 @@ class ApiService {
     throw Exception('Failed to create person');
   }
 
-  // 4. Fetch Transactions
+  // 4. Fetch Transactions (Isolated to current user)
   static Future<List<TransactionItem>> getTransactions({
     String? personId,
     String? type,
     String? startDate,
     String? endDate,
+    String? userId,
   }) async {
+    final uid = userId ?? AuthService.currentUserId;
     final params = <String, String>{};
     if (personId != null) params['person_id'] = personId;
     if (type != null) params['type'] = type;
     if (startDate != null) params['start_date'] = startDate;
     if (endDate != null) params['end_date'] = endDate;
+    if (uid != null) params['user_id'] = uid;
 
     final uri = Uri.parse('$_base/transactions').replace(queryParameters: params.isNotEmpty ? params : null);
     final res = await http.get(uri);
@@ -68,7 +88,7 @@ class ApiService {
     throw Exception('Failed to load transactions');
   }
 
-  // 5. Create Transaction (Supports dynamic on-the-fly person/category)
+  // 5. Create Transaction (Tagged with current user)
   static Future<TransactionItem> createTransaction({
     required String type,
     required double amount,
@@ -79,18 +99,21 @@ class ApiService {
     String? categoryId,
     String? notes,
     String? dueDate,
+    String? userId,
   }) async {
-    final payload = {
+    final uid = userId ?? AuthService.currentUserId;
+    final payload = <String, dynamic>{
       'type': type,
       'amount': amount,
       'payment_mode': paymentMode,
-      'notes': notes,
-      'due_date': dueDate,
+      if (notes != null && notes.isNotEmpty) 'notes': notes,
+      if (dueDate != null && dueDate.isNotEmpty) 'due_date': dueDate,
+      if (personId != null) 'person_id': personId,
+      if (personName != null) 'person_name': personName,
+      if (categoryId != null) 'category_id': categoryId,
+      if (categoryName != null) 'category_name': categoryName,
+      if (uid != null) 'user_id': uid,
     };
-    if (personId != null) payload['person_id'] = personId;
-    if (personName != null) payload['person_name'] = personName;
-    if (categoryId != null) payload['category_id'] = categoryId;
-    if (categoryName != null) payload['category_name'] = categoryName;
 
     final res = await http.post(
       Uri.parse('$_base/transactions'),
@@ -108,5 +131,67 @@ class ApiService {
     await http.patch(
       Uri.parse('$_base/transactions/$id/settle?is_settled=$isSettled'),
     );
+  }
+
+  // 7. Fetch Categories (with default fallback for offline / immediate display)
+  static final List<Category> defaultCategories = [
+    Category(id: 'c1', name: 'Market', type: 'BOTH', color: '#3B82F6'),
+    Category(id: 'c2', name: 'Mandi', type: 'BOTH', color: '#10B981'),
+    Category(id: 'c3', name: 'Agriculture', type: 'BOTH', color: '#84CC16'),
+    Category(id: 'c4', name: 'Ploughing', type: 'EXPENSE', color: '#D97706'),
+    Category(id: 'c5', name: 'Irrigation', type: 'EXPENSE', color: '#06B6D4'),
+    Category(id: 'c6', name: 'Diesel', type: 'EXPENSE', color: '#EF4444'),
+    Category(id: 'c7', name: 'Fertiliser & Seeds', type: 'EXPENSE', color: '#14B8A6'),
+    Category(id: 'c8', name: 'Labour', type: 'EXPENSE', color: '#8B5CF6'),
+    Category(id: 'c9', name: 'Household Expenses', type: 'EXPENSE', color: '#F59E0B'),
+    Category(id: 'c10', name: 'General', type: 'BOTH', color: '#64748B'),
+  ];
+
+  static Future<List<Category>> getCategories({String? type, String? userId}) async {
+    try {
+      final uid = userId ?? AuthService.currentUserId;
+      final params = <String, String>{};
+      if (type != null) params['type'] = type;
+      if (uid != null) params['user_id'] = uid;
+
+      final uri = Uri.parse('$_base/categories').replace(queryParameters: params.isNotEmpty ? params : null);
+      final res = await http.get(uri);
+      if (res.statusCode == 200) {
+        final List<dynamic> list = jsonDecode(res.body);
+        final fetched = list.map((item) => Category.fromJson(item)).toList();
+        if (fetched.isNotEmpty) {
+          return fetched;
+        }
+      }
+    } catch (_) {
+      // Return defaults on error
+    }
+    return defaultCategories;
+  }
+
+  // 8. Create Category (Tagged with current user)
+  static Future<Category> createCategory({
+    required String name,
+    String type = 'EXPENSE',
+    String color = '#4F46E5',
+    String? userId,
+  }) async {
+    final uid = userId ?? AuthService.currentUserId;
+    final payload = <String, dynamic>{
+      'name': name.trim(),
+      'type': type,
+      'color': color,
+      if (uid != null) 'user_id': uid,
+    };
+
+    final res = await http.post(
+      Uri.parse('$_base/categories'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+    if (res.statusCode == 201) {
+      return Category.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to create category');
   }
 }

@@ -48,7 +48,7 @@ class _CategoryPieChartState extends State<CategoryPieChart> {
               Icon(Icons.pie_chart_outline_rounded, size: 48, color: Color(0xFF64748B)),
               SizedBox(height: 10),
               Text(
-                'Abhi koi category kharcha record nahi hai',
+                'No category expenses recorded yet',
                 style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
               ),
             ],
@@ -75,7 +75,7 @@ class _CategoryPieChartState extends State<CategoryPieChart> {
                   Icon(Icons.donut_large_rounded, color: Color(0xFF818CF8), size: 20),
                   SizedBox(width: 8),
                   Text(
-                    'Category-wise Kharcha',
+                    'Category Breakdown',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 16,

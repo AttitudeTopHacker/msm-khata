@@ -3,8 +3,12 @@ import 'package:intl/intl.dart';
 import '../models/stats.dart';
 import '../models/transaction.dart';
 import '../services/api_service.dart';
+import '../services/auth_service.dart';
 import '../widgets/net_position_card.dart';
+import '../widgets/shimmer_loading.dart';
+import '../widgets/sync_status_badge.dart';
 import 'add_transaction_screen.dart';
+import 'auth_screen.dart';
 import 'history_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -19,6 +23,7 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   late Future<DashboardStats> _statsFuture;
   late Future<List<TransactionItem>> _transactionsFuture;
+  bool _isSyncing = false;
 
   @override
   void initState() {
@@ -26,11 +31,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _refreshData();
   }
 
-  void _refreshData() {
+  Future<void> _refreshData() async {
+    if (_isSyncing) return;
+    setState(() => _isSyncing = true);
+    final stats = ApiService.getDashboardStats();
+    final txs = ApiService.getTransactions();
     setState(() {
-      _statsFuture = ApiService.getDashboardStats();
-      _transactionsFuture = ApiService.getTransactions();
+      _statsFuture = stats;
+      _transactionsFuture = txs;
     });
+    try {
+      await Future.wait([stats, txs]);
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => _isSyncing = false);
+    }
   }
 
   void _openAddTransaction(String initialType) async {
@@ -68,17 +83,53 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded, color: Colors.white70),
-            onPressed: _refreshData,
+          SyncStatusBadge(
+            isSyncing: _isSyncing,
+            onSync: _refreshData,
           ),
           const SizedBox(width: 8),
+          InkWell(
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AuthScreen()),
+              );
+              setState(() {});
+            },
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              margin: const EdgeInsets.only(right: 14, left: 4),
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: AuthService.isAuthenticated ? const Color(0xFF10B981) : const Color(0xFF818CF8),
+                  width: 1.5,
+                ),
+              ),
+              child: CircleAvatar(
+                radius: 14,
+                backgroundColor: const Color(0xFF1E293B),
+                backgroundImage: AuthService.avatarUrl != null ? NetworkImage(AuthService.avatarUrl!) : null,
+                child: AuthService.avatarUrl == null
+                    ? Icon(
+                        AuthService.isAuthenticated ? Icons.person : Icons.account_circle_outlined,
+                        size: 18,
+                        color: AuthService.isAuthenticated ? const Color(0xFF10B981) : const Color(0xFF818CF8),
+                      )
+                    : null,
+              ),
+            ),
+          ),
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: () async => _refreshData(),
+        color: const Color(0xFF818CF8),
+        backgroundColor: const Color(0xFF1E293B),
+        strokeWidth: 2.5,
+        onRefresh: _refreshData,
         child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
+          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -88,14 +139,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 future: _statsFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return Container(
-                      height: 180,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B),
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      child: const Center(child: CircularProgressIndicator()),
-                    );
+                    return const ShimmerNetPositionCard();
                   }
                   if (snapshot.hasError) {
                     return Container(
@@ -133,24 +177,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Row(
                 children: [
                   _buildActionButton(
-                    label: 'Maine Diye',
-                    sub: 'Udhar Diya',
+                    label: 'Lent',
+                    sub: 'Money Given',
                     color: const Color(0xFF10B981),
                     icon: Icons.call_made_rounded,
                     onTap: () => _openAddTransaction('GIVEN'),
                   ),
                   const SizedBox(width: 10),
                   _buildActionButton(
-                    label: 'Maine Liye',
-                    sub: 'Udhar Liya',
+                    label: 'Borrowed',
+                    sub: 'Money Taken',
                     color: const Color(0xFFEF4444),
                     icon: Icons.call_received_rounded,
                     onTap: () => _openAddTransaction('TAKEN'),
                   ),
                   const SizedBox(width: 10),
                   _buildActionButton(
-                    label: 'Kharcha',
-                    sub: 'Self Expense',
+                    label: 'Expense',
+                    sub: 'Expenditure',
                     color: const Color(0xFFF59E0B),
                     icon: Icons.shopping_bag_outlined,
                     onTap: () => _openAddTransaction('EXPENSE'),
@@ -164,9 +208,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Recent Ledger Entries',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                  Row(
+                    children: [
+                      const Text(
+                        'Recent Ledger Entries',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                      const SizedBox(width: 8),
+                      InkWell(
+                        onTap: _isSyncing ? null : _refreshData,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: Icon(
+                            Icons.sync_rounded,
+                            size: 16,
+                            color: _isSyncing ? const Color(0xFF818CF8) : const Color(0xFF64748B),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   TextButton.icon(
                     onPressed: () {
@@ -191,12 +252,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 future: _transactionsFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(20),
-                        child: CircularProgressIndicator(),
-                      ),
-                    );
+                    return const ShimmerTransactionList(count: 4);
                   }
                   final items = snapshot.data ?? [];
                   if (items.isEmpty) {
@@ -211,7 +267,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         children: [
                           Icon(Icons.receipt_long_rounded, size: 40, color: Color(0xFF64748B)),
                           SizedBox(height: 10),
-                          Text('Koi transaction nahi hai abhi', style: TextStyle(color: Color(0xFF94A3B8))),
+                          Text('No transactions recorded yet', style: TextStyle(color: Color(0xFF94A3B8))),
                         ],
                       ),
                     );

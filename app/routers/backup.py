@@ -76,3 +76,18 @@ def upload_backup_to_google_drive(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Google Drive upload failed: {str(e)}"
         )
+
+@router.post("/reset-data")
+def reset_all_data():
+    """Wipes all test transactions, persons, and custom test data."""
+    from app.database import get_supabase
+    client = get_supabase()
+    try:
+        client.table("transactions").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+        client.table("saved_filters").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+        client.table("persons").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+        client.table("categories").delete().not_.is_("user_id", "null").execute()
+        return {"status": "success", "message": "All data cleared successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+

@@ -5,6 +5,19 @@ from app.models.category import CategoryCreate, CategoryUpdate, CategoryResponse
 
 router = APIRouter(prefix="/categories", tags=["Categories"])
 
+DEFAULT_SYSTEM_CATEGORIES = [
+    {"name": "Market", "type": "BOTH", "color": "#3B82F6"},
+    {"name": "Mandi", "type": "BOTH", "color": "#10B981"},
+    {"name": "Agriculture", "type": "BOTH", "color": "#84CC16"},
+    {"name": "Ploughing", "type": "EXPENSE", "color": "#D97706"},
+    {"name": "Irrigation", "type": "EXPENSE", "color": "#06B6D4"},
+    {"name": "Diesel", "type": "EXPENSE", "color": "#EF4444"},
+    {"name": "Fertiliser & Seeds", "type": "EXPENSE", "color": "#14B8A6"},
+    {"name": "Labour", "type": "EXPENSE", "color": "#8B5CF6"},
+    {"name": "Household Expenses", "type": "EXPENSE", "color": "#F59E0B"},
+    {"name": "General", "type": "BOTH", "color": "#64748B"},
+]
+
 @router.get("", response_model=List[CategoryResponse])
 def get_categories(
     type_filter: Optional[str] = Query(None, alias="type", description="EXPENSE, INCOME, or BOTH"),
@@ -14,11 +27,18 @@ def get_categories(
     client = get_supabase()
     query = client.table("categories").select("*").order("name")
     if user_id:
-        query = query.eq("user_id", user_id)
+        query = query.or_(f"user_id.is.null,user_id.eq.{user_id}")
     if type_filter:
         query = query.in_("type", [type_filter.upper(), "BOTH"])
         
     res = query.execute().data or []
+    if not res:
+        # Auto-seed system defaults if database table is completely empty
+        try:
+            client.table("categories").insert(DEFAULT_SYSTEM_CATEGORIES).execute()
+            res = client.table("categories").select("*").order("name").execute().data or []
+        except Exception:
+            pass
     return res
 
 @router.post("", response_model=CategoryResponse, status_code=status.HTTP_201_CREATED)

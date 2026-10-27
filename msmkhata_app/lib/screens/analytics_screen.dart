@@ -5,6 +5,8 @@ import '../services/api_service.dart';
 import '../widgets/charts/category_pie_chart.dart';
 import '../widgets/charts/monthly_trend_chart.dart';
 import '../widgets/charts/top_people_card.dart';
+import '../widgets/shimmer_loading.dart';
+import '../widgets/sync_status_badge.dart';
 
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});
@@ -15,6 +17,7 @@ class AnalyticsScreen extends StatefulWidget {
 
 class _AnalyticsScreenState extends State<AnalyticsScreen> {
   late Future<DashboardStats> _statsFuture;
+  bool _isSyncing = false;
 
   @override
   void initState() {
@@ -22,10 +25,19 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     _loadStats();
   }
 
-  void _loadStats() {
+  Future<void> _loadStats() async {
+    if (_isSyncing) return;
+    setState(() => _isSyncing = true);
+    final f = ApiService.getDashboardStats();
     setState(() {
-      _statsFuture = ApiService.getDashboardStats();
+      _statsFuture = f;
     });
+    try {
+      await f;
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => _isSyncing = false);
+    }
   }
 
   @override
@@ -51,20 +63,22 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           ],
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded, color: Colors.white70),
-            onPressed: _loadStats,
+          SyncStatusBadge(
+            isSyncing: _isSyncing,
+            onSync: _loadStats,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 14),
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: () async => _loadStats(),
+        color: const Color(0xFF818CF8),
+        backgroundColor: const Color(0xFF1E293B),
+        onRefresh: _loadStats,
         child: FutureBuilder<DashboardStats>(
           future: _statsFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return const ShimmerAnalyticsOverview();
             }
             if (snapshot.hasError) {
               return Center(
@@ -76,7 +90,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       const Icon(Icons.error_outline_rounded, size: 48, color: Colors.redAccent),
                       const SizedBox(height: 12),
                       Text(
-                        'Backend connect nahi ho paya:\n${snapshot.error}',
+                        'Unable to connect to backend:\n${snapshot.error}',
                         textAlign: TextAlign.center,
                         style: const TextStyle(color: Colors.white70),
                       ),
@@ -99,7 +113,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 : 0.0;
 
             return SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
+              physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -116,7 +130,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         child: _buildKpiCard(
                           title: 'Total Income',
                           amount: currency.format(stats.totalIncome),
-                          sub: 'Self Earnings',
+                          sub: 'Earnings',
                           color: const Color(0xFF10B981),
                           icon: Icons.trending_up_rounded,
                         ),
@@ -124,9 +138,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: _buildKpiCard(
-                          title: 'Total Kharcha',
+                          title: 'Total Expense',
                           amount: currency.format(stats.totalExpense),
-                          sub: 'Expenses',
+                          sub: 'Expenditure',
                           color: const Color(0xFFF59E0B),
                           icon: Icons.shopping_bag_outlined,
                         ),

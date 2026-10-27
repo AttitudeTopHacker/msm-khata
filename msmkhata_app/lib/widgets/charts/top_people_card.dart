@@ -21,7 +21,7 @@ class TopPeopleCard extends StatefulWidget {
 }
 
 class _TopPeopleCardState extends State<TopPeopleCard> {
-  // 0 = Debtors (Lena Hai), 1 = Creditors (Dena Hai)
+  // 0 = Debtors (Receivable), 1 = Creditors (Payable)
   int _activeTab = 0;
 
   @override
@@ -54,7 +54,7 @@ class _TopPeopleCardState extends State<TopPeopleCard> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    isDebtors ? 'Top Jinse Lena Hai' : 'Top Jinko Dena Hai',
+                    isDebtors ? 'Top Debtors (Receivable)' : 'Top Creditors (Payable)',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,
@@ -74,8 +74,8 @@ class _TopPeopleCardState extends State<TopPeopleCard> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildTab(0, 'Lena Hai'),
-                    _buildTab(1, 'Dena Hai'),
+                    _buildTab(0, 'Receivable'),
+                    _buildTab(1, 'Payable'),
                   ],
                 ),
               ),
@@ -88,7 +88,7 @@ class _TopPeopleCardState extends State<TopPeopleCard> {
               padding: const EdgeInsets.symmetric(vertical: 20),
               child: Center(
                 child: Text(
-                  isDebtors ? 'Koi baki len-den nahi hai (All settled)' : 'Koi dena baki nahi hai',
+                  isDebtors ? 'No outstanding debts (All settled)' : 'No pending payables',
                   style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
                 ),
               ),

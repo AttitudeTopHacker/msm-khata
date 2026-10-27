@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/persons_screen.dart';
+import 'screens/analytics_screen.dart';
+import 'screens/history_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -40,17 +42,23 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = const [
-    DashboardScreen(),
-    PersonsScreen(),
-  ];
+  void _navigateToTab(int index) {
+    setState(() => _currentIndex = index);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final screens = [
+      DashboardScreen(onNavigateToTab: _navigateToTab),
+      const PersonsScreen(),
+      const AnalyticsScreen(),
+      const HistoryScreen(),
+    ];
+
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
-        children: _screens,
+        children: screens,
       ),
       bottomNavigationBar: NavigationBar(
         backgroundColor: const Color(0xFF0F172A),
@@ -67,6 +75,16 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             icon: Icon(Icons.people_outline_rounded, color: Color(0xFF94A3B8)),
             selectedIcon: Icon(Icons.people_rounded, color: Color(0xFF818CF8)),
             label: 'Len-Den',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.insights_outlined, color: Color(0xFF94A3B8)),
+            selectedIcon: Icon(Icons.insights_rounded, color: Color(0xFF818CF8)),
+            label: 'Analytics',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.receipt_long_outlined, color: Color(0xFF94A3B8)),
+            selectedIcon: Icon(Icons.receipt_long_rounded, color: Color(0xFF818CF8)),
+            label: 'History & Filter',
           ),
         ],
       ),

@@ -24,6 +24,61 @@ class CategoryBreakdown {
   }
 }
 
+class PersonBalanceSummary {
+  final String personId;
+  final String name;
+  final double totalGiven;
+  final double totalTaken;
+  final double netBalance;
+  final String status;
+
+  PersonBalanceSummary({
+    required this.personId,
+    required this.name,
+    required this.totalGiven,
+    required this.totalTaken,
+    required this.netBalance,
+    required this.status,
+  });
+
+  factory PersonBalanceSummary.fromJson(Map<String, dynamic> json) {
+    return PersonBalanceSummary(
+      personId: json['person_id'] ?? '',
+      name: json['name'] ?? '',
+      totalGiven: (json['total_given'] as num?)?.toDouble() ?? 0.0,
+      totalTaken: (json['total_taken'] as num?)?.toDouble() ?? 0.0,
+      netBalance: (json['net_balance'] as num?)?.toDouble() ?? 0.0,
+      status: json['status'] ?? '',
+    );
+  }
+}
+
+class MonthlyTrendItem {
+  final String month; // e.g. "2026-10"
+  final double totalIncome;
+  final double totalExpense;
+  final double totalGiven;
+  final double totalTaken;
+
+  MonthlyTrendItem({
+    required this.month,
+    required this.totalIncome,
+    required this.totalExpense,
+    required this.totalGiven,
+    required this.totalTaken,
+  });
+
+  factory MonthlyTrendItem.fromJson(Map<String, dynamic> json) {
+    return MonthlyTrendItem(
+      month: json['month'] ?? '',
+      totalIncome: (json['total_income'] as num?)?.toDouble() ?? 0.0,
+      totalExpense: (json['total_expense'] as num?)?.toDouble() ?? 0.0,
+      totalGiven: (json['total_given'] as num?)?.toDouble() ?? 0.0,
+      totalTaken: (json['total_taken'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+}
+
 class DashboardStats {
   final double totalReceivable;
   final double totalPayable;
@@ -35,6 +90,9 @@ class DashboardStats {
   final int peopleToPayCount;
   final int totalTransactionsCount;
   final List<CategoryBreakdown> categoryBreakdown;
+  final List<PersonBalanceSummary> topDebtors;
+  final List<PersonBalanceSummary> topCreditors;
+  final List<MonthlyTrendItem> monthlyTrends;
 
   DashboardStats({
     required this.totalReceivable,
@@ -47,6 +105,9 @@ class DashboardStats {
     required this.peopleToPayCount,
     required this.totalTransactionsCount,
     required this.categoryBreakdown,
+    required this.topDebtors,
+    required this.topCreditors,
+    required this.monthlyTrends,
   });
 
   factory DashboardStats.fromJson(Map<String, dynamic> json) {
@@ -62,6 +123,18 @@ class DashboardStats {
       totalTransactionsCount: json['total_transactions_count'] ?? 0,
       categoryBreakdown: (json['category_breakdown'] as List<dynamic>?)
               ?.map((item) => CategoryBreakdown.fromJson(item))
+              .toList() ??
+          [],
+      topDebtors: (json['top_debtors'] as List<dynamic>?)
+              ?.map((item) => PersonBalanceSummary.fromJson(item))
+              .toList() ??
+          [],
+      topCreditors: (json['top_creditors'] as List<dynamic>?)
+              ?.map((item) => PersonBalanceSummary.fromJson(item))
+              .toList() ??
+          [],
+      monthlyTrends: (json['monthly_trends'] as List<dynamic>?)
+              ?.map((item) => MonthlyTrendItem.fromJson(item))
               .toList() ??
           [],
     );

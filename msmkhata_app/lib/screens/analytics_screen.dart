@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/stats.dart';
 import '../services/api_service.dart';
+import '../services/sync_service.dart';
 import '../widgets/charts/category_pie_chart.dart';
 import '../widgets/charts/monthly_trend_chart.dart';
 import '../widgets/charts/top_people_card.dart';
@@ -26,10 +27,16 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     _loadStats();
   }
 
+  Future<DashboardStats> _getStats() async {
+    final s = await SyncService.syncStats();
+    if (s != null) return s;
+    return await ApiService.getDashboardStats();
+  }
+
   Future<void> _loadStats() async {
     if (_isSyncing) return;
     setState(() => _isSyncing = true);
-    final f = ApiService.getDashboardStats();
+    final f = _getStats();
     setState(() {
       _statsFuture = f;
     });
@@ -77,8 +84,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         onRefresh: _loadStats,
         child: FutureBuilder<DashboardStats>(
           future: _statsFuture,
+          initialData: SyncService.cachedStats,
           builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
+            if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
               return const ShimmerAnalyticsOverview();
             }
             if (snapshot.hasError) {

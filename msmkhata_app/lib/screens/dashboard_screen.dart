@@ -9,7 +9,11 @@ import '../widgets/shimmer_loading.dart';
 import '../widgets/sync_status_badge.dart';
 import 'add_transaction_screen.dart';
 import 'auth_screen.dart';
+import 'export_statement_screen.dart';
 import 'history_screen.dart';
+import 'landing_screen.dart';
+import '../widgets/msm_shimmer_text.dart';
+import '../widgets/transaction_detail_sheet.dart';
 
 class DashboardScreen extends StatefulWidget {
   final ValueChanged<int>? onNavigateToTab;
@@ -60,6 +64,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  String _formatDate(String? raw) {
+    if (raw == null || raw.isEmpty) return '';
+    try {
+      final dt = DateTime.parse(raw).toLocal();
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final txDate = DateTime(dt.year, dt.month, dt.day);
+      if (txDate == today) {
+        return 'Today';
+      } else if (txDate == today.subtract(const Duration(days: 1))) {
+        return 'Yesterday';
+      } else {
+        return DateFormat('dd MMM').format(dt);
+      }
+    } catch (_) {
+      return raw.length >= 10 ? raw.substring(0, 10) : raw;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final currency = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
@@ -69,20 +92,70 @@ class _DashboardScreenState extends State<DashboardScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Column(
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            const Text(
               'MsmKhata',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.white),
             ),
-            Text(
-              'msm.movin • Personal Ledger & Financial Analytics',
-              style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+            Row(
+              children: const [
+                MsmShimmerText(
+                  text: 'ORG : msm.movin 2022',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  ' • Cloud Ledger',
+                  style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                ),
+              ],
             ),
           ],
         ),
         actions: [
+          // Home Page button to navigate to Landing / Home Screen
+          InkWell(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const LandingScreen(isViewingFromDashboard: true),
+                ),
+              );
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E293B),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF4F46E5).withOpacity(0.5), width: 1),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.home_rounded, color: Color(0xFF818CF8), size: 16),
+                  SizedBox(width: 5),
+                  Text(
+                    'Home',
+                    style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // A4 Statement & Print Button
+          IconButton(
+            tooltip: 'Export & A4 Print Sheet',
+            icon: const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFF10B981), size: 20),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ExportStatementScreen()),
+              );
+            },
+          ),
           SyncStatusBadge(
             isSyncing: _isSyncing,
             onSync: _refreshData,
@@ -292,79 +365,154 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   ? const Color(0xFF38BDF8)
                                   : const Color(0xFFF59E0B);
 
-                      return Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1E293B),
+                      return Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () async {
+                            final changed = await TransactionDetailSheet.show(
+                              context,
+                              item: item,
+                              onTransactionChanged: _refreshData,
+                            );
+                            if (changed == true) {
+                              _refreshData();
+                            }
+                          },
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFF334155), width: 0.6),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: color.withOpacity(0.15),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                isGiven
-                                    ? Icons.arrow_outward_rounded
-                                    : isTaken
-                                        ? Icons.arrow_downward_rounded
-                                        : isIncome
-                                            ? Icons.account_balance_wallet_rounded
-                                            : Icons.receipt_rounded,
-                                color: color,
-                                size: 20,
-                              ),
+                          child: Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1E293B),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: const Color(0xFF334155), width: 0.6),
                             ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    item.personName ?? item.categoryName ?? item.type,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 15,
-                                    ),
-                                  ),
-                                  Text(
-                                    item.notes ?? item.paymentMode,
-                                    style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
+                            child: Row(
                               children: [
-                                Text(
-                                  currency.format(item.amount),
-                                  style: TextStyle(
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: color.withOpacity(0.15),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    isGiven
+                                        ? Icons.arrow_outward_rounded
+                                        : isTaken
+                                            ? Icons.arrow_downward_rounded
+                                            : isIncome
+                                                ? Icons.account_balance_wallet_rounded
+                                                : Icons.receipt_rounded,
                                     color: color,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
+                                    size: 20,
                                   ),
                                 ),
-                                if (item.isSettled)
-                                  const Text(
-                                    'Settled',
-                                    style: TextStyle(color: Color(0xFF10B981), fontSize: 11),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        item.personName ?? item.categoryName ?? item.type,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Row(
+                                        children: [
+                                          if (item.transactionDate != null) ...[
+                                            Text(
+                                              _formatDate(item.transactionDate),
+                                              style: const TextStyle(
+                                                color: Color(0xFF38BDF8),
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            const Text(
+                                              ' • ',
+                                              style: TextStyle(color: Color(0xFF64748B), fontSize: 11),
+                                            ),
+                                          ],
+                                          Flexible(
+                                            child: Text(
+                                              item.notes?.isNotEmpty == true ? item.notes! : item.paymentMode,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
+                                ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      currency.format(item.amount),
+                                      style: TextStyle(
+                                        color: color,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                    if (item.isSettled)
+                                      const Text(
+                                        'Settled',
+                                        style: TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.w600),
+                                      )
+                                    else if (item.dueDate != null)
+                                      Text(
+                                        'Due ${item.dueDate!.substring(0, 10)}',
+                                        style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 10),
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(width: 4),
+                                const Icon(
+                                  Icons.chevron_right_rounded,
+                                  color: Color(0xFF475569),
+                                  size: 18,
+                                ),
                               ],
                             ),
-                          ],
+                          ),
                         ),
                       );
                     },
                   );
                 },
               ),
-              const SizedBox(height: 30),
+              const SizedBox(height: 20),
+              Center(
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Icon(Icons.auto_awesome, color: Color(0xFF818CF8), size: 14),
+                        SizedBox(width: 6),
+                        MsmShimmerText(
+                          text: 'ORG : msm.movin 2022',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 0.8),
+                        ),
+                        SizedBox(width: 6),
+                        Icon(Icons.auto_awesome, color: Color(0xFF38BDF8), size: 14),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Multi-User Isolated Cloud Accounting System',
+                      style: TextStyle(color: Color(0xFF64748B), fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 36),
             ],
           ),
         ),

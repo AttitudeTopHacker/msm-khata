@@ -4,6 +4,8 @@ import '../models/transaction.dart';
 import '../services/api_service.dart';
 import '../widgets/shimmer_loading.dart';
 import '../widgets/sync_status_badge.dart';
+import '../widgets/transaction_detail_sheet.dart';
+import 'export_statement_screen.dart';
 
 class HistoryScreen extends StatefulWidget {
   final String? initialTypeFilter;
@@ -106,6 +108,25 @@ class _HistoryScreenState extends State<HistoryScreen> {
     });
   }
 
+  String _formatDate(String? raw) {
+    if (raw == null || raw.isEmpty) return '';
+    try {
+      final dt = DateTime.parse(raw).toLocal();
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final txDate = DateTime(dt.year, dt.month, dt.day);
+      if (txDate == today) {
+        return 'Today, ${DateFormat('hh:mm a').format(dt)}';
+      } else if (txDate == today.subtract(const Duration(days: 1))) {
+        return 'Yesterday, ${DateFormat('hh:mm a').format(dt)}';
+      } else {
+        return DateFormat('dd MMM yyyy').format(dt);
+      }
+    } catch (_) {
+      return raw.length >= 10 ? raw.substring(0, 10) : raw;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final currency = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
@@ -130,11 +151,21 @@ class _HistoryScreenState extends State<HistoryScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: 'Export & A4 Print Sheet',
+            icon: const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFF10B981), size: 20),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ExportStatementScreen()),
+              );
+            },
+          ),
           SyncStatusBadge(
             isSyncing: _isSyncing,
             onSync: _loadTransactions,
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 8),
         ],
       ),
       body: FutureBuilder<List<TransactionItem>>(
@@ -363,127 +394,144 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                       ? 'Income'
                                       : 'Expense';
 
-                          return Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1E293B),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: const Color(0xFF334155), width: 0.8),
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: color.withOpacity(0.15),
-                                    shape: BoxShape.circle,
+                          return InkWell(
+                            onTap: () async {
+                              final updated = await TransactionDetailSheet.show(
+                                context,
+                                item: item,
+                                onTransactionChanged: _loadTransactions,
+                              );
+                              if (updated == true) {
+                                _loadTransactions();
+                              }
+                            },
+                            borderRadius: BorderRadius.circular(16),
+                            child: Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1E293B),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: const Color(0xFF334155), width: 0.8),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: color.withOpacity(0.15),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      isGiven
+                                          ? Icons.arrow_outward_rounded
+                                          : isTaken
+                                              ? Icons.arrow_downward_rounded
+                                              : isIncome
+                                                  ? Icons.account_balance_wallet_rounded
+                                                  : Icons.shopping_bag_rounded,
+                                      color: color,
+                                      size: 20,
+                                    ),
                                   ),
-                                  child: Icon(
-                                    isGiven
-                                        ? Icons.arrow_outward_rounded
-                                        : isTaken
-                                            ? Icons.arrow_downward_rounded
-                                            : isIncome
-                                                ? Icons.account_balance_wallet_rounded
-                                                : Icons.shopping_bag_rounded,
-                                    color: color,
-                                    size: 20,
-                                  ),
-                                ),
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              item.personName ?? item.categoryName ?? item.type,
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 15,
-                                              ),
-                                            ),
-                                          ),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                            decoration: BoxDecoration(
-                                              color: color.withOpacity(0.15),
-                                              borderRadius: BorderRadius.circular(6),
-                                            ),
-                                            child: Text(
-                                              typeBadge,
-                                              style: TextStyle(
-                                                color: color,
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Row(
-                                        children: [
-                                          Text(
-                                            item.transactionDate ?? '',
-                                            style: const TextStyle(color: Color(0xFF64748B), fontSize: 11),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            '•  ${item.paymentMode}',
-                                            style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
-                                          ),
-                                          if (item.notes != null && item.notes!.isNotEmpty) ...[
-                                            const SizedBox(width: 8),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
                                             Expanded(
                                               child: Text(
-                                                '•  ${item.notes}',
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+                                                item.personName ?? item.categoryName ?? item.type,
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 15,
+                                                ),
+                                              ),
+                                            ),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: color.withOpacity(0.15),
+                                                borderRadius: BorderRadius.circular(6),
+                                              ),
+                                              child: Text(
+                                                typeBadge,
+                                                style: TextStyle(
+                                                  color: color,
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
                                               ),
                                             ),
                                           ],
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Text(
-                                      currency.format(item.amount),
-                                      style: TextStyle(
-                                        color: color,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                    if (item.isSettled)
-                                      Container(
-                                        margin: const EdgeInsets.only(top: 2),
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFF10B981).withOpacity(0.15),
-                                          borderRadius: BorderRadius.circular(6),
                                         ),
-                                        child: const Text(
-                                          'Settled',
-                                          style: TextStyle(
-                                            color: Color(0xFF10B981),
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.bold,
+                                        const SizedBox(height: 4),
+                                        Row(
+                                          children: [
+                                            Icon(Icons.event_note_rounded, size: 12, color: const Color(0xFF64748B)),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              _formatDate(item.transactionDate),
+                                              style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w500),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              '•  ${item.paymentMode}',
+                                              style: const TextStyle(color: Color(0xFF64748B), fontSize: 11),
+                                            ),
+                                            if (item.notes != null && item.notes!.isNotEmpty) ...[
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                child: Text(
+                                                  '•  ${item.notes}',
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: const TextStyle(color: Color(0xFF64748B), fontSize: 11),
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        currency.format(item.amount),
+                                        style: TextStyle(
+                                          color: color,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                      if (item.isSettled)
+                                        Container(
+                                          margin: const EdgeInsets.only(top: 2),
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF10B981).withOpacity(0.15),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: const Text(
+                                            'Settled',
+                                            style: TextStyle(
+                                              color: Color(0xFF10B981),
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                  ],
-                                ),
-                              ],
+                                    ],
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Icon(Icons.chevron_right_rounded, color: Color(0xFF475569), size: 18),
+                                ],
+                              ),
                             ),
                           );
                         },

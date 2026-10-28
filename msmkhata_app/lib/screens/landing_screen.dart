@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../widgets/msm_shimmer_text.dart';
+import '../widgets/github_developer_card.dart';
+import 'dashboard_screen.dart';
 
 class LandingScreen extends StatefulWidget {
-  const LandingScreen({super.key});
+  final bool isViewingFromDashboard;
+
+  const LandingScreen({super.key, this.isViewingFromDashboard = false});
 
   @override
   State<LandingScreen> createState() => _LandingScreenState();
@@ -11,6 +16,16 @@ class LandingScreen extends StatefulWidget {
 class _LandingScreenState extends State<LandingScreen> {
   String? _loadingProvider; // 'google', 'github', or null
   String? _errorMessage;
+
+  void _navigateToDashboard() {
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    } else {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const DashboardScreen()),
+      );
+    }
+  }
 
   void _handleGoogleSignIn() async {
     setState(() {
@@ -112,15 +127,51 @@ class _LandingScreenState extends State<LandingScreen> {
           child: Column(
             children: [
               _buildTopNavBar(context),
+              if (widget.isViewingFromDashboard) _buildDashboardReturnBanner(context),
               _buildHeroSection(context),
               _buildDataIsolationBanner(),
               _buildFeatureCards(),
+              _buildDeveloperSection(),
               _buildPreviewShowcase(),
               _buildBottomCta(),
               _buildFooter(),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildDashboardReturnBanner(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      color: const Color(0xFF4F46E5).withOpacity(0.2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.info_outline_rounded, color: Color(0xFF818CF8), size: 16),
+          const SizedBox(width: 8),
+          const Text(
+            'Viewing Public Home Page • Tap "Back to Dashboard" anytime to return.',
+            style: TextStyle(color: Color(0xFFC7D2FE), fontSize: 12, fontWeight: FontWeight.w500),
+          ),
+          const SizedBox(width: 12),
+          InkWell(
+            onTap: () {
+              if (Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              }
+            },
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              child: Text(
+                'Return',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12, decoration: TextDecoration.underline),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -168,26 +219,48 @@ class _LandingScreenState extends State<LandingScreen> {
                     'MsmKhata',
                     style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: -0.3),
                   ),
-                  Text(
-                    'msm.movin • Personal Ledger',
-                    style: TextStyle(color: const Color(0xFF94A3B8).withOpacity(0.9), fontSize: 11),
+                  Row(
+                    children: const [
+                      MsmShimmerText(
+                        text: 'ORG : msm.movin 2022',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        ' • Personal Ledger',
+                        style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ],
           ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF4F46E5),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              elevation: 0,
+          if (widget.isViewingFromDashboard || AuthService.currentSession != null)
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF10B981),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+              ),
+              onPressed: _navigateToDashboard,
+              icon: const Icon(Icons.dashboard_rounded, size: 16),
+              label: const Text('Back to Dashboard', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            )
+          else
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4F46E5),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+              ),
+              onPressed: () => _showSignInModal(context),
+              icon: const Icon(Icons.login_rounded, size: 16),
+              label: const Text('Sign In', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
             ),
-            onPressed: () => _showSignInModal(context),
-            icon: const Icon(Icons.login_rounded, size: 16),
-            label: const Text('Sign In', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-          ),
         ],
       ),
     );
@@ -201,7 +274,7 @@ class _LandingScreenState extends State<LandingScreen> {
         constraints: const BoxConstraints(maxWidth: 800),
         child: Column(
           children: [
-            // Next-Gen Badge
+            // Next-Gen Badge with msm.movin 2022 Shimmer
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               decoration: BoxDecoration(
@@ -209,13 +282,18 @@ class _LandingScreenState extends State<LandingScreen> {
                 borderRadius: BorderRadius.circular(30),
                 border: Border.all(color: const Color(0xFF818CF8).withOpacity(0.4), width: 1),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.lock_outline_rounded, color: Color(0xFF818CF8), size: 14),
+                children: const [
+                  Icon(Icons.auto_awesome, color: Color(0xFF818CF8), size: 14),
+                  SizedBox(width: 6),
+                  MsmShimmerText(
+                    text: 'ORG : msm.movin 2022',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
                   SizedBox(width: 6),
                   Text(
-                    '100% Private Multi-User Cloud Ledger',
+                    '• 100% Private Cloud Ledger',
                     style: TextStyle(color: Color(0xFFC7D2FE), fontSize: 12, fontWeight: FontWeight.w600),
                   ),
                 ],
@@ -271,53 +349,117 @@ class _LandingScreenState extends State<LandingScreen> {
               ),
             ],
 
-            // OAuth Sign-In Card inside Hero
-            Container(
-              constraints: const BoxConstraints(maxWidth: 420),
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: const Color(0xFF334155), width: 1.2),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF4F46E5).withOpacity(0.12),
-                    blurRadius: 28,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text(
-                    'Get Started in One Click',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Sign in to unlock your private dashboard',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
-                  ),
-                  const SizedBox(height: 18),
-                  _buildOAuthButtons(),
-                  const SizedBox(height: 14),
-                  const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.shield_outlined, color: Color(0xFF10B981), size: 14),
-                      SizedBox(width: 6),
-                      Text(
-                        'Secured by Supabase • Private per-user records',
-                        style: TextStyle(color: Color(0xFF64748B), fontSize: 11),
+            // Hero Action Area: If logged in, show Dashboard return card; if not, show OAuth Sign-In
+            if (widget.isViewingFromDashboard || AuthService.currentSession != null)
+              Container(
+                constraints: const BoxConstraints(maxWidth: 440),
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E293B),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: const Color(0xFF10B981).withOpacity(0.5), width: 1.2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF10B981).withOpacity(0.12),
+                      blurRadius: 28,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981).withOpacity(0.15),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.verified_user_rounded, color: Color(0xFF10B981), size: 22),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Private Ledger Active',
+                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                              ),
+                              Text(
+                                AuthService.email.isNotEmpty ? AuthService.email : 'Cloud Account Synchronised',
+                                style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF10B981),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        elevation: 0,
                       ),
-                    ],
-                  ),
-                ],
+                      onPressed: _navigateToDashboard,
+                      icon: const Icon(Icons.dashboard_rounded, size: 18),
+                      label: const Text('Open Private Dashboard', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    ),
+                  ],
+                ),
+              )
+            else
+              Container(
+                constraints: const BoxConstraints(maxWidth: 420),
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E293B),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: const Color(0xFF334155), width: 1.2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF4F46E5).withOpacity(0.12),
+                      blurRadius: 28,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'Get Started in One Click',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Sign in to unlock your private dashboard',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                    ),
+                    const SizedBox(height: 18),
+                    _buildOAuthButtons(),
+                    const SizedBox(height: 14),
+                    const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.shield_outlined, color: Color(0xFF10B981), size: 14),
+                        SizedBox(width: 6),
+                        Text(
+                          'Secured by Supabase • Private per-user records',
+                          style: TextStyle(color: Color(0xFF64748B), fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
           ],
         ),
       ),
@@ -543,26 +685,58 @@ class _LandingScreenState extends State<LandingScreen> {
         borderRadius: BorderRadius.circular(28),
         border: Border.all(color: const Color(0xFF334155), width: 1),
       ),
-      child: Column(
-        children: [
-          const Text(
-            'Ready to Manage Your Finances?',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Sign in with Google or GitHub to start recording your personal transactions.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
-          ),
-          const SizedBox(height: 24),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 360),
-            child: _buildOAuthButtons(),
-          ),
-        ],
-      ),
+      child: (widget.isViewingFromDashboard || AuthService.currentSession != null)
+          ? Column(
+              children: [
+                const Text(
+                  'Your Private Ledger is Active',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'You are signed in as ${AuthService.email.isNotEmpty ? AuthService.email : "Authorized User"}. Return to your dashboard anytime.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: 250,
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF10B981),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      elevation: 0,
+                    ),
+                    onPressed: _navigateToDashboard,
+                    icon: const Icon(Icons.dashboard_rounded, size: 18),
+                    label: const Text('Return to Dashboard', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  ),
+                ),
+              ],
+            )
+          : Column(
+              children: [
+                const Text(
+                  'Ready to Manage Your Finances?',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Sign in with Google or GitHub to start recording your personal transactions.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                ),
+                const SizedBox(height: 24),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 360),
+                  child: _buildOAuthButtons(),
+                ),
+              ],
+            ),
     );
   }
 
@@ -657,15 +831,62 @@ class _LandingScreenState extends State<LandingScreen> {
     );
   }
 
+  // 5. Developer Profile Section
+  Widget _buildDeveloperSection() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+      child: Column(
+        children: [
+          const Text(
+            'Lead Architect & Engineering',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: const [
+              Text('Crafted by ', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13)),
+              MsmShimmerText(
+                text: 'ORG : msm.movin 2022',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+              Text(' • Developer Showcase', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const GithubDeveloperCard(),
+        ],
+      ),
+    );
+  }
+
   // 7. Footer
   Widget _buildFooter() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-      child: const Text(
-        '© 2026 MsmKhata • Engineered for msm.movin • Powered by Supabase Cloud',
-        textAlign: TextAlign.center,
-        style: TextStyle(color: Color(0xFF64748B), fontSize: 11),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: const [
+              Text(
+                '© 2026 MsmKhata • Engineered by ',
+                style: TextStyle(color: Color(0xFF64748B), fontSize: 11),
+              ),
+              MsmShimmerText(
+                text: 'ORG : msm.movin 2022',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+              ),
+              Text(
+                ' • Powered by Supabase Cloud',
+                style: TextStyle(color: Color(0xFF64748B), fontSize: 11),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 }
+

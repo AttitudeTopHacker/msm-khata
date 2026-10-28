@@ -1,12 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../models/category.dart';
 import '../models/person.dart';
+import '../models/transaction.dart';
 import '../services/api_service.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final String initialType;
+  final TransactionItem? existingTransaction;
 
-  const AddTransactionScreen({super.key, this.initialType = 'GIVEN'});
+  const AddTransactionScreen({
+    super.key,
+    this.initialType = 'GIVEN',
+    this.existingTransaction,
+  });
 
   @override
   State<AddTransactionScreen> createState() => _AddTransactionScreenState();
@@ -19,6 +26,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   final _personController = TextEditingController();
   final _categoryController = TextEditingController();
   final _notesController = TextEditingController();
+  DateTime _selectedDate = DateTime.now();
   bool _isLoading = false;
 
   List<Category> _categories = [];
@@ -32,6 +40,24 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   void initState() {
     super.initState();
     _selectedType = widget.initialType;
+
+    if (widget.existingTransaction != null) {
+      final tx = widget.existingTransaction!;
+      _selectedType = tx.type;
+      _paymentMode = tx.paymentMode;
+      _amountController.text = tx.amount == tx.amount.roundToDouble()
+          ? tx.amount.toInt().toString()
+          : tx.amount.toString();
+      _personController.text = tx.personName ?? '';
+      _categoryController.text = tx.categoryName ?? '';
+      _notesController.text = tx.notes ?? '';
+      if (tx.transactionDate != null && tx.transactionDate!.isNotEmpty) {
+        try {
+          _selectedDate = DateTime.parse(tx.transactionDate!).toLocal();
+        } catch (_) {}
+      }
+    }
+
     _loadCategories();
     _loadPersons();
   }
@@ -287,6 +313,43 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     );
   }
 
+  Future<void> _pickCustomDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      helpText: 'Select Transaction Date',
+      confirmText: 'Done',
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: Color(0xFF4F46E5),
+              onPrimary: Colors.white,
+              surface: Color(0xFF1E293B),
+              onSurface: Colors.white,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      final now = DateTime.now();
+      setState(() {
+        _selectedDate = DateTime(
+          picked.year,
+          picked.month,
+          picked.day,
+          now.hour,
+          now.minute,
+        );
+      });
+    }
+  }
+
   void _submit() async {
     final amountText = _amountController.text.trim();
     if (amountText.isEmpty) {
@@ -325,21 +388,32 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     setState(() => _isLoading = true);
 
     try {
-      String? catId = !isLenDen ? _selectedCategory?.id : null;
-      if (catId != null && (catId.startsWith('c') || catId.startsWith('local_'))) {
-        catId = null; // Let backend resolve UUID via name
-      }
+      if (widget.existingTransaction != null) {
+        await ApiService.updateTransaction(
+          id: widget.existingTransaction!.id,
+          amount: amount,
+          paymentMode: _paymentMode,
+          notes: _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null,
+          transactionDate: _selectedDate.toIso8601String(),
+        );
+      } else {
+        String? catId = !isLenDen ? _selectedCategory?.id : null;
+        if (catId != null && (catId.startsWith('c') || catId.startsWith('local_'))) {
+          catId = null; // Let backend resolve UUID via name
+        }
 
-      await ApiService.createTransaction(
-        type: _selectedType,
-        amount: amount,
-        paymentMode: _paymentMode,
-        personName: isLenDen ? personName : null,
-        personId: isLenDen ? _selectedPerson?.id : null,
-        categoryName: !isLenDen ? categoryName : null,
-        categoryId: catId,
-        notes: _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null,
-      );
+        await ApiService.createTransaction(
+          type: _selectedType,
+          amount: amount,
+          paymentMode: _paymentMode,
+          personName: isLenDen ? personName : null,
+          personId: isLenDen ? _selectedPerson?.id : null,
+          categoryName: !isLenDen ? categoryName : null,
+          categoryId: catId,
+          notes: _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null,
+          transactionDate: _selectedDate.toIso8601String(),
+        );
+      }
 
       if (mounted) {
         Navigator.pop(context, true);
@@ -389,9 +463,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'Add Ledger Entry',
-                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                Text(
+                  widget.existingTransaction != null ? 'Edit Ledger Entry' : 'Add Ledger Entry',
+                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 Text(
                   isLenDen ? 'Contact Ledger' : 'Expense / Income',
@@ -432,6 +506,78 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 filled: true,
                 fillColor: const Color(0xFF0F172A),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // 📅 TRANSACTION DATE SELECTOR (CUSTOM DATE SUPPORT)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.event_note_rounded, size: 16, color: Color(0xFF818CF8)),
+                    SizedBox(width: 6),
+                    Text(
+                      'Transaction Date',
+                      style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+                TextButton.icon(
+                  onPressed: _pickCustomDate,
+                  icon: const Icon(Icons.edit_calendar_rounded, size: 14, color: Color(0xFF818CF8)),
+                  label: const Text('Pick Date', style: TextStyle(color: Color(0xFF818CF8), fontSize: 12)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+
+            // Quick Date Selection Chips
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _dateQuickChip('Today', DateTime.now()),
+                  _dateQuickChip('Yesterday', DateTime.now().subtract(const Duration(days: 1))),
+                  _dateQuickChip('2 Days Ago', DateTime.now().subtract(const Duration(days: 2))),
+                  ActionChip(
+                    avatar: const Icon(Icons.calendar_month_rounded, size: 14, color: Color(0xFF818CF8)),
+                    label: const Text('Other Date...'),
+                    backgroundColor: const Color(0xFF0F172A),
+                    labelStyle: const TextStyle(color: Color(0xFF818CF8), fontSize: 12, fontWeight: FontWeight.w600),
+                    side: const BorderSide(color: Color(0xFF334155)),
+                    onPressed: _pickCustomDate,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            // Clickable Selected Date Card
+            InkWell(
+              onTap: _pickCustomDate,
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F172A),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFF4F46E5).withOpacity(0.4), width: 1),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.calendar_today_rounded, size: 16, color: Color(0xFF818CF8)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        DateFormat('EEEE, dd MMMM yyyy').format(_selectedDate),
+                        style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    const Icon(Icons.edit_rounded, color: Color(0xFF818CF8), size: 16),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -747,14 +893,51 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 onPressed: _isLoading ? null : _submit,
                 child: _isLoading
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text(
-                        'Save Entry',
-                        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                    : Text(
+                        widget.existingTransaction != null ? 'Update Entry' : 'Save Entry',
+                        style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                       ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _dateQuickChip(String label, DateTime targetDate) {
+    final isSelected = _selectedDate.year == targetDate.year &&
+        _selectedDate.month == targetDate.month &&
+        _selectedDate.day == targetDate.day;
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: ChoiceChip(
+        label: Text(label),
+        selected: isSelected,
+        selectedColor: const Color(0xFF4F46E5).withOpacity(0.35),
+        backgroundColor: const Color(0xFF0F172A),
+        labelStyle: TextStyle(
+          color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+          fontSize: 12,
+        ),
+        side: BorderSide(
+          color: isSelected ? const Color(0xFF818CF8) : const Color(0xFF334155),
+          width: isSelected ? 1.4 : 1,
+        ),
+        onSelected: (_) {
+          final now = DateTime.now();
+          setState(() {
+            _selectedDate = DateTime(
+              targetDate.year,
+              targetDate.month,
+              targetDate.day,
+              now.hour,
+              now.minute,
+            );
+          });
+        },
       ),
     );
   }

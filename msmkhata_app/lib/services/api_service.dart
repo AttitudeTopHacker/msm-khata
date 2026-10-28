@@ -88,7 +88,7 @@ class ApiService {
     throw Exception('Failed to load transactions');
   }
 
-  // 5. Create Transaction (Tagged with current user)
+  // 5. Create Transaction (Tagged with current user and optional custom date)
   static Future<TransactionItem> createTransaction({
     required String type,
     required double amount,
@@ -99,6 +99,7 @@ class ApiService {
     String? categoryId,
     String? notes,
     String? dueDate,
+    String? transactionDate,
     String? userId,
   }) async {
     final uid = userId ?? AuthService.currentUserId;
@@ -108,6 +109,7 @@ class ApiService {
       'payment_mode': paymentMode,
       if (notes != null && notes.isNotEmpty) 'notes': notes,
       if (dueDate != null && dueDate.isNotEmpty) 'due_date': dueDate,
+      if (transactionDate != null && transactionDate.isNotEmpty) 'transaction_date': transactionDate,
       if (personId != null) 'person_id': personId,
       if (personName != null) 'person_name': personName,
       if (categoryId != null) 'category_id': categoryId,
@@ -126,7 +128,45 @@ class ApiService {
     throw Exception('Failed to record transaction');
   }
 
-  // 6. Settle Transaction
+  // 6. Update Transaction (Edit Date, Amount, Notes, etc.)
+  static Future<TransactionItem> updateTransaction({
+    required String id,
+    double? amount,
+    String? paymentMode,
+    String? notes,
+    String? transactionDate,
+    String? dueDate,
+    bool? isSettled,
+  }) async {
+    final payload = <String, dynamic>{
+      if (amount != null) 'amount': amount,
+      if (paymentMode != null) 'payment_mode': paymentMode,
+      if (notes != null) 'notes': notes,
+      if (transactionDate != null) 'transaction_date': transactionDate,
+      if (dueDate != null) 'due_date': dueDate,
+      if (isSettled != null) 'is_settled': isSettled,
+    };
+
+    final res = await http.put(
+      Uri.parse('$_base/transactions/$id'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+    if (res.statusCode == 200) {
+      return TransactionItem.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to update transaction');
+  }
+
+  // 7. Delete Transaction
+  static Future<void> deleteTransaction(String id) async {
+    final res = await http.delete(Uri.parse('$_base/transactions/$id'));
+    if (res.statusCode != 200 && res.statusCode != 204) {
+      throw Exception('Failed to delete transaction');
+    }
+  }
+
+  // 8. Settle Transaction
   static Future<void> settleTransaction(String id, {bool isSettled = true}) async {
     await http.patch(
       Uri.parse('$_base/transactions/$id/settle?is_settled=$isSettled'),

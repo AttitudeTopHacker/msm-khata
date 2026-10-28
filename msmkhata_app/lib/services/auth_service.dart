@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthService {
@@ -61,9 +62,32 @@ class AuthService {
     return 'io.supabase.msmkhata://login-callback/';
   }
 
-  /// Sign in with Google OAuth
+  /// Sign in with Google OAuth (Tries native Google Play Services bottom-sheet on Android, falls back to OAuth)
   static Future<void> signInWithGoogle() async {
     try {
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        try {
+          final googleSignIn = GoogleSignIn(
+            scopes: ['email', 'profile'],
+          );
+          final googleUser = await googleSignIn.signIn();
+          if (googleUser != null) {
+            final googleAuth = await googleUser.authentication;
+            final idToken = googleAuth.idToken;
+            if (idToken != null && idToken.isNotEmpty) {
+              await _client.auth.signInWithIdToken(
+                provider: OAuthProvider.google,
+                idToken: idToken,
+                accessToken: googleAuth.accessToken,
+              );
+              return;
+            }
+          }
+        } catch (nativeErr) {
+          debugPrint('Native Google Sign-In notice: $nativeErr (Falling back to Web OAuth)');
+        }
+      }
+
       await _client.auth.signInWithOAuth(
         OAuthProvider.google,
         redirectTo: _redirectUrl,

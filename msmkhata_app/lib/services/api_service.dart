@@ -63,13 +63,15 @@ class ApiService {
     throw Exception('Failed to create person');
   }
 
-  // 4. Fetch Transactions (Isolated to current user)
+  // 4. Fetch Transactions (Isolated to current user with pagination support)
   static Future<List<TransactionItem>> getTransactions({
     String? personId,
     String? type,
     String? startDate,
     String? endDate,
     String? userId,
+    int? limit,
+    int? offset,
   }) async {
     final uid = userId ?? AuthService.currentUserId;
     final params = <String, String>{};
@@ -78,6 +80,8 @@ class ApiService {
     if (startDate != null) params['start_date'] = startDate;
     if (endDate != null) params['end_date'] = endDate;
     if (uid != null) params['user_id'] = uid;
+    if (limit != null) params['limit'] = limit.toString();
+    if (offset != null) params['offset'] = offset.toString();
 
     final uri = Uri.parse('$_base/transactions').replace(queryParameters: params.isNotEmpty ? params : null);
     final res = await http.get(uri);

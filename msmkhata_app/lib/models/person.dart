@@ -34,4 +34,18 @@ class Person {
       transactionCount: json['transaction_count'] ?? 0,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'phone': phone,
+      'notes': notes,
+      'total_given': totalGiven,
+      'total_taken': totalTaken,
+      'net_balance': netBalance,
+      'status': status,
+      'transaction_count': transactionCount,
+    };
+  }
 }

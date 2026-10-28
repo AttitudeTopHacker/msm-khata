@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/person.dart';
-import '../services/api_service.dart';
+import '../services/sync_service.dart';
 import '../widgets/adaptive_refresh_indicator.dart';
 import '../widgets/shimmer_loading.dart';
 import '../widgets/sync_status_badge.dart';
@@ -27,7 +27,7 @@ class _PersonsScreenState extends State<PersonsScreen> {
   Future<void> _loadPersons() async {
     if (_isSyncing) return;
     setState(() => _isSyncing = true);
-    final f = ApiService.getPersons(status: _statusFilter);
+    final f = SyncService.syncPersons(status: _statusFilter);
     setState(() {
       _personsFuture = f;
     });
@@ -80,8 +80,9 @@ class _PersonsScreenState extends State<PersonsScreen> {
               onRefresh: _loadPersons,
               child: FutureBuilder<List<Person>>(
                 future: _personsFuture,
+                initialData: _statusFilter == null && SyncService.cachedPersons.isNotEmpty ? SyncService.cachedPersons : null,
                 builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
+                  if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
                     return const ShimmerContactList(count: 6);
                   }
                   final list = snapshot.data ?? [];

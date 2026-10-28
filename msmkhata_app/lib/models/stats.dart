@@ -22,6 +22,16 @@ class CategoryBreakdown {
       percentage: (json['percentage'] as num?)?.toDouble() ?? 0.0,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'category_id': categoryId,
+      'category_name': categoryName,
+      'color': color,
+      'total_amount': totalAmount,
+      'percentage': percentage,
+    };
+  }
 }
 
 class PersonBalanceSummary {
@@ -51,6 +61,17 @@ class PersonBalanceSummary {
       status: json['status'] ?? '',
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'person_id': personId,
+      'name': name,
+      'total_given': totalGiven,
+      'total_taken': totalTaken,
+      'net_balance': netBalance,
+      'status': status,
+    };
+  }
 }
 
 class MonthlyTrendItem {
@@ -76,6 +97,16 @@ class MonthlyTrendItem {
       totalGiven: (json['total_given'] as num?)?.toDouble() ?? 0.0,
       totalTaken: (json['total_taken'] as num?)?.toDouble() ?? 0.0,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'month': month,
+      'total_income': totalIncome,
+      'total_expense': totalExpense,
+      'total_given': totalGiven,
+      'total_taken': totalTaken,
+    };
   }
 }
 
@@ -138,5 +169,23 @@ class DashboardStats {
               .toList() ??
           [],
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'total_receivable': totalReceivable,
+      'total_payable': totalPayable,
+      'net_len_den_position': netLenDenPosition,
+      'total_income': totalIncome,
+      'total_expense': totalExpense,
+      'net_savings': netSavings,
+      'people_to_receive_from_count': peopleToReceiveCount,
+      'people_to_pay_to_count': peopleToPayCount,
+      'total_transactions_count': totalTransactionsCount,
+      'category_breakdown': categoryBreakdown.map((e) => e.toJson()).toList(),
+      'top_debtors': topDebtors.map((e) => e.toJson()).toList(),
+      'top_creditors': topCreditors.map((e) => e.toJson()).toList(),
+      'monthly_trends': monthlyTrends.map((e) => e.toJson()).toList(),
+    };
   }
 }

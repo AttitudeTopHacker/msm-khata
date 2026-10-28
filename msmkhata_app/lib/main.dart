@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'config/api_config.dart';
 import 'screens/landing_screen.dart';
-import 'screens/auth_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/persons_screen.dart';
 import 'screens/analytics_screen.dart';
 import 'screens/history_screen.dart';
 import 'services/auth_service.dart';
 import 'services/connectivity_service.dart';
+import 'services/sync_service.dart';
 import 'widgets/offline_banner.dart';
 
 final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
@@ -25,6 +25,9 @@ void main(List<String> args) async {
   } catch (e) {
     debugPrint('Supabase init notice: $e');
   }
+
+  // Restore local offline cache for 0ms instant display
+  await SyncService.initialize();
 
   // Handle initial command-line deep link argument on Desktop (Linux / Windows)
   if (args.isNotEmpty) {
@@ -174,8 +177,29 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 0;
 
-  void _navigateToTab(int index) {
+  @override
+  void initState() {
+    super.initState();
+    // Synchronize full ledger on initial entry
+    SyncService.syncAll();
+  }
+
+  void _onTabSwitched(int index) {
     setState(() => _currentIndex = index);
+    // Real-time synchronization when switching pages
+    if (index == 0) {
+      SyncService.syncStats();
+    } else if (index == 1) {
+      SyncService.syncPersons();
+    } else if (index == 2) {
+      SyncService.syncStats();
+    } else if (index == 3) {
+      SyncService.syncTransactions(limit: 25, offset: 0);
+    }
+  }
+
+  void _navigateToTab(int index) {
+    _onTabSwitched(index);
   }
 
   @override
@@ -196,7 +220,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         backgroundColor: const Color(0xFF0F172A),
         indicatorColor: const Color(0xFF4F46E5).withOpacity(0.3),
         selectedIndex: _currentIndex,
-        onDestinationSelected: (idx) => setState(() => _currentIndex = idx),
+        onDestinationSelected: _onTabSwitched,
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.dashboard_outlined, color: Color(0xFF94A3B8)),

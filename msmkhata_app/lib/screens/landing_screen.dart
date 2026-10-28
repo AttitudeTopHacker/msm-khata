@@ -6,7 +6,6 @@ import '../services/auth_service.dart';
 import '../widgets/msm_shimmer_text.dart';
 import '../widgets/github_developer_card.dart';
 import '../widgets/oauth_waiting_dialog.dart';
-import 'dashboard_screen.dart';
 import 'auth_screen.dart';
 import '../main.dart';
 

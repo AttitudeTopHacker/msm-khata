@@ -46,4 +46,22 @@ class TransactionItem {
       categoryColor: json['category_color'],
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'type': type,
+      'amount': amount,
+      'payment_mode': paymentMode,
+      'due_date': dueDate,
+      'is_settled': isSettled,
+      'notes': notes,
+      'transaction_date': transactionDate,
+      'person_id': personId,
+      'person_name': personName,
+      'category_id': categoryId,
+      'category_name': categoryName,
+      'category_color': categoryColor,
+    };
+  }
 }

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
+import '../services/desktop_auth_service.dart';
 
 /// Interactive modal dialog displayed on Desktop while waiting for
 /// the user to complete Google or GitHub sign-in in the external browser (Chrome).
@@ -129,6 +130,7 @@ class _OAuthWaitingDialogState extends State<OAuthWaitingDialog> with SingleTick
     _authSub?.cancel();
     _pulseController.dispose();
     _pasteController.dispose();
+    DesktopLoopbackAuth.stop();
     super.dispose();
   }
 

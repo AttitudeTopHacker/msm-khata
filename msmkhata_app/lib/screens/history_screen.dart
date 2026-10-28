@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/transaction.dart';
-import '../services/api_service.dart';
+import '../services/sync_service.dart';
 import '../widgets/adaptive_refresh_indicator.dart';
 import '../widgets/shimmer_loading.dart';
 import '../widgets/sync_status_badge.dart';
@@ -19,6 +19,11 @@ class HistoryScreen extends StatefulWidget {
 }
 
 class _HistoryScreenState extends State<HistoryScreen> {
+  final ScrollController _scrollController = ScrollController();
+  final int _pageSize = 25;
+  bool _hasMore = true;
+  bool _isLoadingMore = false;
+
   late Future<List<TransactionItem>> _transactionsFuture;
   List<TransactionItem> _allTransactions = [];
   List<TransactionItem> _filteredTransactions = [];
@@ -35,26 +40,99 @@ class _HistoryScreenState extends State<HistoryScreen> {
     if (widget.initialTypeFilter != null) {
       _selectedType = widget.initialTypeFilter!;
     }
+
+    // 0ms instant display from local offline cache
+    if (SyncService.cachedTransactions.isNotEmpty) {
+      _allTransactions = List.from(SyncService.cachedTransactions);
+      _applyFilters();
+      _transactionsFuture = Future.value(_allTransactions);
+    } else {
+      _transactionsFuture = Future.value([]);
+    }
+
+    // Infinite scroll listener
+    _scrollController.addListener(_onScroll);
+
+    // Listen for reactive sync updates across tabs
+    SyncService.dataVersion.addListener(_onDataVersionChanged);
+
     _loadTransactions();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    SyncService.dataVersion.removeListener(_onDataVersionChanged);
+    super.dispose();
+  }
+
+  void _onDataVersionChanged() {
+    if (mounted) {
+      setState(() {
+        _allTransactions = List.from(SyncService.cachedTransactions);
+        _applyFilters();
+      });
+    }
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final threshold = _scrollController.position.maxScrollExtent - 200;
+    if (_scrollController.position.pixels >= threshold) {
+      if (!_isLoadingMore && _hasMore && !_isSyncing && _searchQuery.isEmpty) {
+        _loadMore();
+      }
+    }
   }
 
   Future<void> _loadTransactions() async {
     if (_isSyncing) return;
-    setState(() => _isSyncing = true);
-    ConnectivityService.checkNow();
-    final f = ApiService.getTransactions();
     setState(() {
-      _transactionsFuture = f.then((list) {
-        _allTransactions = list;
-        _applyFilters();
-        return list;
-      });
+      _isSyncing = true;
+      _hasMore = true;
     });
+    ConnectivityService.checkNow();
     try {
-      await f;
+      final list = await SyncService.syncTransactions(
+        limit: _pageSize,
+        offset: 0,
+        replaceCache: true,
+      );
+      if (mounted) {
+        setState(() {
+          _hasMore = list.length >= _pageSize;
+          _allTransactions = List.from(SyncService.cachedTransactions);
+          _applyFilters();
+          _transactionsFuture = Future.value(_allTransactions);
+        });
+      }
     } catch (_) {
     } finally {
       if (mounted) setState(() => _isSyncing = false);
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_isLoadingMore || !_hasMore) return;
+    setState(() => _isLoadingMore = true);
+    try {
+      final nextBatch = await SyncService.syncTransactions(
+        limit: _pageSize,
+        offset: _allTransactions.length,
+      );
+      if (mounted) {
+        setState(() {
+          if (nextBatch.length < _pageSize) {
+            _hasMore = false;
+          }
+          _allTransactions = List.from(SyncService.cachedTransactions);
+          _applyFilters();
+        });
+      }
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => _isLoadingMore = false);
     }
   }
 
@@ -371,11 +449,48 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           ],
                         )
                       : ListView.separated(
+                          controller: _scrollController,
                           physics: AdaptiveRefreshIndicator.scrollPhysics(),
                         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-                        itemCount: _filteredTransactions.length,
+                        itemCount: _filteredTransactions.length +
+                            (_isLoadingMore || (_hasMore && _searchQuery.isEmpty) ? 1 : (_filteredTransactions.isNotEmpty ? 1 : 0)),
                         separatorBuilder: (_, __) => const SizedBox(height: 8),
                         itemBuilder: (context, index) {
+                          // Pagination loader & End-of-list footer
+                          if (index == _filteredTransactions.length) {
+                            if (_isLoadingMore) {
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                child: Center(
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: const [
+                                      SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF818CF8)),
+                                      ),
+                                      SizedBox(width: 10),
+                                      Text(
+                                        'Loading more transactions...',
+                                        style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              child: Center(
+                                child: Text(
+                                  '• All ${_filteredTransactions.length} transactions loaded •',
+                                  style: const TextStyle(color: Color(0xFF64748B), fontSize: 11, fontWeight: FontWeight.w500),
+                                ),
+                              ),
+                            );
+                          }
+
                           final item = _filteredTransactions[index];
                           final isGiven = item.type == 'GIVEN';
                           final isTaken = item.type == 'TAKEN';

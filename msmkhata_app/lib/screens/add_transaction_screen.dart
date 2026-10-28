@@ -31,7 +31,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
   List<Category> _categories = [];
   Category? _selectedCategory;
-  bool _isLoadingCategories = false;
 
   List<Person> _persons = [];
   Person? _selectedPerson;
@@ -72,7 +71,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   }
 
   Future<void> _loadCategories() async {
-    setState(() => _isLoadingCategories = true);
     try {
       final list = await ApiService.getCategories();
       if (mounted) {
@@ -94,8 +92,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           _categories = ApiService.defaultCategories;
         });
       }
-    } finally {
-      if (mounted) setState(() => _isLoadingCategories = false);
     }
   }
 

@@ -16,6 +16,7 @@ import 'landing_screen.dart';
 import '../widgets/msm_shimmer_text.dart';
 import '../widgets/transaction_detail_sheet.dart';
 import '../services/connectivity_service.dart';
+import '../services/sync_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   final ValueChanged<int>? onNavigateToTab;
@@ -37,13 +38,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _refreshData();
   }
 
+  Future<DashboardStats> _getStats() async {
+    final s = await SyncService.syncStats();
+    if (s != null) return s;
+    return await ApiService.getDashboardStats();
+  }
+
   Future<void> _refreshData() async {
     if (_isSyncing) return;
     setState(() => _isSyncing = true);
     // Refresh connectivity state on data refresh
     ConnectivityService.checkNow();
-    final stats = ApiService.getDashboardStats();
-    final txs = ApiService.getTransactions();
+    final stats = _getStats();
+    final txs = SyncService.syncTransactions(limit: 25, offset: 0);
     setState(() {
       _statsFuture = stats;
       _transactionsFuture = txs;
@@ -226,8 +233,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               // 1. Net Position Card
               FutureBuilder<DashboardStats>(
                 future: _statsFuture,
+                initialData: SyncService.cachedStats,
                 builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
+                  if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
                     return const ShimmerNetPositionCard();
                   }
                   if (snapshot.hasError) {
@@ -373,8 +381,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               // 5. Recent Transactions List
               FutureBuilder<List<TransactionItem>>(
                 future: _transactionsFuture,
+                initialData: SyncService.cachedTransactions.isNotEmpty ? SyncService.cachedTransactions : null,
                 builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
+                  if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
                     return const ShimmerTransactionList(count: 4);
                   }
                   final items = snapshot.data ?? [];

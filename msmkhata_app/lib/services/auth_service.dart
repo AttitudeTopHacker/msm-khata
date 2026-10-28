@@ -5,6 +5,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
 
+import 'desktop_auth_service.dart';
+import 'sync_service.dart';
+
 class AuthService {
   static SupabaseClient get _client => Supabase.instance.client;
 
@@ -58,14 +61,28 @@ class AuthService {
     return meta['avatar_url'] ?? meta['picture'];
   }
 
-  static String get _redirectUrl {
+  static bool get _isDesktop =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.linux ||
+          defaultTargetPlatform == TargetPlatform.windows ||
+          defaultTargetPlatform == TargetPlatform.macOS);
+
+  static Future<String> _getRedirectUrl() async {
     if (kIsWeb) {
       return Uri.base.origin;
+    }
+    if (_isDesktop) {
+      try {
+        final port = await DesktopLoopbackAuth.start();
+        return 'http://localhost:$port';
+      } catch (e) {
+        debugPrint('Loopback start notice: $e');
+      }
     }
     return 'io.supabase.msmkhata://login-callback/';
   }
 
-  /// Sign in with Google (Uses 100% native Google Play Services bottom-sheet on Android; browser OAuth on Desktop/Web)
+  /// Sign in with Google (Uses 100% native Google Play Services bottom-sheet on Android; loopback auto-close on Desktop; Web OAuth)
   static Future<void> signInWithGoogle() async {
     try {
       if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
@@ -100,9 +117,10 @@ class AuthService {
         }
       }
 
+      final redirect = await _getRedirectUrl();
       await _client.auth.signInWithOAuth(
         OAuthProvider.google,
-        redirectTo: _redirectUrl,
+        redirectTo: redirect,
       );
     } catch (e) {
       debugPrint('Google Sign-In Error: $e');
@@ -113,9 +131,10 @@ class AuthService {
   /// Sign in with GitHub OAuth
   static Future<void> signInWithGitHub() async {
     try {
+      final redirect = await _getRedirectUrl();
       await _client.auth.signInWithOAuth(
         OAuthProvider.github,
-        redirectTo: _redirectUrl,
+        redirectTo: redirect,
       );
     } catch (e) {
       debugPrint('GitHub Sign-In Error: $e');
@@ -190,7 +209,8 @@ class AuthService {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.clear();
-      debugPrint('Cleaned all local shared preferences successfully.');
+      await SyncService.clearCache();
+      debugPrint('Cleaned all local shared preferences and sync cache successfully.');
     } catch (e) {
       debugPrint('Error clearing local shared preferences: $e');
     }

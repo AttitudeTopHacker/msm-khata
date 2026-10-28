@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/person.dart';
 import '../services/api_service.dart';
+import '../widgets/adaptive_refresh_indicator.dart';
 import '../widgets/shimmer_loading.dart';
 import '../widgets/sync_status_badge.dart';
 
@@ -73,7 +74,7 @@ class _PersonsScreenState extends State<PersonsScreen> {
           ),
 
           Expanded(
-            child: RefreshIndicator(
+            child: AdaptiveRefreshIndicator(
               color: const Color(0xFF818CF8),
               backgroundColor: const Color(0xFF1E293B),
               onRefresh: _loadPersons,
@@ -86,7 +87,7 @@ class _PersonsScreenState extends State<PersonsScreen> {
                   final list = snapshot.data ?? [];
                   if (list.isEmpty) {
                     return ListView(
-                      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                      physics: AdaptiveRefreshIndicator.scrollPhysics(),
                       children: const [
                         SizedBox(height: 100),
                         Center(
@@ -97,7 +98,7 @@ class _PersonsScreenState extends State<PersonsScreen> {
                   }
 
                   return ListView.separated(
-                    physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                    physics: AdaptiveRefreshIndicator.scrollPhysics(),
                   padding: const EdgeInsets.all(16),
                   itemCount: list.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 10),

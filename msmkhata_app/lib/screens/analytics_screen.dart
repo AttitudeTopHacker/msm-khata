@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../widgets/charts/category_pie_chart.dart';
 import '../widgets/charts/monthly_trend_chart.dart';
 import '../widgets/charts/top_people_card.dart';
+import '../widgets/adaptive_refresh_indicator.dart';
 import '../widgets/shimmer_loading.dart';
 import '../widgets/sync_status_badge.dart';
 
@@ -70,7 +71,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           const SizedBox(width: 14),
         ],
       ),
-      body: RefreshIndicator(
+      body: AdaptiveRefreshIndicator(
         color: const Color(0xFF818CF8),
         backgroundColor: const Color(0xFF1E293B),
         onRefresh: _loadStats,
@@ -113,7 +114,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 : 0.0;
 
             return SingleChildScrollView(
-              physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+              physics: AdaptiveRefreshIndicator.scrollPhysics(),
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

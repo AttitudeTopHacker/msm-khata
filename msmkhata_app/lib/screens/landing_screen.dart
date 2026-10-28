@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
 import '../widgets/msm_shimmer_text.dart';
 import '../widgets/github_developer_card.dart';
+import '../widgets/oauth_waiting_dialog.dart';
 import 'dashboard_screen.dart';
 import 'auth_screen.dart';
 
@@ -50,6 +51,17 @@ class _LandingScreenState extends State<LandingScreen> {
   }
 
   void _handleGoogleSignIn() async {
+    final isDesktop = !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.linux ||
+            defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.macOS);
+
+    if (isDesktop) {
+      Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst);
+      await OAuthWaitingDialog.show(context, provider: 'google');
+      return;
+    }
+
     setState(() {
       _loadingProvider = 'google';
       _errorMessage = null;
@@ -69,6 +81,17 @@ class _LandingScreenState extends State<LandingScreen> {
   }
 
   void _handleGitHubSignIn() async {
+    final isDesktop = !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.linux ||
+            defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.macOS);
+
+    if (isDesktop) {
+      Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst);
+      await OAuthWaitingDialog.show(context, provider: 'github');
+      return;
+    }
+
     setState(() {
       _loadingProvider = 'github';
       _errorMessage = null;

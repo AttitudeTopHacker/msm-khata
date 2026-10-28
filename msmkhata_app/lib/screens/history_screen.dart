@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/transaction.dart';
 import '../services/api_service.dart';
+import '../widgets/adaptive_refresh_indicator.dart';
 import '../widgets/shimmer_loading.dart';
 import '../widgets/sync_status_badge.dart';
 import '../widgets/transaction_detail_sheet.dart';
@@ -332,13 +333,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
               // 5. Transactions List
               Expanded(
-                child: RefreshIndicator(
+                child: AdaptiveRefreshIndicator(
                   color: const Color(0xFF818CF8),
                   backgroundColor: const Color(0xFF1E293B),
                   onRefresh: _loadTransactions,
                   child: _filteredTransactions.isEmpty
                       ? ListView(
-                          physics: const AlwaysScrollableScrollPhysics(),
+                          physics: AdaptiveRefreshIndicator.scrollPhysics(),
                           children: [
                             const SizedBox(height: 80),
                             Center(
@@ -370,7 +371,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           ],
                         )
                       : ListView.separated(
-                          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                          physics: AdaptiveRefreshIndicator.scrollPhysics(),
                         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
                         itemCount: _filteredTransactions.length,
                         separatorBuilder: (_, __) => const SizedBox(height: 8),

@@ -1,11 +1,14 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/api_config.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../widgets/msm_shimmer_text.dart';
+import '../widgets/oauth_waiting_dialog.dart';
 import 'export_statement_screen.dart';
 import 'landing_screen.dart';
 
@@ -19,6 +22,7 @@ class AuthScreen extends StatefulWidget {
 class _AuthScreenState extends State<AuthScreen> {
   String? _loadingProvider; // 'google', 'github', or null
   String? _errorMessage;
+  StreamSubscription<AuthState>? _authSub;
 
   // In-App Email / Password Direct Auth
   int _authTabIndex = 0; // 0 = Google / Social, 1 = Email & Password
@@ -30,7 +34,18 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _isEmailLoading = false;
 
   @override
+  void initState() {
+    super.initState();
+    _authSub = AuthService.onAuthStateChange.listen((data) {
+      if (data.session != null && mounted) {
+        Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst);
+      }
+    });
+  }
+
+  @override
   void dispose() {
+    _authSub?.cancel();
     _emailController.dispose();
     _passwordController.dispose();
     _fullNameController.dispose();
@@ -48,6 +63,16 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _isBackingUp = false;
 
   void _handleGoogleSignIn() async {
+    final isDesktop = !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.linux ||
+            defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.macOS);
+
+    if (isDesktop) {
+      await OAuthWaitingDialog.show(context, provider: 'google');
+      return;
+    }
+
     setState(() {
       _loadingProvider = 'google';
       _errorMessage = null;
@@ -67,6 +92,16 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   void _handleGitHubSignIn() async {
+    final isDesktop = !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.linux ||
+            defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.macOS);
+
+    if (isDesktop) {
+      await OAuthWaitingDialog.show(context, provider: 'github');
+      return;
+    }
+
     setState(() {
       _loadingProvider = 'github';
       _errorMessage = null;

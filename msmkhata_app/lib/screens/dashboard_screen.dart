@@ -5,6 +5,7 @@ import '../models/transaction.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../widgets/net_position_card.dart';
+import '../widgets/adaptive_refresh_indicator.dart';
 import '../widgets/shimmer_loading.dart';
 import '../widgets/sync_status_badge.dart';
 import 'add_transaction_screen.dart';
@@ -199,13 +200,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
-      body: RefreshIndicator(
+      body: AdaptiveRefreshIndicator(
         color: const Color(0xFF818CF8),
         backgroundColor: const Color(0xFF1E293B),
         strokeWidth: 2.5,
         onRefresh: _refreshData,
         child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+          physics: AdaptiveRefreshIndicator.scrollPhysics(),
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

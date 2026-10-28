@@ -297,7 +297,7 @@ class _AuthScreenState extends State<AuthScreen> {
   void _performDriveBackup() async {
     setState(() => _isBackingUp = true);
     try {
-      await ApiService.getTransactions();
+      final txs = await ApiService.getTransactions();
       await ApiService.getDashboardStats();
       // Simulate/prepare Google Drive cloud snapshot upload
       await Future.delayed(const Duration(milliseconds: 1200));

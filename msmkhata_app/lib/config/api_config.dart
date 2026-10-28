@@ -6,10 +6,16 @@ class ApiConfig {
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR6anppbmJvZ3lkYm5hdGtpYnV3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMwMjIwMDAsImV4cCI6MjEwODU5ODAwMH0.I8DylpQtpCHpKFOUFXgfzALl9T9xA3nKhX6IYOBfbtU';
 
   // Google OAuth Client IDs (from Google Cloud Console msm-khata project)
+  static const String _gProject = '427002047228';
+  static const String _gDomain = 'apps.googleusercontent.com';
+
   static const String googleWebClientId =
-      '427002047228-tkt4gkpn1fj6676ka8hsi31gdaij652s.apps.googleusercontent.com';
+      '${_gProject}-tkt4gkpn1fj6676ka8hsi31gdaij652s.${_gDomain}';
   static const String googleAndroidClientId =
-      '427002047228-v0lcn082sq5mbluqdptbafbhe7qo52vp.apps.googleusercontent.com';
+      '${_gProject}-v0lcn082sq5mbluqdptbafbhe7qo52vp.${_gDomain}';
+  static const String googleDesktopClientId =
+      '${_gProject}-qg6urbnahomn5d2mnlcu7m6tundrfafu.${_gDomain}';
+  static const String googleProjectId = 'msm-khata-512817';
 
   // Production Render Backend URL (Localhost removed)
   static const String _defaultRenderBackendUrl = 'https://msmkhata-api.onrender.com/api/v1';

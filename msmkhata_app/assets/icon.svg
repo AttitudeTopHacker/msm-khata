@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366F1"/>
+      <stop offset="50%" stop-color="#4F46E5"/>
+      <stop offset="100%" stop-color="#312E81"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#4338CA" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+  
+  <!-- Outer Rounded Rectangle -->
+  <rect x="16" y="16" width="224" height="224" rx="52" fill="url(#grad)" filter="url(#shadow)"/>
+  
+  <!-- Inner Glow Ring -->
+  <rect x="22" y="22" width="212" height="212" rx="46" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="2"/>
+  
+  <!-- "MK" Monogram -->
+  <text x="128" y="152" font-family="'Outfit', -apple-system, sans-serif" font-size="88" font-weight="900" fill="#FFFFFF" text-anchor="middle" letter-spacing="-2">MK</text>
+  
+  <!-- Accent Dots / Ledger Indicator -->
+  <circle cx="88" cy="180" r="6" fill="#34D399"/>
+  <circle cx="128" cy="180" r="6" fill="#F8FAFC"/>
+  <circle cx="168" cy="180" r="6" fill="#F87171"/>
+</svg>

@@ -67,16 +67,22 @@ jobs:
       - name: Package into Debian (.deb)
         run: |
           PKG_NAME="msmkhata"
-          VERSION="1.0.0"
+          if [[ "${GITHUB_REF_NAME}" == v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION=$(grep 'version:' msmkhata_app/pubspec.yaml | head -1 | awk '{print $2}' | cut -d'+' -f1)
+          fi
           ARCH="amd64"
           DEB_ROOT="dist/deb/${PKG_NAME}_${VERSION}_${ARCH}"
 
-          echo "==> Creating Debian package layout at ${DEB_ROOT}..."
+          echo "==> Creating Debian package layout at ${DEB_ROOT} for version ${VERSION}..."
           mkdir -p "${DEB_ROOT}/DEBIAN"
           mkdir -p "${DEB_ROOT}/opt/${PKG_NAME}"
           mkdir -p "${DEB_ROOT}/usr/bin"
           mkdir -p "${DEB_ROOT}/usr/share/applications"
+          mkdir -p "${DEB_ROOT}/usr/share/pixmaps"
           mkdir -p "${DEB_ROOT}/usr/share/icons/hicolor/scalable/apps"
+          mkdir -p "${DEB_ROOT}/usr/share/icons/hicolor/256x256/apps"
 
           echo "==> Copying Flutter release bundle..."
           cp -r msmkhata_app/build/linux/x64/release/bundle/* "${DEB_ROOT}/opt/${PKG_NAME}/"
@@ -101,16 +107,44 @@ jobs:
           Type=Application
           Categories=Finance;Office;Utility;
           Keywords=ledger;finance;money;khata;accounting;
-          StartupWMClass=msmkhata_app
+          StartupWMClass=com.msmmovin.msmkhata_app
           MimeType=x-scheme-handler/io.supabase.msmkhata;
           EOF
           chmod 644 "${DEB_ROOT}/usr/share/applications/msmkhata.desktop"
+          cp "${DEB_ROOT}/usr/share/applications/msmkhata.desktop" "${DEB_ROOT}/usr/share/applications/com.msmmovin.msmkhata_app.desktop"
+          chmod 644 "${DEB_ROOT}/usr/share/applications/com.msmmovin.msmkhata_app.desktop"
 
-          echo "==> Copying scalable SVG icon..."
+          echo "==> Copying scalable SVG & PNG pixmap icons..."
           if [ -f "assets/icon.svg" ]; then
             cp "assets/icon.svg" "${DEB_ROOT}/usr/share/icons/hicolor/scalable/apps/msmkhata.svg"
+            cp "assets/icon.svg" "${DEB_ROOT}/usr/share/icons/hicolor/scalable/apps/com.msmmovin.msmkhata_app.svg"
             chmod 644 "${DEB_ROOT}/usr/share/icons/hicolor/scalable/apps/msmkhata.svg"
+            chmod 644 "${DEB_ROOT}/usr/share/icons/hicolor/scalable/apps/com.msmmovin.msmkhata_app.svg"
           fi
+          if [ -f "assets/icon.png" ]; then
+            cp "assets/icon.png" "${DEB_ROOT}/usr/share/pixmaps/msmkhata.png"
+            cp "assets/icon.png" "${DEB_ROOT}/usr/share/pixmaps/com.msmmovin.msmkhata_app.png"
+            cp "assets/icon.png" "${DEB_ROOT}/usr/share/icons/hicolor/256x256/apps/msmkhata.png"
+            cp "assets/icon.png" "${DEB_ROOT}/usr/share/icons/hicolor/256x256/apps/com.msmmovin.msmkhata_app.png"
+            chmod 644 "${DEB_ROOT}/usr/share/pixmaps/msmkhata.png"
+            chmod 644 "${DEB_ROOT}/usr/share/pixmaps/com.msmmovin.msmkhata_app.png"
+            chmod 644 "${DEB_ROOT}/usr/share/icons/hicolor/256x256/apps/msmkhata.png"
+            chmod 644 "${DEB_ROOT}/usr/share/icons/hicolor/256x256/apps/com.msmmovin.msmkhata_app.png"
+          fi
+
+          echo "==> Creating DEBIAN/postinst hook..."
+          cat << 'EOF' > "${DEB_ROOT}/DEBIAN/postinst"
+          #!/bin/sh
+          set -e
+          if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+            gtk-update-icon-cache -f -t /usr/share/icons/hicolor || true
+          fi
+          if command -v update-desktop-database >/dev/null 2>&1; then
+            update-desktop-database /usr/share/applications || true
+          fi
+          exit 0
+          EOF
+          chmod 755 "${DEB_ROOT}/DEBIAN/postinst"
 
           echo "==> Generating DEBIAN/control file..."
           INSTALLED_SIZE=$(du -sk "${DEB_ROOT}" | cut -f1)
@@ -136,8 +170,8 @@ jobs:
       - name: Upload Linux .deb Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: msmkhata_1.0.0_linux_amd64.deb
-          path: msmkhata_1.0.0_linux_amd64.deb
+          name: linux-deb
+          path: msmkhata_*_linux_amd64.deb
           retention-days: 14
 
   # =========================================================================
@@ -180,25 +214,30 @@ jobs:
             if ($Found) { $ReleaseDir = $Found.DirectoryName }
           }
           Write-Host "==> Target Windows Release directory: $ReleaseDir"
-          $ZipName = "msmkhata_1.0.0_windows_x64.zip"
+          $Version = (Select-String -Path "msmkhata_app/pubspec.yaml" -Pattern "version:\s*([^\+]+)").Matches.Groups[1].Value.Trim()
+          if ($env:GITHUB_REF_NAME -match "^v(.+)$") {
+            $Version = $Matches[1]
+          }
+          $ZipName = "msmkhata_${Version}_windows_x64.zip"
+          $ExeName = "msmkhata_${Version}_windows.exe"
           Write-Host "==> Compressing Windows release bundle into $ZipName..."
           Compress-Archive -Path "$ReleaseDir/*" -DestinationPath $ZipName -Force
-          Write-Host "==> Copying standalone executable..."
-          Copy-Item -Path "$ReleaseDir/msmkhata_app.exe" -Destination "msmkhata.exe"
-          Get-Item $ZipName, "msmkhata.exe" | Format-Table Name, Length, LastWriteTime
+          Write-Host "==> Copying standalone executable to $ExeName..."
+          Copy-Item -Path "$ReleaseDir/msmkhata_app.exe" -Destination $ExeName
+          Get-Item $ZipName, $ExeName | Format-Table Name, Length, LastWriteTime
 
       - name: Upload Windows Bundle ZIP Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: msmkhata_1.0.0_windows_x64.zip
-          path: msmkhata_1.0.0_windows_x64.zip
+          name: windows-bundle-zip
+          path: msmkhata_*_windows_x64.zip
           retention-days: 14
 
       - name: Upload Windows Standalone .exe Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: msmkhata_1.0.0_windows.exe
-          path: msmkhata.exe
+          name: windows-standalone-exe
+          path: msmkhata_*_windows.exe
           retention-days: 14
 
   # =========================================================================
@@ -248,14 +287,19 @@ jobs:
 
       - name: Prepare APK Package
         run: |
-          cp msmkhata_app/build/app/outputs/flutter-apk/app-release.apk msmkhata_1.0.0_android.apk
-          ls -lh msmkhata_1.0.0_android.apk
+          if [[ "${GITHUB_REF_NAME}" == v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION=$(grep 'version:' msmkhata_app/pubspec.yaml | head -1 | awk '{print $2}' | cut -d'+' -f1)
+          fi
+          cp msmkhata_app/build/app/outputs/flutter-apk/app-release.apk "msmkhata_${VERSION}_android.apk"
+          ls -lh "msmkhata_${VERSION}_android.apk"
 
       - name: Upload Android .apk Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: msmkhata_1.0.0_android.apk
-          path: msmkhata_1.0.0_android.apk
+          name: android-apk
+          path: msmkhata_*_android.apk
           retention-days: 14
 
   # =========================================================================
@@ -282,23 +326,17 @@ jobs:
       - name: Create or Update GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v1.0.0' }}
-          name: "MsmKhata ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v1.0.0' }} — Native Release (.exe, .deb, .apk)"
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v1.0.3' }}
+          name: "MsmKhata ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v1.0.3' }} — Native Release (.exe, .deb, .apk)"
           body: |
-            ## 🚀 MsmKhata v1.0.0 Native Cross-Platform Release
+            ## 🚀 MsmKhata Native Cross-Platform Release
 
             Pure Native Cross-Platform Build powered by Flutter and GitHub Actions (0% local compilation load).
 
-            ### 📦 Download Packages:
-            - 🐧 **Linux (.deb)**: `msmkhata_1.0.0_linux_amd64.deb`
-              ```bash
-              sudo dpkg -i msmkhata_1.0.0_linux_amd64.deb
-              ```
-            - 🪟 **Windows (.exe / .zip)**:
-              - **`msmkhata_1.0.0_windows_x64.zip`**: Complete portable bundle (Extract and run `msmkhata_app.exe`)
-              - **`msmkhata.exe`**: Standalone Windows executable
-            - 📱 **Android (.apk)**: `msmkhata_1.0.0_android.apk`
-              - Install directly on Android devices
+            ### 📦 Packages Included:
+            - 🐧 **Linux (.deb)**: Native Debian package with desktop integration & custom taskbar icon
+            - 🪟 **Windows (.exe / .zip)**: Portable Windows bundle and standalone executable with custom branding
+            - 📱 **Android (.apk)**: Release APK signed with permanent upload-keystore & native Google Play Services
 
             ---
             *Built and maintained by AttitudeTopHacker (msm.movin, Est. 2022)*

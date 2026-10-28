@@ -52,6 +52,38 @@ static void my_application_activate(GApplication* application) {
     gtk_window_set_title(window, "MsmKhata — Financial Ledger & Tracker");
   }
 
+  // Set MsmKhata Taskbar & Window Icon
+  gtk_window_set_icon_name(window, "msmkhata");
+  gtk_window_set_default_icon_name("msmkhata");
+  {
+    g_autofree gchar* exe_link = g_file_read_link("/proc/self/exe", nullptr);
+    g_autofree gchar* exe_dir = exe_link ? g_path_get_dirname(exe_link) : nullptr;
+    g_autofree gchar* bundle_icon = exe_dir ? g_build_filename(exe_dir, "data", "flutter_assets", "assets", "icon.png", nullptr) : nullptr;
+    g_autofree gchar* user_home = g_strdup(g_get_home_dir());
+    g_autofree gchar* user_icon = user_home ? g_build_filename(user_home, ".local", "share", "icons", "msmkhata.png", nullptr) : nullptr;
+
+    const gchar* icon_candidates[] = {
+      bundle_icon,
+      "/usr/share/pixmaps/msmkhata.png",
+      "/usr/share/pixmaps/com.msmmovin.msmkhata_app.png",
+      "/usr/share/icons/hicolor/256x256/apps/msmkhata.png",
+      user_icon,
+      "assets/icon.png",
+      "../assets/icon.png",
+      nullptr
+    };
+
+    for (int i = 0; icon_candidates[i] != nullptr; i++) {
+      if (icon_candidates[i] && g_file_test(icon_candidates[i], G_FILE_TEST_EXISTS)) {
+        g_autoptr(GError) err = nullptr;
+        if (gtk_window_set_icon_from_file(window, icon_candidates[i], &err)) {
+          gtk_window_set_default_icon_from_file(icon_candidates[i], nullptr);
+          break;
+        }
+      }
+    }
+  }
+
   gtk_window_set_default_size(window, 1280, 720);
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();

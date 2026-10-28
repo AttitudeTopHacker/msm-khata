@@ -1,54 +1,47 @@
 # MsmKhata — Project & Chat Summary 📌
 
-**Date & Time:** October 27, 2026  
+**Date & Time:** October 28, 2026  
 **Project:** MsmKhata (`msm.movin`) — Personal Financial Ledger & Analytics  
-**Status:** All tasks completed, chat saved, and git changes safely committed.
+**Status:** All tasks completed, chat saved, git commits pushed to remote GitHub, and ready for shutdown.
 
 ---
 
 ## 🌟 What Was Completed in This Session:
 
-### 1. Database Wipe & Clean Reset
-- Supabase backend data wiped clean via `POST /api/v1/backup/reset-data`.
-- All old test transactions, persons, and custom filters deleted (`0` records).
-- Standard British English default categories (*Market, Mandi, Agriculture, Ploughing, Irrigation, Diesel, Labour, Fertiliser & Seeds, Household Expenses, General*) preserved and ready.
+### 1. GitHub Actions Native Build & Release Workflow
+- **Tags Created & Pushed:** Tags `v1.0.0` and `v1.0.1` pushed to GitHub.
+- **Workflow File:** [`.github/workflows/build_native_all.yml`](file:///home/salman/StudioProjects/msmkhata/.github/workflows/build_native_all.yml)
+- **Platforms Compiled:**
+  - 🐧 **Linux**: `msmkhata_1.0.0_linux_amd64.deb` (Debian installer package)
+  - 🪟 **Windows**: `msmkhata_1.0.0_windows_x64.zip` (Portable bundle) + `msmkhata.exe` (Standalone)
+  - 📱 **Android**: `msmkhata_1.0.0_android.apk` (Release APK)
+- **Automated GitHub Release:**
+  - Artifacts are automatically attached to the official release page:
+    - [GitHub Releases](https://github.com/AttitudeTopHacker/msm-khata/releases)
+    - [GitHub Actions Workflows](https://github.com/AttitudeTopHacker/msm-khata/actions)
 
-### 2. Multi-User Data Isolation (Har User Ka Apna Private Ledger)
-- **Automatic User ID Tagging:**
-  - `ApiService` automatically attaches `AuthService.currentUserId` to every request (`getDashboardStats`, `getPersons`, `getTransactions`, `createTransaction`, `createPerson`, `createCategory`).
-  - Backend `LedgerService` strictly filters by `user_id` so User A never sees User B's transactions, contacts, or balances.
+### 2. Render Cloud Backend Deployment & Localhost Removed
+- **Production URL Set:** [api_config.dart](file:///home/salman/StudioProjects/msmkhata/msmkhata_app/lib/config/api_config.dart)
+  - Default API base URL switched from localhost to Render:
+    `https://msmkhata-api.onrender.com/api/v1`
+  - Supports `--dart-define=BACKEND_URL=...` build overrides and runtime custom URL changes.
+- **1-Click Render Configuration:**
+  - [`render.yaml`](file:///home/salman/StudioProjects/msmkhata/render.yaml): Blueprint for Render web service deployment.
+  - [`Procfile`](file:///home/salman/StudioProjects/msmkhata/Procfile): For direct cloud execution with Uvicorn.
+- **In-App Cloud Backend Management:**
+  - Added "Render Cloud Backend" card in [auth_screen.dart](file:///home/salman/StudioProjects/msmkhata/msmkhata_app/lib/screens/auth_screen.dart) with live ping health check (`/health`) and custom endpoint modal editor.
 
-### 3. Authentication Gate & Landing / Home Page
-- **[LandingScreen](file:///home/salman/StudioProjects/msmkhata/msmkhata_app/lib/screens/landing_screen.dart)**:
-  - New users land on a stunning dark-mode Home Page.
-  - Explains the ledger, agricultural tags, Len-Den tracking, and multi-user privacy guarantee.
-  - Dashboard is completely locked until the user signs in.
-- **[AuthScreen](file:///home/salman/StudioProjects/msmkhata/msmkhata_app/lib/screens/auth_screen.dart)**:
-  - Removed email/password inputs and account creation toggle.
-  - Kept exclusively **Continue with Google** and **Continue with GitHub**.
-  - Profile screen with **Sign Out** button.
-- **Dynamic OAuth Redirect**:
-  - `auth_service.dart` passes `Uri.base.origin` so Google and GitHub redirect to `http://localhost:3000` seamlessly.
-
-### 4. Pure British English UI (No Hinglish in UI)
-- All screens, badges, tooltips, dialogs, charts, and filter chips converted to pure British English:
-  - `GIVEN` -> `Lent` (To Receive)
-  - `TAKEN` -> `Borrowed` (To Pay)
-  - `SETTLED` -> `Settled`
-  - Categories: `Ploughing`, `Irrigation`, `Fertiliser & Seeds`, `Labour`, `Household Expenses`.
-
-### 5. Premium UI Polish & Sync Experience
-- **Removed Clunky Top Reload Icon:**
-  - Removed `Icons.refresh_rounded` from top AppBar on all screens.
-- **Fintech Cloud Sync Badge ([sync_status_badge.dart](file:///home/salman/StudioProjects/msmkhata/msmkhata_app/lib/widgets/sync_status_badge.dart)):**
-  - Added subtle capsule badge: `[ 🟢 Synced ]` / `[ ⟳ Syncing... ]`.
-- **Silky Smooth Pull-to-Refresh:**
-  - Configured `BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics())` on all screens.
-- **Inline Micro-Sync Options ("Wahin Par"):**
-  - Micro-sync button next to *Recent Ledger Entries* on Dashboard.
-  - Micro-sync button inside the search/filter summary bar on History.
-- **Custom Shimmer Skeletons ([shimmer_loading.dart](file:///home/salman/StudioProjects/msmkhata/msmkhata_app/lib/widgets/shimmer_loading.dart)):**
-  - Smooth loading transition while data fetches from Supabase.
+### 3. Real-Time Offline Internet Connection Detector
+- **Connectivity Service ([connectivity_service.dart](file:///home/salman/StudioProjects/msmkhata/msmkhata_app/lib/services/connectivity_service.dart)):**
+  - Uses `connectivity_plus` to monitor OS network states (Wi-Fi, Cellular, Ethernet, None).
+  - Probes live internet connection to ensure genuine internet connectivity (not just Wi-Fi connection without internet).
+- **Persistent Offline Notice Bar ([offline_banner.dart](file:///home/salman/StudioProjects/msmkhata/msmkhata_app/lib/widgets/offline_banner.dart)):**
+  - Prominent red gradient banner at the top of the app:
+    *⚠️ Internet Connection Off Hai! Kripya apna internet connection ON karein taaki ledger sync rahe.*
+  - Includes interactive **Retry** button with spinning feedback.
+- **Global Notifications ([main.dart](file:///home/salman/StudioProjects/msmkhata/msmkhata_app/lib/main.dart)):**
+  - Floating SnackBar warning pops up when disconnected: *"Internet connection band hai! Kripya apna internet connection on karein."*
+  - Floating SnackBar success pops up when reconnected: *"Internet jud gaya! MsmKhata online hai."*
 
 ---
 
@@ -69,4 +62,4 @@ flutter run -d chrome --web-port=3000
 
 ---
 
-*Chat transcript, source code, and git state are 100% saved.*
+*Chat transcript, source code, and git state are 100% saved and pushed to GitHub.*

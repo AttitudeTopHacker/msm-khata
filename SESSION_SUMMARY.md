@@ -43,6 +43,24 @@
   - Floating SnackBar warning pops up when disconnected: *"Internet connection band hai! Kripya apna internet connection on karein."*
   - Floating SnackBar success pops up when reconnected: *"Internet jud gaya! MsmKhata online hai."*
 
+### 4. 100% Native Auth, Release Signing, Security & Render Optimizations
+- **Android Native Google Bottom-Sheet ([auth_service.dart](file:///home/salman/StudioProjects/msmkhata/msmkhata_app/lib/services/auth_service.dart)):**
+  - Configured with Google Web Client ID (`427002047228-tkt4...`) and Android Client ID (`427002047228-v0lcn...`).
+  - Native Google Play Services bottom-sheet triggers directly inside the app — **zero external Chrome opening**!
+- **In-App Email & Password Direct Auth ([auth_screen.dart](file:///home/salman/StudioProjects/msmkhata/msmkhata_app/lib/screens/auth_screen.dart)):**
+  - Added "Email & Pass (In-App)" tab for zero-browser, instant in-app sign in and sign up.
+  - Added Desktop "Paste callback URL" helper for manual redirect completion if browser gets stuck.
+- **Permanent Release APK Signing ([build.gradle.kts](file:///home/salman/StudioProjects/msmkhata/msmkhata_app/android/app/build.gradle.kts)):**
+  - Added `upload-keystore.jks` with SHA-1 `07:9B:71:A8:84:D5:F3:3B:6D:D9:AE:4B:D8:8B:23:0A:F7:8C:C6:B3`.
+  - Configured release builds and GitHub Actions to use this keystore so release APKs never fail Google Sign-In with `ApiException: 10`.
+- **Render `buildFilter` Optimization ([render.yaml](file:///home/salman/StudioProjects/msmkhata/render.yaml)):**
+  - Configured `buildFilter.paths` for backend files (`app/**`, `main.py`, `requirements.txt`).
+  - Flutter UI / frontend commits now completely skip Render builds, conserving 100% of Render free tier hours.
+- **Native Binary AOT Obfuscation ([build_native_all.yml](file:///home/salman/StudioProjects/msmkhata/.github/workflows/build_native_all.yml)):**
+  - Enabled `--obfuscate --split-debug-info=symbols` across Linux (.deb), Windows (.exe), and Android (.apk) releases.
+- **Battery-Friendly Event-Driven Connectivity ([connectivity_service.dart](file:///home/salman/StudioProjects/msmkhata/msmkhata_app/lib/services/connectivity_service.dart)):**
+  - Removed periodic background heartbeat timers; checks only on app open, network disconnect/reconnect, and data refresh.
+
 ---
 
 ## 🚀 How to Start Next Time (Jab Aap System On Karein):

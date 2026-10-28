@@ -9,6 +9,12 @@ services:
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     autoDeploy: true
+    buildFilter:
+      paths:
+        - app/**
+        - main.py
+        - requirements.txt
+        - render.yaml
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9

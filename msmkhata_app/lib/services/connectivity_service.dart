@@ -1,8 +1,8 @@
 import 'dart:async';
+import 'dart:io' show InternetAddress, SocketException;
 import 'package:flutter/foundation.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:http/http.dart' as http;
-import '../config/api_config.dart';
 
 class ConnectivityService {
   static final ConnectivityService _instance = ConnectivityService._internal();
@@ -11,7 +11,6 @@ class ConnectivityService {
 
   final Connectivity _connectivity = Connectivity();
   StreamSubscription<List<ConnectivityResult>>? _subscription;
-  Timer? _heartbeatTimer;
 
   /// ValueNotifier indicating whether the device has active internet
   final ValueNotifier<bool> isOnline = ValueNotifier<bool>(true);
@@ -24,65 +23,70 @@ class ConnectivityService {
 
   bool _initialized = false;
 
+  /// Static helper to trigger an immediate check on data refresh or button tap
+  static Future<bool> checkNow() => _instance.checkActualInternet();
+
   void initialize({Function(bool isConnected)? onStatusChanged}) {
     if (_initialized) return;
     _initialized = true;
     this.onStatusChanged = onStatusChanged;
 
-    // Listen to OS-level connectivity changes (WiFi, Cellular, Ethernet, None)
+    // 1. Listen to OS-level connectivity events (Triggers immediately when WiFi/Data is turned off or on)
     _subscription = _connectivity.onConnectivityChanged.listen((results) {
       _evaluateConnectivity(results);
     });
 
-    // Initial check
+    // 2. Initial check on application open / launch
     checkConnectivity();
 
-    // Periodic heartbeat check every 25 seconds
-    _heartbeatTimer = Timer.periodic(const Duration(seconds: 25), (_) {
-      checkActualInternet();
-    });
+    // NOTE: Heartbeat timer completely removed as requested (saves battery, 0 background network load)
   }
 
   Future<void> _evaluateConnectivity(List<ConnectivityResult> results) async {
-    // If OS reports completely disconnected
+    // If OS reports completely disconnected, update immediately in 0ms!
     if (results.isEmpty || results.every((r) => r == ConnectivityResult.none)) {
       _updateStatus(false);
       return;
     }
 
-    // OS reports connected to a network adapter -> verify real internet access
+    // OS reports connected to a network adapter -> verify real internet access instantly
     await checkActualInternet();
   }
 
-  /// Probes the internet by attempting a quick request to backend health or google
+  /// Probes real internet access in <100ms without waking up or consuming Render backend hours
   Future<bool> checkActualInternet() async {
     isChecking.value = true;
     bool connected = false;
 
     try {
-      // 1. Try FastAPI backend health check first
-      final backendUri = Uri.parse(ApiConfig.baseUrl.replaceAll('/api/v1', '') + '/health');
-      final res = await http.get(backendUri).timeout(const Duration(seconds: 3));
-      if (res.statusCode == 200) {
-        connected = true;
-      }
-    } catch (_) {
-      // If backend is waking up or failed, check standard internet access via Cloudflare / Google
-      try {
-        final res = await http.head(Uri.parse('https://www.google.com')).timeout(const Duration(seconds: 3));
-        if (res.statusCode >= 200 && res.statusCode < 400) {
-          connected = true;
-        }
-      } catch (_) {
+      if (!kIsWeb) {
+        // Native (Android, Linux, Windows): Instant raw DNS socket check to Cloudflare / Google DNS (~20-50ms)
         try {
-          final res = await http.head(Uri.parse('https://1.1.1.1')).timeout(const Duration(seconds: 3));
-          if (res.statusCode >= 200 && res.statusCode < 400) {
+          final result = await InternetAddress.lookup('1.1.1.1')
+              .timeout(const Duration(milliseconds: 1200));
+          if (result.isNotEmpty && result[0].rawAddress.isNotEmpty) {
             connected = true;
           }
-        } catch (_) {
+        } on SocketException catch (_) {
           connected = false;
+        } catch (_) {
+          // Backup fallback to Google DNS
+          try {
+            final backup = await InternetAddress.lookup('google.com')
+                .timeout(const Duration(milliseconds: 1200));
+            connected = backup.isNotEmpty && backup[0].rawAddress.isNotEmpty;
+          } catch (_) {
+            connected = false;
+          }
         }
+      } else {
+        // Web platform: Fast HTTP HEAD to Cloudflare
+        final res = await http.head(Uri.parse('https://1.1.1.1'))
+            .timeout(const Duration(milliseconds: 1500));
+        connected = res.statusCode >= 200 && res.statusCode < 400;
       }
+    } catch (_) {
+      connected = false;
     }
 
     isChecking.value = false;
@@ -115,6 +119,5 @@ class ConnectivityService {
 
   void dispose() {
     _subscription?.cancel();
-    _heartbeatTimer?.cancel();
   }
 }

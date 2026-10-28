@@ -14,6 +14,7 @@ import 'history_screen.dart';
 import 'landing_screen.dart';
 import '../widgets/msm_shimmer_text.dart';
 import '../widgets/transaction_detail_sheet.dart';
+import '../services/connectivity_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   final ValueChanged<int>? onNavigateToTab;
@@ -38,6 +39,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _refreshData() async {
     if (_isSyncing) return;
     setState(() => _isSyncing = true);
+    // Refresh connectivity state on data refresh
+    ConnectivityService.checkNow();
     final stats = ApiService.getDashboardStats();
     final txs = ApiService.getTransactions();
     setState(() {

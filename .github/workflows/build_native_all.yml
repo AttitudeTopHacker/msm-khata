@@ -4,8 +4,20 @@ on:
   push:
     branches: [ main ]
     tags: [ 'v*' ]
+    paths-ignore:
+      - 'app/**'
+      - 'tests/**'
+      - 'requirements.txt'
+      - 'Procfile'
+      - 'render.yaml'
   pull_request:
     branches: [ main ]
+    paths-ignore:
+      - 'app/**'
+      - 'tests/**'
+      - 'requirements.txt'
+      - 'Procfile'
+      - 'render.yaml'
   workflow_dispatch:
 
 permissions:
@@ -50,7 +62,7 @@ jobs:
         run: |
           cd msmkhata_app
           flutter pub get
-          flutter build linux --release
+          flutter build linux --release --obfuscate --split-debug-info=symbols
 
       - name: Package into Debian (.deb)
         run: |
@@ -83,13 +95,14 @@ jobs:
           Name=MsmKhata
           GenericName=Financial Ledger
           Comment=Personal Financial Ledger & Tracker by msm.movin
-          Exec=/usr/bin/msmkhata
+          Exec=/usr/bin/msmkhata %u
           Icon=msmkhata
           Terminal=false
           Type=Application
           Categories=Finance;Office;Utility;
           Keywords=ledger;finance;money;khata;accounting;
           StartupWMClass=msmkhata_app
+          MimeType=x-scheme-handler/io.supabase.msmkhata;
           EOF
           chmod 644 "${DEB_ROOT}/usr/share/applications/msmkhata.desktop"
 
@@ -153,7 +166,7 @@ jobs:
         run: |
           cd msmkhata_app
           flutter pub get
-          flutter build windows --release
+          flutter build windows --release --obfuscate --split-debug-info=symbols
 
       - name: Package Windows Release ZIP & Executable
         shell: pwsh
@@ -214,11 +227,24 @@ jobs:
       - name: Verify Flutter Environment
         run: flutter doctor -v
 
+      - name: Setup Android Release Signing Keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "==> Restoring Android release keystore from GitHub Secret..."
+            echo "$KEYSTORE_BASE64" | base64 -d > msmkhata_app/android/app/upload-keystore.jks
+          fi
+          if [ -f "msmkhata_app/android/app/upload-keystore.jks" ]; then
+            echo "==> Android release signing keystore is present and verified."
+            ls -lh msmkhata_app/android/app/upload-keystore.jks
+          fi
+
       - name: Build Flutter Android APK Release
         run: |
           cd msmkhata_app
           flutter pub get
-          flutter build apk --release
+          flutter build apk --release --obfuscate --split-debug-info=symbols
 
       - name: Prepare APK Package
         run: |

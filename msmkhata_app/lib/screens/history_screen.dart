@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../widgets/shimmer_loading.dart';
 import '../widgets/sync_status_badge.dart';
 import '../widgets/transaction_detail_sheet.dart';
+import '../services/connectivity_service.dart';
 import 'export_statement_screen.dart';
 
 class HistoryScreen extends StatefulWidget {
@@ -39,6 +40,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Future<void> _loadTransactions() async {
     if (_isSyncing) return;
     setState(() => _isSyncing = true);
+    ConnectivityService.checkNow();
     final f = ApiService.getTransactions();
     setState(() {
       _transactionsFuture = f.then((list) {

@@ -119,33 +119,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         actions: [
           // Home Page button to navigate to Landing / Home Screen
-          InkWell(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const LandingScreen(isViewingFromDashboard: true),
-                ),
-              );
-            },
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
+          Material(
+            color: Colors.transparent,
+            child: Tooltip(
+              message: 'Public Home Page & Features',
+              child: InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const LandingScreen(isViewingFromDashboard: true),
+                    ),
+                  );
+                },
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF4F46E5).withOpacity(0.5), width: 1),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.home_rounded, color: Color(0xFF818CF8), size: 16),
-                  SizedBox(width: 5),
-                  Text(
-                    'Home',
-                    style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFF4F46E5).withOpacity(0.5), width: 1),
                   ),
-                ],
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.home_rounded, color: Color(0xFF818CF8), size: 16),
+                      SizedBox(width: 5),
+                      Text(
+                        'Home',
+                        style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -165,36 +171,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
             onSync: _refreshData,
           ),
           const SizedBox(width: 8),
-          InkWell(
-            onTap: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const AuthScreen()),
-              );
-              setState(() {});
-            },
-            borderRadius: BorderRadius.circular(20),
-            child: Container(
-              margin: const EdgeInsets.only(right: 14, left: 4),
-              padding: const EdgeInsets.all(2),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: AuthService.isAuthenticated ? const Color(0xFF10B981) : const Color(0xFF818CF8),
-                  width: 1.5,
+          Material(
+            color: Colors.transparent,
+            child: Tooltip(
+              message: AuthService.isAuthenticated ? 'Profile & Account Settings' : 'Sign In',
+              child: InkWell(
+                onTap: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AuthScreen()),
+                  );
+                  if (mounted) setState(() {});
+                },
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  margin: const EdgeInsets.only(right: 14, left: 4),
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: AuthService.isAuthenticated ? const Color(0xFF10B981) : const Color(0xFF818CF8),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: CircleAvatar(
+                    radius: 14,
+                    backgroundColor: const Color(0xFF1E293B),
+                    backgroundImage: AuthService.avatarUrl != null ? NetworkImage(AuthService.avatarUrl!) : null,
+                    child: AuthService.avatarUrl == null
+                        ? Icon(
+                            AuthService.isAuthenticated ? Icons.person : Icons.account_circle_outlined,
+                            size: 18,
+                            color: AuthService.isAuthenticated ? const Color(0xFF10B981) : const Color(0xFF818CF8),
+                          )
+                        : null,
+                  ),
                 ),
-              ),
-              child: CircleAvatar(
-                radius: 14,
-                backgroundColor: const Color(0xFF1E293B),
-                backgroundImage: AuthService.avatarUrl != null ? NetworkImage(AuthService.avatarUrl!) : null,
-                child: AuthService.avatarUrl == null
-                    ? Icon(
-                        AuthService.isAuthenticated ? Icons.person : Icons.account_circle_outlined,
-                        size: 18,
-                        color: AuthService.isAuthenticated ? const Color(0xFF10B981) : const Color(0xFF818CF8),
-                      )
-                    : null,
               ),
             ),
           ),

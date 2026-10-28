@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
 
 class AuthService {
@@ -176,6 +177,22 @@ class AuthService {
       await _client.auth.signOut();
     } catch (e) {
       debugPrint('Sign-Out Error: $e');
+    }
+  }
+
+  /// Completely wipe local Supabase session, shared preferences, and cached tokens
+  static Future<void> clearAllLocalDataAndSession() async {
+    try {
+      await _client.auth.signOut();
+    } catch (e) {
+      debugPrint('Sign out notice during clean purge: $e');
+    }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+      debugPrint('Cleaned all local shared preferences successfully.');
+    } catch (e) {
+      debugPrint('Error clearing local shared preferences: $e');
     }
   }
 }

@@ -130,6 +130,15 @@ jobs:
             chmod 644 "${DEB_ROOT}/usr/share/icons/hicolor/256x256/apps/com.msmmovin.msmkhata_app.png"
           fi
 
+          echo "==> Creating DEBIAN/prerm hook..."
+          cat << 'EOF' > "${DEB_ROOT}/DEBIAN/prerm"
+          #!/bin/sh
+          set -e
+          pkill -f "msmkhata" 2>/dev/null || true
+          exit 0
+          EOF
+          chmod 755 "${DEB_ROOT}/DEBIAN/prerm"
+
           echo "==> Creating DEBIAN/postinst hook..."
           cat << 'EOF' > "${DEB_ROOT}/DEBIAN/postinst"
           #!/bin/sh
@@ -143,6 +152,37 @@ jobs:
           exit 0
           EOF
           chmod 755 "${DEB_ROOT}/DEBIAN/postinst"
+
+          echo "==> Creating DEBIAN/postrm hook (cleans user session on purge)..."
+          cat << 'EOF' > "${DEB_ROOT}/DEBIAN/postrm"
+          #!/bin/sh
+          set -e
+          case "$1" in
+            purge)
+              rm -rf /opt/msmkhata 2>/dev/null || true
+              for udir in /home/*; do
+                if [ -d "$udir" ]; then
+                  rm -rf "$udir/.local/share/com.msmmovin.msmkhata_app" 2>/dev/null || true
+                  rm -rf "$udir/.local/share/msmkhata" 2>/dev/null || true
+                  rm -rf "$udir/.local/share/msmkhata_app" 2>/dev/null || true
+                  rm -rf "$udir/.cache/msmkhata" 2>/dev/null || true
+                  rm -rf "$udir/.cache/msmkhata_app" 2>/dev/null || true
+                  rm -rf "$udir/.config/msmkhata" 2>/dev/null || true
+                fi
+              done
+              ;;
+            remove|upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
+              ;;
+          esac
+          if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+            gtk-update-icon-cache -f -t /usr/share/icons/hicolor 2>/dev/null || true
+          fi
+          if command -v update-desktop-database >/dev/null 2>&1; then
+            update-desktop-database /usr/share/applications 2>/dev/null || true
+          fi
+          exit 0
+          EOF
+          chmod 755 "${DEB_ROOT}/DEBIAN/postrm"
 
           echo "==> Generating DEBIAN/control file..."
           INSTALLED_SIZE=$(du -sk "${DEB_ROOT}" | cut -f1)

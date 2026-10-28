@@ -8,6 +8,7 @@ import '../widgets/github_developer_card.dart';
 import '../widgets/oauth_waiting_dialog.dart';
 import 'dashboard_screen.dart';
 import 'auth_screen.dart';
+import '../main.dart';
 
 class LandingScreen extends StatefulWidget {
   final bool isViewingFromDashboard;
@@ -27,7 +28,11 @@ class _LandingScreenState extends State<LandingScreen> {
   void initState() {
     super.initState();
     _authSub = AuthService.onAuthStateChange.listen((data) {
-      if (data.session != null && mounted) {
+      // ONLY close if not viewing from dashboard and freshly signed in!
+      if (!widget.isViewingFromDashboard &&
+          data.event == AuthChangeEvent.signedIn &&
+          data.session != null &&
+          mounted) {
         // Automatically close the sign-in modal bottom sheet once authenticated
         Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst);
       }
@@ -45,7 +50,7 @@ class _LandingScreenState extends State<LandingScreen> {
       Navigator.of(context).pop();
     } else {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const DashboardScreen()),
+        MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
       );
     }
   }
@@ -57,7 +62,9 @@ class _LandingScreenState extends State<LandingScreen> {
             defaultTargetPlatform == TargetPlatform.macOS);
 
     if (isDesktop) {
-      Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst);
+      if (Navigator.of(context).canPop() && !widget.isViewingFromDashboard) {
+        Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst);
+      }
       await OAuthWaitingDialog.show(context, provider: 'google');
       return;
     }
@@ -87,7 +94,9 @@ class _LandingScreenState extends State<LandingScreen> {
             defaultTargetPlatform == TargetPlatform.macOS);
 
     if (isDesktop) {
-      Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst);
+      if (Navigator.of(context).canPop() && !widget.isViewingFromDashboard) {
+        Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst);
+      }
       await OAuthWaitingDialog.show(context, provider: 'github');
       return;
     }

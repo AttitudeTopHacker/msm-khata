@@ -33,12 +33,21 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _obscurePassword = true;
   bool _isEmailLoading = false;
 
+  late final bool _wasInitiallyAuthenticated;
+
   @override
   void initState() {
     super.initState();
+    _wasInitiallyAuthenticated = AuthService.isAuthenticated;
     _authSub = AuthService.onAuthStateChange.listen((data) {
-      if (data.session != null && mounted) {
+      // ONLY auto-dismiss if user was unauthenticated and now completed sign-in!
+      if (!_wasInitiallyAuthenticated &&
+          data.event == AuthChangeEvent.signedIn &&
+          data.session != null &&
+          mounted) {
         Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst);
+      } else if (mounted) {
+        setState(() {});
       }
     });
   }
@@ -329,6 +338,56 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
+  void _confirmCleanReset() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.cleaning_services_rounded, color: Color(0xFFF59E0B), size: 22),
+            SizedBox(width: 10),
+            Text('Clean App Reset', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Text(
+          'Kya aap local saved login session, stored credentials aur cache ko complete wipe / reset karna chahte hain?\n\n'
+          'Iske baad app fresh start hogi aur agle launch per user automatically signed in nahi milega.',
+          style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8))),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () async {
+              Navigator.of(ctx).pop();
+              await AuthService.clearAllLocalDataAndSession();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('App data and saved login sessions cleanly purged!'),
+                    backgroundColor: Color(0xFF10B981),
+                  ),
+                );
+                Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst);
+              }
+            },
+            icon: const Icon(Icons.delete_forever_rounded, size: 16),
+            label: const Text('Wipe & Reset', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _performDriveBackup() async {
     setState(() => _isBackingUp = true);
     try {
@@ -543,6 +602,22 @@ class _AuthScreenState extends State<AuthScreen> {
             label: const Text(
               'Explore Public Home Page',
               style: TextStyle(color: Color(0xFFC7D2FE), fontWeight: FontWeight.bold, fontSize: 13.5),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 48,
+          child: OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(color: const Color(0xFFF59E0B).withOpacity(0.6), width: 1.2),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+            onPressed: _confirmCleanReset,
+            icon: const Icon(Icons.cleaning_services_rounded, color: Color(0xFFF59E0B), size: 18),
+            label: const Text(
+              'Clean App Reset (Purge Cache & Session)',
+              style: TextStyle(color: Color(0xFFFCD34D), fontWeight: FontWeight.bold, fontSize: 13.5),
             ),
           ),
         ),

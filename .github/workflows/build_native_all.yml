@@ -111,8 +111,6 @@ jobs:
           MimeType=x-scheme-handler/io.supabase.msmkhata;
           EOF
           chmod 644 "${DEB_ROOT}/usr/share/applications/msmkhata.desktop"
-          cp "${DEB_ROOT}/usr/share/applications/msmkhata.desktop" "${DEB_ROOT}/usr/share/applications/com.msmmovin.msmkhata_app.desktop"
-          chmod 644 "${DEB_ROOT}/usr/share/applications/com.msmmovin.msmkhata_app.desktop"
 
           echo "==> Copying scalable SVG & PNG pixmap icons..."
           if [ -f "assets/icon.svg" ]; then

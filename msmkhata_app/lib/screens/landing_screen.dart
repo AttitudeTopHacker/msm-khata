@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../widgets/msm_shimmer_text.dart';
 import '../widgets/github_developer_card.dart';
 import 'dashboard_screen.dart';
+import 'auth_screen.dart';
 
 class LandingScreen extends StatefulWidget {
   final bool isViewingFromDashboard;
@@ -836,7 +838,125 @@ class _LandingScreenState extends State<LandingScreen> {
                   ),
           ),
         ),
+        const SizedBox(height: 14),
+
+        // Direct In-App Email & Password Option
+        TextButton.icon(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AuthScreen()),
+            );
+          },
+          icon: const Icon(Icons.mail_outline_rounded, color: Color(0xFF818CF8), size: 16),
+          label: const Text(
+            'Sign In / Register with Email (In-App)',
+            style: TextStyle(color: Color(0xFFC7D2FE), fontSize: 13, fontWeight: FontWeight.bold),
+          ),
+        ),
+
+        // Desktop Manual URL Paste Helper
+        if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.linux || defaultTargetPlatform == TargetPlatform.windows)) ...[
+          const SizedBox(height: 4),
+          TextButton.icon(
+            onPressed: _showPasteCallbackUrlDialog,
+            icon: const Icon(Icons.link_rounded, color: Color(0xFF94A3B8), size: 15),
+            label: const Text(
+              'Paste Auth Callback URL (Desktop Helper)',
+              style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+            ),
+          ),
+        ],
       ],
+    );
+  }
+
+  void _showPasteCallbackUrlDialog() {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(22),
+          side: const BorderSide(color: Color(0xFF334155), width: 1),
+        ),
+        title: const Row(
+          children: [
+            Icon(Icons.link_rounded, color: Color(0xFF818CF8), size: 22),
+            SizedBox(width: 10),
+            Text(
+              'Paste Auth Callback URL',
+              style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'If your browser opened the login link but did not return automatically to MsmKhata, copy the URL from your browser address bar and paste it below:',
+              style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12.5, height: 1.4),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: controller,
+              style: const TextStyle(color: Colors.white, fontSize: 12.5),
+              decoration: InputDecoration(
+                hintText: 'io.supabase.msmkhata://login-callback/#access_token=... OR ...?code=...',
+                hintStyle: const TextStyle(color: Color(0xFF64748B), fontSize: 11.5),
+                filled: true,
+                fillColor: const Color(0xFF0F172A),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFF334155)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFF334155)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFF818CF8), width: 1.5),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8))),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF4F46E5),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () async {
+              final text = controller.text.trim();
+              if (text.isNotEmpty) {
+                Navigator.pop(ctx);
+                setState(() {
+                  _loadingProvider = 'google';
+                  _errorMessage = null;
+                });
+                try {
+                  await AuthService.handleManualCallbackUrl(text);
+                } catch (e) {
+                  if (mounted) setState(() => _errorMessage = _formatErrorMessage(e.toString()));
+                } finally {
+                  if (mounted) setState(() => _loadingProvider = null);
+                }
+              }
+            },
+            child: const Text('Complete Sign In'),
+          ),
+        ],
+      ),
     );
   }
 

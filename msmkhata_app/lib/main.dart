@@ -15,7 +15,7 @@ import 'widgets/offline_banner.dart';
 final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
 
-void main() async {
+void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
     await Supabase.initialize(
@@ -24,6 +24,23 @@ void main() async {
     );
   } catch (e) {
     debugPrint('Supabase init notice: $e');
+  }
+
+  // Handle initial command-line deep link argument on Desktop (Linux / Windows)
+  if (args.isNotEmpty) {
+    for (final arg in args) {
+      final cleanArg = arg.trim();
+      if (cleanArg.contains('login-callback') ||
+          cleanArg.startsWith('io.supabase.msmkhata://') ||
+          cleanArg.startsWith('com.msmmovin.msmkhata://')) {
+        try {
+          debugPrint('Processing initial command-line auth link: $cleanArg');
+          await Supabase.instance.client.auth.getSessionFromUrl(Uri.parse(cleanArg));
+        } catch (e) {
+          debugPrint('Initial argument auth callback error: $e');
+        }
+      }
+    }
   }
 
   // Initialize network monitor and offline listener

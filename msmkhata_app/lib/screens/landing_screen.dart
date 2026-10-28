@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
 import '../widgets/msm_shimmer_text.dart';
 import '../widgets/github_developer_card.dart';
@@ -18,6 +20,24 @@ class LandingScreen extends StatefulWidget {
 class _LandingScreenState extends State<LandingScreen> {
   String? _loadingProvider; // 'google', 'github', or null
   String? _errorMessage;
+  StreamSubscription<AuthState>? _authSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _authSub = AuthService.onAuthStateChange.listen((data) {
+      if (data.session != null && mounted) {
+        // Automatically close the sign-in modal bottom sheet once authenticated
+        Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSub?.cancel();
+    super.dispose();
+  }
 
   void _navigateToDashboard() {
     if (Navigator.of(context).canPop()) {

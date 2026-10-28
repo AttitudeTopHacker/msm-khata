@@ -218,15 +218,49 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     return const ShimmerNetPositionCard();
                   }
                   if (snapshot.hasError) {
+                    // Auto-retry in 4s to smoothly recover when Render free-tier finishes waking up
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      Future.delayed(const Duration(seconds: 4), () {
+                        if (mounted) _refreshData();
+                      });
+                    });
+
                     return Container(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
                       decoration: BoxDecoration(
                         color: const Color(0xFF1E293B),
                         borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0xFF334155), width: 1),
                       ),
-                      child: Text(
-                        'Backend connecting... ${snapshot.error}',
-                        style: const TextStyle(color: Colors.redAccent),
+                      child: Row(
+                        children: [
+                          const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF818CF8)),
+                          ),
+                          const SizedBox(width: 14),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Connecting to Cloud Ledger...',
+                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  'Render server waking up from sleep. Auto-syncing...',
+                                  style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+                                ),
+                              ],
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: _refreshData,
+                            child: const Text('Retry Now', style: TextStyle(color: Color(0xFF818CF8), fontWeight: FontWeight.bold, fontSize: 12)),
+                          ),
+                        ],
                       ),
                     );
                   }

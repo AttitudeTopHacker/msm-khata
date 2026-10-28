@@ -8,7 +8,7 @@ import '../models/category.dart';
 import 'auth_service.dart';
 
 class ApiService {
-  static final String _base = ApiConfig.baseUrl;
+  static String get _base => ApiConfig.baseUrl;
 
   // 1. Fetch Dashboard Stats (Isolated to current logged in user)
   static Future<DashboardStats> getDashboardStats({String? userId}) async {

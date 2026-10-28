@@ -446,16 +446,19 @@ class _LandingScreenState extends State<LandingScreen> {
                     const SizedBox(height: 18),
                     _buildOAuthButtons(),
                     const SizedBox(height: 14),
-                    const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.shield_outlined, color: Color(0xFF10B981), size: 14),
-                        SizedBox(width: 6),
-                        Text(
-                          'Secured by Supabase • Private per-user records',
-                          style: TextStyle(color: Color(0xFF64748B), fontSize: 11),
-                        ),
-                      ],
+                    const FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.shield_outlined, color: Color(0xFF10B981), size: 14),
+                          SizedBox(width: 6),
+                          Text(
+                            'Secured by Supabase • Private per-user records',
+                            style: TextStyle(color: Color(0xFF64748B), fontSize: 11),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -766,29 +769,32 @@ class _LandingScreenState extends State<LandingScreen> {
                     height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF1E293B)),
                   )
-                : Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 22,
-                        height: 22,
-                        alignment: Alignment.center,
-                        child: const Text(
-                          'G',
-                          style: TextStyle(
-                            fontFamily: 'sans-serif',
-                            color: Color(0xFF4285F4),
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
+                : FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 22,
+                          height: 22,
+                          alignment: Alignment.center,
+                          child: const Text(
+                            'G',
+                            style: TextStyle(
+                              fontFamily: 'sans-serif',
+                              color: Color(0xFF4285F4),
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      const Text(
-                        'Continue with Google',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
-                      ),
-                    ],
+                        const SizedBox(width: 10),
+                        const Text(
+                          'Continue with Google',
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                        ),
+                      ],
+                    ),
                   ),
           ),
         ),
@@ -814,16 +820,19 @@ class _LandingScreenState extends State<LandingScreen> {
                     height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                   )
-                : const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.terminal_rounded, color: Colors.white, size: 20),
-                      SizedBox(width: 10),
-                      Text(
-                        'Continue with GitHub',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
-                      ),
-                    ],
+                : const FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.terminal_rounded, color: Colors.white, size: 20),
+                        SizedBox(width: 10),
+                        Text(
+                          'Continue with GitHub',
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                      ],
+                    ),
                   ),
           ),
         ),
@@ -867,8 +876,9 @@ class _LandingScreenState extends State<LandingScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: Column(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: const [
               Text(
                 '© 2026 MsmKhata • Engineered by ',

@@ -159,6 +159,14 @@ jobs:
         shell: pwsh
         run: |
           $ReleaseDir = "msmkhata_app/build/windows/x64/runner/Release"
+          if (-not (Test-Path $ReleaseDir)) {
+            $ReleaseDir = "msmkhata_app/build/windows/runner/Release"
+          }
+          if (-not (Test-Path $ReleaseDir)) {
+            $Found = Get-ChildItem -Path "msmkhata_app/build/windows" -Recurse -Filter "msmkhata_app.exe" | Select-Object -First 1
+            if ($Found) { $ReleaseDir = $Found.DirectoryName }
+          }
+          Write-Host "==> Target Windows Release directory: $ReleaseDir"
           $ZipName = "msmkhata_1.0.0_windows_x64.zip"
           Write-Host "==> Compressing Windows release bundle into $ZipName..."
           Compress-Archive -Path "$ReleaseDir/*" -DestinationPath $ZipName -Force
@@ -231,7 +239,7 @@ jobs:
     name: 🚀 Publish Official GitHub Release
     needs: [build-linux-deb, build-windows-exe, build-android-apk]
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))) || github.event_name == 'workflow_dispatch'
 
     steps:
       - name: Download All Platform Artifacts
@@ -249,7 +257,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v1.0.0' }}
-          name: "MsmKhata v1.0.0 — Native Release (.exe, .deb, .apk)"
+          name: "MsmKhata ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v1.0.0' }} — Native Release (.exe, .deb, .apk)"
           body: |
             ## 🚀 MsmKhata v1.0.0 Native Cross-Platform Release
 

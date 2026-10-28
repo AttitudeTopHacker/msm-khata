@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: msmkhata-api
+    runtime: python
+    region: oregon
+    plan: free
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: PROJECT_NAME
+        value: MsmKhata
+      - key: API_V1_PREFIX
+        value: /api/v1
+      - key: HOST
+        value: 0.0.0.0
+      - key: SUPABASE_URL
+        value: https://dzjzinbogydbnatkibuw.supabase.co
+      - key: SUPABASE_KEY
+        sync: false

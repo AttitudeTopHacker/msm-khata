@@ -9,6 +9,11 @@ import 'screens/persons_screen.dart';
 import 'screens/analytics_screen.dart';
 import 'screens/history_screen.dart';
 import 'services/auth_service.dart';
+import 'services/connectivity_service.dart';
+import 'widgets/offline_banner.dart';
+
+final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
+    GlobalKey<ScaffoldMessengerState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,6 +25,47 @@ void main() async {
   } catch (e) {
     debugPrint('Supabase init notice: $e');
   }
+
+  // Initialize network monitor and offline listener
+  ConnectivityService().initialize(
+    onStatusChanged: (isOnline) {
+      final messenger = rootScaffoldMessengerKey.currentState;
+      if (messenger != null) {
+        messenger.removeCurrentSnackBar();
+        messenger.showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 4),
+            backgroundColor:
+                isOnline ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+            content: Row(
+              children: [
+                Icon(
+                  isOnline ? Icons.wifi_rounded : Icons.wifi_off_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    isOnline
+                        ? 'Internet jud gaya! MsmKhata online hai.'
+                        : 'Internet connection band hai! Kripya apna internet connection on karein.',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    },
+  );
+
   runApp(const MsmKhataApp());
 }
 
@@ -30,6 +76,7 @@ class MsmKhataApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'MsmKhata',
+      scaffoldMessengerKey: rootScaffoldMessengerKey,
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
@@ -41,6 +88,14 @@ class MsmKhataApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
+      builder: (context, child) {
+        return Column(
+          children: [
+            const OfflineNoticeBar(),
+            Expanded(child: child ?? const SizedBox.shrink()),
+          ],
+        );
+      },
       home: const AuthGate(),
     );
   }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
+import '../config/api_config.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../widgets/msm_shimmer_text.dart';
@@ -16,6 +18,10 @@ class AuthScreen extends StatefulWidget {
 class _AuthScreenState extends State<AuthScreen> {
   String? _loadingProvider; // 'google', 'github', or null
   String? _errorMessage;
+
+  // Render Backend Server State
+  bool _isTestingBackend = false;
+  String? _backendHealthResult;
 
   // Google Drive Backup Settings State
   bool _autoDriveBackup = true;
@@ -309,7 +315,12 @@ class _AuthScreenState extends State<AuthScreen> {
 
         const SizedBox(height: 18),
 
-        // 2. Google Drive Cloud Backup & Settings Card
+        // 2. Render Cloud Backend Server Card
+        _buildBackendServerCard(),
+
+        const SizedBox(height: 18),
+
+        // 3. Google Drive Cloud Backup & Settings Card
         _buildGoogleDriveBackupCard(),
 
         const SizedBox(height: 18),
@@ -359,6 +370,240 @@ class _AuthScreenState extends State<AuthScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildBackendServerCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFF334155), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF4F46E5).withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.cloud_done_rounded, color: Color(0xFF818CF8), size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Render Cloud Backend',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                      ),
+                      Text(
+                        ApiConfig.hostDomain,
+                        style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.4)),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.circle, color: Color(0xFF10B981), size: 8),
+                    SizedBox(width: 5),
+                    Text(
+                      'Online URL',
+                      style: TextStyle(color: Color(0xFF34D399), fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0F172A),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF334155), width: 1),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.link_rounded, size: 16, color: Color(0xFF818CF8)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    ApiConfig.baseUrl,
+                    style: const TextStyle(
+                      color: Color(0xFFE2E8F0),
+                      fontSize: 12,
+                      fontFamily: 'monospace',
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined, size: 16, color: Color(0xFF94A3B8)),
+                  tooltip: 'Edit Backend URL',
+                  onPressed: _showEditBackendUrlDialog,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+          ),
+          if (_backendHealthResult != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              _backendHealthResult!,
+              style: TextStyle(
+                color: _backendHealthResult!.contains('Healthy') || _backendHealthResult!.contains('healthy')
+                    ? const Color(0xFF34D399)
+                    : const Color(0xFFF87171),
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            height: 42,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Color(0xFF4F46E5), width: 1.2),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: _isTestingBackend ? null : _testBackendConnection,
+              icon: _isTestingBackend
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF818CF8)),
+                    )
+                  : const Icon(Icons.network_check_rounded, color: Color(0xFF818CF8), size: 18),
+              label: Text(
+                _isTestingBackend ? 'Pinging Render Backend...' : 'Ping Live Backend Health',
+                style: const TextStyle(color: Color(0xFFC7D2FE), fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _testBackendConnection() async {
+    setState(() {
+      _isTestingBackend = true;
+      _backendHealthResult = null;
+    });
+
+    final stopwatch = Stopwatch()..start();
+    try {
+      final base = ApiConfig.baseUrl.replaceAll('/api/v1', '');
+      final res = await http.get(Uri.parse('$base/health')).timeout(const Duration(seconds: 8));
+      stopwatch.stop();
+      if (mounted) {
+        setState(() {
+          if (res.statusCode == 200) {
+            _backendHealthResult = '✅ Healthy (${res.statusCode}) • Response time: ${stopwatch.elapsedMilliseconds}ms';
+          } else {
+            _backendHealthResult = '⚠️ Server responded with status ${res.statusCode}';
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _backendHealthResult = '⚠️ Ping note: Server waking up or unreachable ($e)';
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isTestingBackend = false);
+      }
+    }
+  }
+
+  void _showEditBackendUrlDialog() {
+    final controller = TextEditingController(text: ApiConfig.baseUrl);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        title: const Row(
+          children: [
+            Icon(Icons.dns_rounded, color: Color(0xFF818CF8), size: 20),
+            SizedBox(width: 8),
+            Text('Custom Backend URL', style: TextStyle(color: Colors.white, fontSize: 16)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Set your deployed Render or cloud API endpoint:',
+              style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: const Color(0xFF0F172A),
+                hintText: 'https://msmkhata-api.onrender.com/api/v1',
+                hintStyle: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Color(0xFF334155)),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              ApiConfig.setCustomUrl(null);
+              setState(() {});
+              Navigator.pop(ctx);
+            },
+            child: const Text('Reset to Default', style: TextStyle(color: Color(0xFF94A3B8))),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF4F46E5),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              ApiConfig.setCustomUrl(controller.text);
+              setState(() {});
+              Navigator.pop(ctx);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
     );
   }
 

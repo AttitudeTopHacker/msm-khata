@@ -25,8 +25,8 @@ echo "════════════════════════�
 echo "  🛑 MsmKhata Clean Uninstaller (msm.movin)"
 echo "════════════════════════════════════════════════════════════"
 
-echo "🛑 1/4. Stopping any running MsmKhata processes..."
-pkill -f "msmkhata" 2>/dev/null || true
+pkill -x "msmkhata_app" 2>/dev/null || true
+pkill -f "^/opt/msmkhata/msmkhata_app" 2>/dev/null || true
 
 echo "🧹 2/4. Removing Debian package (if installed via dpkg/apt)..."
 if dpkg -l 2>/dev/null | grep -q "^ii[[:space:]]*msmkhata"; then

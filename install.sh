@@ -107,7 +107,8 @@ if [ "$MODE" = "reinstall" ]; then
     echo "✨ Old installation & sessions wiped cleanly. Proceeding with fresh install..."
 elif [ "$MODE" = "update" ]; then
     echo "🔄 Preparing update: stopping running processes and preserving user session..."
-    pkill -f "msmkhata" 2>/dev/null || true
+    pkill -x "msmkhata_app" 2>/dev/null || true
+    pkill -f "^/opt/msmkhata/msmkhata_app" 2>/dev/null || true
 fi
 
 # Locate prebuilt Debian package if available

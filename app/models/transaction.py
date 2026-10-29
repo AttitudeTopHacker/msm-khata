@@ -13,6 +13,8 @@ class TransactionBase(BaseModel):
     is_settled: bool = Field(False, description="Whether this loan/transaction is settled")
     notes: Optional[str] = Field(None, description="Remarks or details")
     transaction_date: Optional[str] = Field(None, description="Date of transaction (ISO format)")
+    account_id: Optional[str] = Field("main", description="Account / Book ID (e.g. main, book_2)")
+    account_name: Optional[str] = Field("Main Account", description="Account / Book Name")
 
 class TransactionCreate(TransactionBase):
     user_id: Optional[str] = None
@@ -31,6 +33,8 @@ class TransactionUpdate(BaseModel):
     transaction_date: Optional[str] = None
     person_id: Optional[str] = None
     category_id: Optional[str] = None
+    account_id: Optional[str] = None
+    account_name: Optional[str] = None
 
 class TransactionResponse(TransactionBase):
     id: str
@@ -40,4 +44,6 @@ class TransactionResponse(TransactionBase):
     category_id: Optional[str] = None
     category_name: Optional[str] = None
     category_color: Optional[str] = None
+    account_id: Optional[str] = "main"
+    account_name: Optional[str] = "Main Account"
     created_at: Optional[str] = None

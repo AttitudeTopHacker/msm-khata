@@ -4,15 +4,18 @@ import '../models/category.dart';
 import '../models/person.dart';
 import '../models/transaction.dart';
 import '../services/api_service.dart';
+import '../services/account_service.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final String initialType;
   final TransactionItem? existingTransaction;
+  final double? initialAvailableBalance;
 
   const AddTransactionScreen({
     super.key,
     this.initialType = 'GIVEN',
     this.existingTransaction,
+    this.initialAvailableBalance,
   });
 
   @override
@@ -28,6 +31,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   final _notesController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
   bool _isLoading = false;
+  double? _availableBalance;
 
   List<Category> _categories = [];
   Category? _selectedCategory;
@@ -57,12 +61,33 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       }
     }
 
+    _availableBalance = widget.initialAvailableBalance;
+    _amountController.addListener(_onAmountChanged);
+
     _loadCategories();
     _loadPersons();
+    _loadAccountBalance();
+  }
+
+  void _onAmountChanged() {
+    setState(() {});
+  }
+
+  Future<void> _loadAccountBalance() async {
+    try {
+      final activeAccount = AccountService.activeAccountNotifier.value;
+      final stats = await ApiService.getDashboardStats(accountId: activeAccount.id);
+      if (mounted) {
+        setState(() {
+          _availableBalance = stats.netAccountBalance;
+        });
+      }
+    } catch (_) {}
   }
 
   @override
   void dispose() {
+    _amountController.removeListener(_onAmountChanged);
     _amountController.dispose();
     _personController.dispose();
     _categoryController.dispose();
@@ -381,6 +406,17 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       return;
     }
 
+    // Safety Balance Check for outgoing funds (EXPENSE or GIVEN)
+    final isOutgoing = _selectedType == 'EXPENSE' || _selectedType == 'GIVEN';
+    if (isOutgoing && _availableBalance != null && amount > _availableBalance!) {
+      final shouldProceed = await _showInsufficientBalanceDialog(
+        available: _availableBalance!,
+        attempted: amount,
+        isExpense: _selectedType == 'EXPENSE',
+      );
+      if (!shouldProceed) return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
@@ -423,6 +459,124 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<bool> _showInsufficientBalanceDialog({
+    required double available,
+    required double attempted,
+    required bool isExpense,
+  }) async {
+    final currency = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
+    final shortfall = attempted - available;
+    final activeAccount = AccountService.activeAccountNotifier.value;
+
+    final res = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.report_problem_rounded, color: Color(0xFFEF4444), size: 24),
+            SizedBox(width: 10),
+            Text('Kam Balance Warning!', style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF4F46E5).withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFF818CF8), width: 0.8),
+              ),
+              child: Text(
+                'Book: ${activeAccount.name}',
+                style: const TextStyle(color: Color(0xFFA5B4FC), fontWeight: FontWeight.bold, fontSize: 12),
+              ),
+            ),
+            const SizedBox(height: 12),
+            RichText(
+              text: TextSpan(
+                style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 13, height: 1.45),
+                children: [
+                  const TextSpan(text: 'Aapke is account me sirf '),
+                  TextSpan(text: currency.format(available.toInt()), style: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold)),
+                  const TextSpan(text: ' available balance hai, jabki aap '),
+                  TextSpan(text: currency.format(attempted.toInt()), style: const TextStyle(color: Color(0xFFEF4444), fontWeight: FontWeight.bold)),
+                  TextSpan(text: isExpense ? ' kharch kar rahe hain.' : ' kisi ko udhaar/pay kar rahe hain.'),
+                  const TextSpan(text: '\n\nIs transaction se account '),
+                  TextSpan(text: '-${currency.format(shortfall.toInt())} negative', style: const TextStyle(color: Color(0xFFF87171), fontWeight: FontWeight.bold)),
+                  const TextSpan(text: ' ho jayega.\n\nKripya pehle balance add karein ya udhaar vasool karein:'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0284C7),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                    onPressed: () => Navigator.pop(ctx, 'income'),
+                    icon: const Icon(Icons.trending_up, size: 16, color: Colors.white),
+                    label: const Text('+ Add Income', style: TextStyle(fontSize: 11.5, color: Colors.white, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF059669),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                    onPressed: () => Navigator.pop(ctx, 'borrow'),
+                    icon: const Icon(Icons.call_received, size: 16, color: Colors.white),
+                    label: const Text('+ Borrow/Taken', style: TextStyle(fontSize: 11.5, color: Colors.white, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'cancel'),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8))),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'proceed'),
+            child: const Text(
+              'Proceed Anyway (Negative Balance)',
+              style: TextStyle(color: Color(0xFFEF4444), fontSize: 12, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (res == 'income') {
+      setState(() {
+        _selectedType = 'INCOME';
+      });
+      return false;
+    } else if (res == 'borrow') {
+      setState(() {
+        _selectedType = 'TAKEN';
+      });
+      return false;
+    } else if (res == 'proceed') {
+      return true;
+    }
+    return false;
   }
 
   @override
@@ -504,7 +658,116 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
               ),
             ),
-            const SizedBox(height: 16),
+
+            // Live Available Balance Badge & Insufficient Balance Warning Banner
+            if (_availableBalance != null) ...[
+              const SizedBox(height: 8),
+              Builder(
+                builder: (context) {
+                  final entered = double.tryParse(_amountController.text.trim()) ?? 0.0;
+                  final isOutgoing = _selectedType == 'EXPENSE' || _selectedType == 'GIVEN';
+                  final isExpense = _selectedType == 'EXPENSE';
+                  final isOver = isOutgoing && entered > _availableBalance!;
+                  final diff = isOver ? (entered - _availableBalance!) : 0.0;
+                  final currency = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
+
+                  if (isOver) {
+                    return Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEF4444).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.6), width: 1.2),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.warning_amber_rounded, color: Color(0xFFF87171), size: 18),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Kam Balance Warning (Shortfall)',
+                                style: TextStyle(color: Color(0xFFF87171), fontWeight: FontWeight.bold, fontSize: 13),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Aapke account me sirf ${currency.format(_availableBalance!.toInt())} bacha hai. Ye ${isExpense ? 'kharch' : 'pay'} karne par account -${currency.format(diff.toInt())} negative ho jayega!',
+                            style: const TextStyle(color: Color(0xFFFCA5A5), fontSize: 12),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              InkWell(
+                                onTap: () => setState(() => _selectedType = 'INCOME'),
+                                borderRadius: BorderRadius.circular(8),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF38BDF8).withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: const Color(0xFF38BDF8), width: 0.8),
+                                  ),
+                                  child: const Text('+ Add Income Pehle', style: TextStyle(color: Color(0xFF38BDF8), fontSize: 11, fontWeight: FontWeight.bold)),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              InkWell(
+                                onTap: () => setState(() => _selectedType = 'TAKEN'),
+                                borderRadius: BorderRadius.circular(8),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: const Color(0xFF10B981), width: 0.8),
+                                  ),
+                                  child: const Text('+ Borrow/Wapas Pehle', style: TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            _availableBalance! >= 0 ? Icons.check_circle_outline_rounded : Icons.info_outline_rounded,
+                            size: 14,
+                            color: _availableBalance! >= 0 ? const Color(0xFF10B981) : const Color(0xFFF87171),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Account Balance: ${currency.format(_availableBalance!.toInt())}',
+                            style: TextStyle(
+                              color: _availableBalance! >= 0 ? const Color(0xFF94A3B8) : const Color(0xFFF87171),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (isOutgoing && entered > 0)
+                        Text(
+                          'Bachega: ${currency.format((_availableBalance! - entered).toInt())}',
+                          style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ],
+            const SizedBox(height: 14),
 
             // 📅 TRANSACTION DATE SELECTOR (CUSTOM DATE SUPPORT)
             Row(

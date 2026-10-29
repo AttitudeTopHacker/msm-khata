@@ -8,6 +8,7 @@ import 'screens/persons_screen.dart';
 import 'screens/analytics_screen.dart';
 import 'screens/history_screen.dart';
 import 'services/auth_service.dart';
+import 'services/account_service.dart';
 import 'services/budget_service.dart';
 import 'services/connectivity_service.dart';
 import 'services/sync_service.dart';
@@ -30,6 +31,7 @@ void main(List<String> args) async {
   // Restore local offline cache for 0ms instant display
   await SyncService.initialize();
   await BudgetService.initialize();
+  await AccountService.initialize();
 
   // Handle initial command-line deep link argument on Desktop (Linux / Windows)
   if (args.isNotEmpty) {

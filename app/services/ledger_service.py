@@ -69,8 +69,8 @@ class LedgerService:
         raise RuntimeError(f"Failed to auto-create category: {name}")
 
     @staticmethod
-    def calculate_person_balances(user_id: Optional[str] = None) -> List[PersonWithBalanceResponse]:
-        """Calculates individual Len-Den balances for all contacts."""
+    def calculate_person_balances(user_id: Optional[str] = None, account_id: Optional[str] = None) -> List[PersonWithBalanceResponse]:
+        """Calculates individual Len-Den balances for all contacts within the selected account."""
         client = get_supabase()
         
         # Fetch all persons
@@ -83,6 +83,8 @@ class LedgerService:
         t_query = client.table("transactions").select("*").in_("type", ["GIVEN", "TAKEN"])
         if user_id:
             t_query = t_query.eq("user_id", user_id)
+        if account_id:
+            t_query = t_query.eq("account_id", account_id)
         transactions_data = t_query.execute().data or []
         
         # Group transactions by person_id
@@ -133,12 +135,12 @@ class LedgerService:
         return result
 
     @staticmethod
-    def calculate_dashboard_summary(user_id: Optional[str] = None) -> DashboardSummary:
-        """Calculates global Len-Den net position, category charts, and trends."""
+    def calculate_dashboard_summary(user_id: Optional[str] = None, account_id: Optional[str] = None) -> DashboardSummary:
+        """Calculates account passbook balance, global Len-Den net position, category charts, and trends."""
         client = get_supabase()
         
-        # 1. Person Balances
-        person_balances = LedgerService.calculate_person_balances(user_id)
+        # 1. Person Balances for this account
+        person_balances = LedgerService.calculate_person_balances(user_id, account_id=account_id)
         total_receivable = sum(p.net_balance for p in person_balances if p.net_balance > 0)
         total_payable = sum(abs(p.net_balance) for p in person_balances if p.net_balance < 0)
         net_len_den = round(total_receivable - total_payable, 2)
@@ -146,16 +148,20 @@ class LedgerService:
         people_to_receive = len([p for p in person_balances if p.net_balance > 0])
         people_to_pay = len([p for p in person_balances if p.net_balance < 0])
         
-        # 2. All Transactions
+        # 2. All Transactions for this account
         t_query = client.table("transactions").select(
-            "id, type, amount, transaction_date, category_id"
+            "id, type, amount, transaction_date, category_id, account_id"
         )
         if user_id:
             t_query = t_query.eq("user_id", user_id)
+        if account_id:
+            t_query = t_query.eq("account_id", account_id)
         all_transactions = t_query.execute().data or []
         
         total_income = 0.0
         total_expense = 0.0
+        total_given_amt = 0.0
+        total_taken_amt = 0.0
         category_spending = defaultdict(float)
         monthly_map = defaultdict(lambda: {"income": 0.0, "expense": 0.0, "given": 0.0, "taken": 0.0})
         
@@ -174,10 +180,17 @@ class LedgerService:
                 cid = t.get("category_id") or "uncategorized"
                 category_spending[cid] += amt
             elif t_type == "GIVEN":
+                total_given_amt += amt
                 monthly_map[month_key]["given"] += amt
             elif t_type == "TAKEN":
+                total_taken_amt += amt
                 monthly_map[month_key]["taken"] += amt
                 
+        # Master Passbook Real Cash Balance: (Income + Taken) - (Expense + Given)
+        total_money_in = round(total_income + total_taken_amt, 2)
+        total_money_out = round(total_expense + total_given_amt, 2)
+        net_account_balance = round(total_money_in - total_money_out, 2)
+
         # 3. Categories for breakdown
         c_query = client.table("categories").select("*")
         if user_id:
@@ -242,6 +255,10 @@ class LedgerService:
         ]
         
         return DashboardSummary(
+            net_account_balance=net_account_balance,
+            total_money_in=total_money_in,
+            total_money_out=total_money_out,
+            active_account_id=account_id or "main",
             total_receivable=round(total_receivable, 2),
             total_payable=round(total_payable, 2),
             net_len_den_position=net_len_den,

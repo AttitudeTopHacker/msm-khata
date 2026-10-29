@@ -12,6 +12,8 @@ class TransactionItem {
   final String? categoryId;
   final String? categoryName;
   final String? categoryColor;
+  final String accountId;
+  final String accountName;
 
   TransactionItem({
     required this.id,
@@ -27,6 +29,8 @@ class TransactionItem {
     this.categoryId,
     this.categoryName,
     this.categoryColor,
+    this.accountId = 'main',
+    this.accountName = 'Main Account',
   });
 
   factory TransactionItem.fromJson(Map<String, dynamic> json) {
@@ -44,6 +48,8 @@ class TransactionItem {
       categoryId: json['category_id'],
       categoryName: json['category_name'],
       categoryColor: json['category_color'],
+      accountId: json['account_id'] ?? 'main',
+      accountName: json['account_name'] ?? 'Main Account',
     );
   }
 
@@ -62,6 +68,8 @@ class TransactionItem {
       'category_id': categoryId,
       'category_name': categoryName,
       'category_color': categoryColor,
+      'account_id': accountId,
+      'account_name': accountName,
     };
   }
 }

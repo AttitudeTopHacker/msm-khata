@@ -5,15 +5,21 @@ import '../models/person.dart';
 import '../models/transaction.dart';
 import '../models/stats.dart';
 import '../models/category.dart';
+import 'account_service.dart';
 import 'auth_service.dart';
 
 class ApiService {
   static String get _base => ApiConfig.baseUrl;
 
-  // 1. Fetch Dashboard Stats (Isolated to current logged in user)
-  static Future<DashboardStats> getDashboardStats({String? userId}) async {
+  // 1. Fetch Dashboard Stats (Isolated to current logged in user and active account)
+  static Future<DashboardStats> getDashboardStats({String? userId, String? accountId}) async {
     final uid = userId ?? AuthService.currentUserId;
-    final uri = Uri.parse('$_base/stats/summary${uid != null ? '?user_id=$uid' : ''}');
+    final aid = accountId ?? AccountService.activeAccountNotifier.value.id;
+    final params = <String, String>{};
+    if (uid != null) params['user_id'] = uid;
+    if (aid.isNotEmpty) params['account_id'] = aid;
+
+    final uri = Uri.parse('$_base/stats/summary').replace(queryParameters: params.isNotEmpty ? params : null);
     final res = await http.get(uri);
     if (res.statusCode == 200) {
       return DashboardStats.fromJson(jsonDecode(res.body));
@@ -63,8 +69,9 @@ class ApiService {
     throw Exception('Failed to create person');
   }
 
-  // 4. Fetch Transactions (Isolated to current user with pagination support)
+  // 4. Fetch Transactions (Isolated to current account/book and user)
   static Future<List<TransactionItem>> getTransactions({
+    String? accountId,
     String? personId,
     String? type,
     String? startDate,
@@ -74,7 +81,9 @@ class ApiService {
     int? offset,
   }) async {
     final uid = userId ?? AuthService.currentUserId;
+    final aid = accountId ?? AccountService.activeAccountNotifier.value.id;
     final params = <String, String>{};
+    if (aid.isNotEmpty) params['account_id'] = aid;
     if (personId != null) params['person_id'] = personId;
     if (type != null) params['type'] = type;
     if (startDate != null) params['start_date'] = startDate;
@@ -92,7 +101,7 @@ class ApiService {
     throw Exception('Failed to load transactions');
   }
 
-  // 5. Create Transaction (Tagged with current user and optional custom date)
+  // 5. Create Transaction (Tagged with current active account/book and user)
   static Future<TransactionItem> createTransaction({
     required String type,
     required double amount,
@@ -105,12 +114,20 @@ class ApiService {
     String? dueDate,
     String? transactionDate,
     String? userId,
+    String? accountId,
+    String? accountName,
   }) async {
     final uid = userId ?? AuthService.currentUserId;
+    final activeBook = AccountService.activeAccountNotifier.value;
+    final aid = accountId ?? activeBook.id;
+    final aname = accountName ?? activeBook.name;
+
     final payload = <String, dynamic>{
       'type': type,
       'amount': amount,
       'payment_mode': paymentMode,
+      'account_id': aid,
+      'account_name': aname,
       if (notes != null && notes.isNotEmpty) 'notes': notes,
       if (dueDate != null && dueDate.isNotEmpty) 'due_date': dueDate,
       if (transactionDate != null && transactionDate.isNotEmpty) 'transaction_date': transactionDate,

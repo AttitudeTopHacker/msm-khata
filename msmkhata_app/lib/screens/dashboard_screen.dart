@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../models/account.dart';
 import '../models/stats.dart';
 import '../models/transaction.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../services/account_service.dart';
 import '../widgets/net_position_card.dart';
+import '../widgets/master_passbook_card.dart';
+import '../widgets/account_switcher_modal.dart';
 import '../widgets/adaptive_refresh_indicator.dart';
 import '../widgets/shimmer_loading.dart';
 import '../widgets/sync_status_badge.dart';
@@ -37,13 +41,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
+    AccountService.activeAccountNotifier.addListener(_onAccountChanged);
     _refreshData();
   }
 
+  @override
+  void dispose() {
+    AccountService.activeAccountNotifier.removeListener(_onAccountChanged);
+    super.dispose();
+  }
+
+  void _onAccountChanged() {
+    if (mounted) {
+      _refreshData();
+    }
+  }
+
   Future<DashboardStats> _getStats() async {
+    final activeId = AccountService.activeAccountNotifier.value.id;
     final s = await SyncService.syncStats();
     if (s != null) return s;
-    return await ApiService.getDashboardStats();
+    return await ApiService.getDashboardStats(accountId: activeId);
   }
 
   Future<void> _refreshData() async {
@@ -51,8 +69,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() => _isSyncing = true);
     // Refresh connectivity state on data refresh
     ConnectivityService.checkNow();
+    final activeId = AccountService.activeAccountNotifier.value.id;
     final stats = _getStats();
-    final txs = SyncService.syncTransactions(limit: 25, offset: 0);
+    final txs = SyncService.syncTransactions(limit: 35, offset: 0);
     setState(() {
       _statsFuture = stats;
       _transactionsFuture = txs;
@@ -65,12 +84,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  void _openAddTransaction(String initialType) async {
+  void _openAddTransaction(String initialType, {double? availableBalance}) async {
     final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => AddTransactionScreen(initialType: initialType),
+      builder: (context) => AddTransactionScreen(
+        initialType: initialType,
+        initialAvailableBalance: availableBalance,
+      ),
     );
     if (result == true) {
       _refreshData();
@@ -237,10 +259,90 @@ class _DashboardScreenState extends State<DashboardScreen> {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 0. Dual Dashboard Switcher (Len-Den vs Personal Pocket)
+                  // 0. Active Account / Book Selector Bar
+                  ValueListenableBuilder<AccountBook>(
+                    valueListenable: AccountService.activeAccountNotifier,
+                    builder: (context, activeAccount, _) {
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1E293B),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFF4F46E5).withValues(alpha: 0.4), width: 1.2),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(7),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF4F46E5).withValues(alpha: 0.25),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(Icons.menu_book_rounded, color: Color(0xFF818CF8), size: 18),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Text(
+                                        'ACTIVE BOOK',
+                                        style: TextStyle(color: Color(0xFF94A3B8), fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                                      ),
+                                      if (activeAccount.isDefault) ...[
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: const Text('DEFAULT', style: TextStyle(color: Color(0xFF10B981), fontSize: 8.5, fontWeight: FontWeight.bold)),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                  const SizedBox(height: 1),
+                                  Text(
+                                    activeAccount.name,
+                                    style: const TextStyle(color: Colors.white, fontSize: 14.5, fontWeight: FontWeight.bold),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            InkWell(
+                              onTap: () => AccountSwitcherModal.show(context, onAccountChanged: _refreshData),
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF4F46E5),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text('Switch Book', style: TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold)),
+                                    SizedBox(width: 4),
+                                    Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white, size: 16),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+
+                  // 0.5. Dual Dashboard Switcher (Len-Den vs Personal Pocket)
                   _buildDualDashboardSwitcher(activeMode),
 
-                  // 1. Hero Card: NetPositionCard (Mode 0) OR PersonalPocketCard (Mode 1)
+                  // 1. Hero Card: MasterPassbookCard & NetPositionCard (Mode 0) OR PersonalPocketCard (Mode 1)
                   FutureBuilder<DashboardStats>(
                     future: _statsFuture,
                     initialData: SyncService.cachedStats,
@@ -297,9 +399,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       final stats = snapshot.data!;
                       return Column(
                         children: [
-                          if (!isPocketMode)
-                            NetPositionCard(stats: stats)
-                          else
+                          if (!isPocketMode) ...[
+                            MasterPassbookCard(
+                              stats: stats,
+                              account: AccountService.activeAccountNotifier.value,
+                            ),
+                            const SizedBox(height: 12),
+                            NetPositionCard(stats: stats),
+                          ] else
                             PersonalPocketCard(
                               stats: stats,
                               onBudgetUpdated: _refreshData,
@@ -310,75 +417,78 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             _buildAnalyticsHighlightCard(stats)
                           else
                             _buildPocketSpendingHighlight(stats),
+
+                          const SizedBox(height: 14),
+
+                          // 3. Quick Action Buttons
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              !isPocketMode ? 'Len-Den Quick Actions' : 'Personal Pocket Actions',
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          if (!isPocketMode)
+                            Row(
+                              children: [
+                                _buildActionButton(
+                                  label: 'Lent',
+                                  sub: 'Money Given',
+                                  color: const Color(0xFF10B981),
+                                  icon: Icons.call_made_rounded,
+                                  onTap: () => _openAddTransaction('GIVEN', availableBalance: stats.netAccountBalance),
+                                ),
+                                const SizedBox(width: 10),
+                                _buildActionButton(
+                                  label: 'Borrowed',
+                                  sub: 'Money Taken',
+                                  color: const Color(0xFFEF4444),
+                                  icon: Icons.call_received_rounded,
+                                  onTap: () => _openAddTransaction('TAKEN', availableBalance: stats.netAccountBalance),
+                                ),
+                                const SizedBox(width: 10),
+                                _buildActionButton(
+                                  label: 'Contacts',
+                                  sub: 'Parties Ledger',
+                                  color: const Color(0xFF818CF8),
+                                  icon: Icons.people_outline_rounded,
+                                  onTap: () => widget.onNavigateToTab?.call(1),
+                                ),
+                              ],
+                            )
+                          else
+                            Row(
+                              children: [
+                                _buildActionButton(
+                                  label: 'Income',
+                                  sub: 'Add Earnings',
+                                  color: const Color(0xFF38BDF8),
+                                  icon: Icons.trending_up_rounded,
+                                  onTap: () => _openAddTransaction('INCOME', availableBalance: stats.netAccountBalance),
+                                ),
+                                const SizedBox(width: 10),
+                                _buildActionButton(
+                                  label: 'Expense',
+                                  sub: 'Expenditure',
+                                  color: const Color(0xFFF59E0B),
+                                  icon: Icons.shopping_bag_outlined,
+                                  onTap: () => _openAddTransaction('EXPENSE', availableBalance: stats.netAccountBalance),
+                                ),
+                                const SizedBox(width: 10),
+                                _buildActionButton(
+                                  label: 'Analytics',
+                                  sub: 'Charts & Trends',
+                                  color: const Color(0xFF10B981),
+                                  icon: Icons.insights_rounded,
+                                  onTap: () => widget.onNavigateToTab?.call(2),
+                                ),
+                              ],
+                            ),
                         ],
                       );
                     },
                   ),
-
-                  const SizedBox(height: 20),
-
-                  // 3. Quick Action Buttons
-                  Text(
-                    !isPocketMode ? 'Len-Den Quick Actions' : 'Personal Pocket Actions',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-                  ),
-                  const SizedBox(height: 12),
-                  if (!isPocketMode)
-                    Row(
-                      children: [
-                        _buildActionButton(
-                          label: 'Lent',
-                          sub: 'Money Given',
-                          color: const Color(0xFF10B981),
-                          icon: Icons.call_made_rounded,
-                          onTap: () => _openAddTransaction('GIVEN'),
-                        ),
-                        const SizedBox(width: 10),
-                        _buildActionButton(
-                          label: 'Borrowed',
-                          sub: 'Money Taken',
-                          color: const Color(0xFFEF4444),
-                          icon: Icons.call_received_rounded,
-                          onTap: () => _openAddTransaction('TAKEN'),
-                        ),
-                        const SizedBox(width: 10),
-                        _buildActionButton(
-                          label: 'Contacts',
-                          sub: 'Parties Ledger',
-                          color: const Color(0xFF818CF8),
-                          icon: Icons.people_outline_rounded,
-                          onTap: () => widget.onNavigateToTab?.call(1),
-                        ),
-                      ],
-                    )
-                  else
-                    Row(
-                      children: [
-                        _buildActionButton(
-                          label: 'Income',
-                          sub: 'Add Earnings',
-                          color: const Color(0xFF38BDF8),
-                          icon: Icons.trending_up_rounded,
-                          onTap: () => _openAddTransaction('INCOME'),
-                        ),
-                        const SizedBox(width: 10),
-                        _buildActionButton(
-                          label: 'Expense',
-                          sub: 'Expenditure',
-                          color: const Color(0xFFF59E0B),
-                          icon: Icons.shopping_bag_outlined,
-                          onTap: () => _openAddTransaction('EXPENSE'),
-                        ),
-                        const SizedBox(width: 10),
-                        _buildActionButton(
-                          label: 'Analytics',
-                          sub: 'Charts & Trends',
-                          color: const Color(0xFF10B981),
-                          icon: Icons.insights_rounded,
-                          onTap: () => widget.onNavigateToTab?.call(2),
-                        ),
-                      ],
-                    ),
 
                   const SizedBox(height: 24),
 
@@ -425,7 +535,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   const SizedBox(height: 8),
 
-                  // 5. Recent Transactions List (Filtered by active mode)
+                  // 5. Recent Transactions List (Filtered by active book & active mode)
                   ValueListenableBuilder<bool>(
                     valueListenable: BudgetService.privateModeNotifier,
                     builder: (context, isPrivate, _) {
@@ -436,8 +546,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
                             return const ShimmerTransactionList(count: 4);
                           }
+                          final activeAccount = AccountService.activeAccountNotifier.value;
                           final allItems = snapshot.data ?? [];
                           final items = allItems.where((t) {
+                            final itemAccountId = t.accountId ?? 'main';
+                            final matchesAccount = itemAccountId == activeAccount.id;
+                            if (!matchesAccount) return false;
+
                             if (!isPocketMode) {
                               return t.type == 'GIVEN' || t.type == 'TAKEN';
                             } else {

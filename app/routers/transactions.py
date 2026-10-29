@@ -13,6 +13,7 @@ router = APIRouter(prefix="/transactions", tags=["Transactions (Ledger)"])
 
 @router.get("", response_model=List[TransactionResponse])
 def get_transactions(
+    account_id: Optional[str] = Query(None, description="Account / Book ID filter"),
     person_id: Optional[str] = None,
     category_id: Optional[str] = None,
     type_filter: Optional[str] = Query(None, alias="type", description="GIVEN, TAKEN, EXPENSE, INCOME"),
@@ -32,6 +33,8 @@ def get_transactions(
     
     if user_id:
         query = query.eq("user_id", user_id)
+    if account_id:
+        query = query.eq("account_id", account_id)
     if person_id:
         query = query.eq("person_id", person_id)
     if category_id:
@@ -70,6 +73,8 @@ def get_transactions(
                 category_id=row.get("category_id"),
                 category_name=cat_info.get("name"),
                 category_color=cat_info.get("color"),
+                account_id=row.get("account_id") or "main",
+                account_name=row.get("account_name") or "Main Account",
                 created_at=row.get("created_at")
             )
         )
@@ -114,7 +119,9 @@ def create_transaction(payload: TransactionCreate):
         "notes": payload.notes,
         "transaction_date": t_date,
         "person_id": person_id,
-        "category_id": category_id
+        "category_id": category_id,
+        "account_id": payload.account_id or "main",
+        "account_name": payload.account_name or "Main Account"
     }
     if payload.user_id:
         record["user_id"] = payload.user_id
@@ -149,6 +156,8 @@ def create_transaction(payload: TransactionCreate):
         category_id=row.get("category_id"),
         category_name=cat_info.get("name"),
         category_color=cat_info.get("color"),
+        account_id=row.get("account_id") or "main",
+        account_name=row.get("account_name") or "Main Account",
         created_at=row.get("created_at")
     )
 
@@ -182,6 +191,8 @@ def get_transaction(transaction_id: str):
         category_id=row.get("category_id"),
         category_name=cat_info.get("name"),
         category_color=cat_info.get("color"),
+        account_id=row.get("account_id") or "main",
+        account_name=row.get("account_name") or "Main Account",
         created_at=row.get("created_at")
     )
 

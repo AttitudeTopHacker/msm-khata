@@ -111,6 +111,10 @@ class MonthlyTrendItem {
 }
 
 class DashboardStats {
+  final double netAccountBalance;
+  final double totalMoneyIn;
+  final double totalMoneyOut;
+  final String activeAccountId;
   final double totalReceivable;
   final double totalPayable;
   final double netLenDenPosition;
@@ -126,6 +130,10 @@ class DashboardStats {
   final List<MonthlyTrendItem> monthlyTrends;
 
   DashboardStats({
+    this.netAccountBalance = 0.0,
+    this.totalMoneyIn = 0.0,
+    this.totalMoneyOut = 0.0,
+    this.activeAccountId = 'main',
     required this.totalReceivable,
     required this.totalPayable,
     required this.netLenDenPosition,
@@ -142,13 +150,27 @@ class DashboardStats {
   });
 
   factory DashboardStats.fromJson(Map<String, dynamic> json) {
+    final income = (json['total_income'] as num?)?.toDouble() ?? 0.0;
+    final expense = (json['total_expense'] as num?)?.toDouble() ?? 0.0;
+    final rec = (json['total_receivable'] as num?)?.toDouble() ?? 0.0;
+    final pay = (json['total_payable'] as num?)?.toDouble() ?? 0.0;
+
+    // Fallbacks if backend doesn't send explicit net_account_balance
+    final inAmt = (json['total_money_in'] as num?)?.toDouble() ?? (income + pay);
+    final outAmt = (json['total_money_out'] as num?)?.toDouble() ?? (expense + rec);
+    final balAmt = (json['net_account_balance'] as num?)?.toDouble() ?? (inAmt - outAmt);
+
     return DashboardStats(
-      totalReceivable: (json['total_receivable'] as num?)?.toDouble() ?? 0.0,
-      totalPayable: (json['total_payable'] as num?)?.toDouble() ?? 0.0,
-      netLenDenPosition: (json['net_len_den_position'] as num?)?.toDouble() ?? 0.0,
-      totalIncome: (json['total_income'] as num?)?.toDouble() ?? 0.0,
-      totalExpense: (json['total_expense'] as num?)?.toDouble() ?? 0.0,
-      netSavings: (json['net_savings'] as num?)?.toDouble() ?? 0.0,
+      netAccountBalance: balAmt,
+      totalMoneyIn: inAmt,
+      totalMoneyOut: outAmt,
+      activeAccountId: json['active_account_id'] ?? 'main',
+      totalReceivable: rec,
+      totalPayable: pay,
+      netLenDenPosition: (json['net_len_den_position'] as num?)?.toDouble() ?? (rec - pay),
+      totalIncome: income,
+      totalExpense: expense,
+      netSavings: (json['net_savings'] as num?)?.toDouble() ?? (income - expense),
       peopleToReceiveCount: json['people_to_receive_from_count'] ?? 0,
       peopleToPayCount: json['people_to_pay_to_count'] ?? 0,
       totalTransactionsCount: json['total_transactions_count'] ?? 0,
@@ -173,6 +195,10 @@ class DashboardStats {
 
   Map<String, dynamic> toJson() {
     return {
+      'net_account_balance': netAccountBalance,
+      'total_money_in': totalMoneyIn,
+      'total_money_out': totalMoneyOut,
+      'active_account_id': activeAccountId,
       'total_receivable': totalReceivable,
       'total_payable': totalPayable,
       'net_len_den_position': netLenDenPosition,

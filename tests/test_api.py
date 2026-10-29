@@ -16,23 +16,28 @@ def test_api():
     print(f"Persons count: {len(r.json())}")
     
     # 2. Test On-The-Fly Transaction Creation
-    print("\nTesting on-the-fly transaction creation...")
+    import time
+    unique_name = f"Test Person {int(time.time())}"
+    print(f"\nTesting on-the-fly transaction creation for {unique_name}...")
     payload = {
         "type": "GIVEN",
         "amount": 1500.0,
         "payment_mode": "UPI",
-        "person_name": "Test Rahul",
-        "notes": "Testing len-den entry"
+        "person_name": unique_name,
+        "notes": "Testing len-den entry",
+        "account_id": "main",
+        "account_name": "Main Account"
     }
     r = client.post("/api/v1/transactions", json=payload)
     assert r.status_code == 201, f"Create transaction failed: {r.text}"
     t_data = r.json()
     t_id = t_data["id"]
     p_id = t_data["person_id"]
-    print(f"Created transaction: {t_id}, Person: {t_data['person_name']} ({p_id})")
+    print(f"Created transaction: {t_id}, Person: {t_data['person_name']} ({p_id}), Account: {t_data['account_id']}")
+    assert t_data["account_id"] == "main"
     
     # 3. Verify Person Balance
-    print("\nChecking person balance for Test Rahul...")
+    print(f"\nChecking person balance for {unique_name}...")
     r = client.get(f"/api/v1/persons/{p_id}")
     assert r.status_code == 200, f"Get person balance failed: {r.text}"
     p_info = r.json()

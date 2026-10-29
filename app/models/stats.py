@@ -24,6 +24,12 @@ class MonthlyTrendItem(BaseModel):
     total_taken: float
 
 class DashboardSummary(BaseModel):
+    # Passbook / Master Account Real Balances
+    net_account_balance: float = 0.0  # (income + taken) - (expense + given)
+    total_money_in: float = 0.0       # income + taken
+    total_money_out: float = 0.0      # expense + given
+    active_account_id: Optional[str] = "main"
+
     # Len-Den Metrics
     total_receivable: float = 0.0     # Total Market Lena Hai
     total_payable: float = 0.0        # Total Market Dena Hai

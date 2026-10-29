@@ -115,7 +115,8 @@ MimeType=x-scheme-handler/io.supabase.msmkhata;
     prerm = deb_debian / "prerm"
     prerm.write_text("""#!/bin/sh
 set -e
-pkill -f "msmkhata" 2>/dev/null || true
+pkill -x "msmkhata_app" 2>/dev/null || true
+pkill -f "^/opt/msmkhata/msmkhata_app" 2>/dev/null || true
 exit 0
 """)
     os.chmod(prerm, 0o755)

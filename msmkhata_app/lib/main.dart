@@ -220,34 +220,144 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         index: _currentIndex,
         children: screens,
       ),
-      bottomNavigationBar: NavigationBar(
-        backgroundColor: const Color(0xFF0F172A),
-        indicatorColor: const Color(0xFF4F46E5).withOpacity(0.3),
-        selectedIndex: _currentIndex,
-        onDestinationSelected: _onTabSwitched,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined, color: Color(0xFF94A3B8)),
-            selectedIcon: Icon(Icons.dashboard_rounded, color: Color(0xFF818CF8)),
-            label: 'Dashboard',
+      bottomNavigationBar: _buildCustomBottomBar(),
+    );
+  }
+
+  Widget _buildCustomBottomBar() {
+    final navItems = const [
+      _NavItem(
+        icon: Icons.dashboard_outlined,
+        activeIcon: Icons.dashboard_rounded,
+        label: 'Dashboard',
+      ),
+      _NavItem(
+        icon: Icons.people_outline_rounded,
+        activeIcon: Icons.people_rounded,
+        label: 'Contacts',
+      ),
+      _NavItem(
+        icon: Icons.insights_outlined,
+        activeIcon: Icons.insights_rounded,
+        label: 'Analytics',
+      ),
+      _NavItem(
+        icon: Icons.receipt_long_outlined,
+        activeIcon: Icons.receipt_long_rounded,
+        label: 'History',
+      ),
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A),
+        border: Border(
+          top: BorderSide(
+            color: const Color(0xFF334155).withValues(alpha: 0.65),
+            width: 0.8,
           ),
-          NavigationDestination(
-            icon: Icon(Icons.people_outline_rounded, color: Color(0xFF94A3B8)),
-            selectedIcon: Icon(Icons.people_rounded, color: Color(0xFF818CF8)),
-            label: 'Contacts',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.insights_outlined, color: Color(0xFF94A3B8)),
-            selectedIcon: Icon(Icons.insights_rounded, color: Color(0xFF818CF8)),
-            label: 'Analytics',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.receipt_long_outlined, color: Color(0xFF94A3B8)),
-            selectedIcon: Icon(Icons.receipt_long_rounded, color: Color(0xFF818CF8)),
-            label: 'History',
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 16,
+            offset: const Offset(0, -4),
           ),
         ],
       ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 64,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: List.generate(navItems.length, (index) {
+              final item = navItems[index];
+              final isSelected = _currentIndex == index;
+
+              return Expanded(
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => _onTabSwitched(index),
+                    splashColor: const Color(0xFF4F46E5).withValues(alpha: 0.12),
+                    highlightColor: Colors.transparent,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Sleek top active glow indicator bar
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 250),
+                          curve: Curves.easeOutCubic,
+                          width: isSelected ? 22 : 0,
+                          height: 3,
+                          margin: const EdgeInsets.only(bottom: 4),
+                          decoration: BoxDecoration(
+                            color: isSelected ? const Color(0xFF818CF8) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(3),
+                            boxShadow: isSelected
+                                ? [
+                                    BoxShadow(
+                                      color: const Color(0xFF818CF8).withValues(alpha: 0.7),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 1),
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                        ),
+
+                        // Active animated icon with subtle micro-pill glow
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 220),
+                          curve: Curves.easeInOut,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? const Color(0xFF4F46E5).withValues(alpha: 0.22)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            isSelected ? item.activeIcon : item.icon,
+                            color: isSelected ? const Color(0xFF818CF8) : const Color(0xFF64748B),
+                            size: 22,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+
+                        // Label text with crisp typography
+                        AnimatedDefaultTextStyle(
+                          duration: const Duration(milliseconds: 200),
+                          style: TextStyle(
+                            color: isSelected ? const Color(0xFF818CF8) : const Color(0xFF64748B),
+                            fontSize: 11,
+                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                            letterSpacing: 0.2,
+                          ),
+                          child: Text(item.label),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
+        ),
+      ),
     );
   }
+}
+
+class _NavItem {
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+
+  const _NavItem({
+    required this.icon,
+    required this.activeIcon,
+    required this.label,
+  });
 }

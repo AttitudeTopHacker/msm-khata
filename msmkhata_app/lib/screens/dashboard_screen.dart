@@ -17,6 +17,8 @@ import '../widgets/msm_shimmer_text.dart';
 import '../widgets/transaction_detail_sheet.dart';
 import '../services/connectivity_service.dart';
 import '../services/sync_service.dart';
+import '../services/budget_service.dart';
+import '../widgets/personal_pocket_card.dart';
 
 class DashboardScreen extends StatefulWidget {
   final ValueChanged<int>? onNavigateToTab;
@@ -227,361 +229,651 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: SingleChildScrollView(
           physics: AdaptiveRefreshIndicator.scrollPhysics(),
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 1. Net Position Card
-              FutureBuilder<DashboardStats>(
-                future: _statsFuture,
-                initialData: SyncService.cachedStats,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
-                    return const ShimmerNetPositionCard();
-                  }
-                  if (snapshot.hasError) {
-                    // Auto-retry in 4s to smoothly recover when Render free-tier finishes waking up
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      Future.delayed(const Duration(seconds: 4), () {
-                        if (mounted) _refreshData();
-                      });
-                    });
+          child: ValueListenableBuilder<int>(
+            valueListenable: BudgetService.dashboardModeNotifier,
+            builder: (context, activeMode, _) {
+              final isPocketMode = activeMode == 1;
 
-                    return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: const Color(0xFF334155), width: 1),
-                      ),
-                      child: Row(
-                        children: [
-                          const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF818CF8)),
-                          ),
-                          const SizedBox(width: 14),
-                          const Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Connecting to Cloud Ledger...',
-                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                                ),
-                                SizedBox(height: 2),
-                                Text(
-                                  'Render server waking up from sleep. Auto-syncing...',
-                                  style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
-                                ),
-                              ],
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: _refreshData,
-                            child: const Text('Retry Now', style: TextStyle(color: Color(0xFF818CF8), fontWeight: FontWeight.bold, fontSize: 12)),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-                  final stats = snapshot.data!;
-                  return Column(
-                    children: [
-                      NetPositionCard(stats: stats),
-                      const SizedBox(height: 16),
-                      // 2. Quick Analytics Highlights Banner
-                      _buildAnalyticsHighlightCard(stats),
-                    ],
-                  );
-                },
-              ),
-
-              const SizedBox(height: 20),
-
-              // 3. Quick Action Buttons
-              const Text(
-                'Quick Actions',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-              ),
-              const SizedBox(height: 12),
-              Row(
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildActionButton(
-                    label: 'Lent',
-                    sub: 'Money Given',
-                    color: const Color(0xFF10B981),
-                    icon: Icons.call_made_rounded,
-                    onTap: () => _openAddTransaction('GIVEN'),
-                  ),
-                  const SizedBox(width: 10),
-                  _buildActionButton(
-                    label: 'Borrowed',
-                    sub: 'Money Taken',
-                    color: const Color(0xFFEF4444),
-                    icon: Icons.call_received_rounded,
-                    onTap: () => _openAddTransaction('TAKEN'),
-                  ),
-                  const SizedBox(width: 10),
-                  _buildActionButton(
-                    label: 'Expense',
-                    sub: 'Expenditure',
-                    color: const Color(0xFFF59E0B),
-                    icon: Icons.shopping_bag_outlined,
-                    onTap: () => _openAddTransaction('EXPENSE'),
-                  ),
-                ],
-              ),
+                  // 0. Dual Dashboard Switcher (Len-Den vs Personal Pocket)
+                  _buildDualDashboardSwitcher(activeMode),
 
-              const SizedBox(height: 24),
-
-              // 4. Recent Transactions Header with View All
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      const Text(
-                        'Recent Ledger Entries',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-                      ),
-                      const SizedBox(width: 8),
-                      InkWell(
-                        onTap: _isSyncing ? null : _refreshData,
-                        borderRadius: BorderRadius.circular(12),
-                        child: Padding(
-                          padding: const EdgeInsets.all(4),
-                          child: Icon(
-                            Icons.sync_rounded,
-                            size: 16,
-                            color: _isSyncing ? const Color(0xFF818CF8) : const Color(0xFF64748B),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  TextButton.icon(
-                    onPressed: () {
-                      if (widget.onNavigateToTab != null) {
-                        widget.onNavigateToTab!(3); // Jump to History & Filter tab
-                      } else {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const HistoryScreen()),
-                        );
+                  // 1. Hero Card: NetPositionCard (Mode 0) OR PersonalPocketCard (Mode 1)
+                  FutureBuilder<DashboardStats>(
+                    future: _statsFuture,
+                    initialData: SyncService.cachedStats,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+                        return const ShimmerNetPositionCard();
                       }
-                    },
-                    icon: const Icon(Icons.tune_rounded, size: 16, color: Color(0xFF818CF8)),
-                    label: const Text('View All & Filter', style: TextStyle(color: Color(0xFF818CF8))),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
+                      if (snapshot.hasError) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          Future.delayed(const Duration(seconds: 4), () {
+                            if (mounted) _refreshData();
+                          });
+                        });
 
-              // 5. Recent Transactions List
-              FutureBuilder<List<TransactionItem>>(
-                future: _transactionsFuture,
-                initialData: SyncService.cachedTransactions.isNotEmpty ? SyncService.cachedTransactions : null,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
-                    return const ShimmerTransactionList(count: 4);
-                  }
-                  final items = snapshot.data ?? [];
-                  if (items.isEmpty) {
-                    return Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 30),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: const Column(
-                        children: [
-                          Icon(Icons.receipt_long_rounded, size: 40, color: Color(0xFF64748B)),
-                          SizedBox(height: 10),
-                          Text('No transactions recorded yet', style: TextStyle(color: Color(0xFF94A3B8))),
-                        ],
-                      ),
-                    );
-                  }
-
-                  return ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: items.length > 5 ? 5 : items.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (context, index) {
-                      final item = items[index];
-                      final isGiven = item.type == 'GIVEN';
-                      final isTaken = item.type == 'TAKEN';
-                      final isIncome = item.type == 'INCOME';
-
-                      final color = isGiven
-                          ? const Color(0xFF10B981)
-                          : isTaken
-                              ? const Color(0xFFEF4444)
-                              : isIncome
-                                  ? const Color(0xFF38BDF8)
-                                  : const Color(0xFFF59E0B);
-
-                      return Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () async {
-                            final changed = await TransactionDetailSheet.show(
-                              context,
-                              item: item,
-                              onTransactionChanged: _refreshData,
-                            );
-                            if (changed == true) {
-                              _refreshData();
-                            }
-                          },
-                          borderRadius: BorderRadius.circular(16),
-                          child: Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1E293B),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: const Color(0xFF334155), width: 0.6),
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: color.withOpacity(0.15),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    isGiven
-                                        ? Icons.arrow_outward_rounded
-                                        : isTaken
-                                            ? Icons.arrow_downward_rounded
-                                            : isIncome
-                                                ? Icons.account_balance_wallet_rounded
-                                                : Icons.receipt_rounded,
-                                    color: color,
-                                    size: 20,
-                                  ),
-                                ),
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        item.personName ?? item.categoryName ?? item.type,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 15,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Row(
-                                        children: [
-                                          if (item.transactionDate != null) ...[
-                                            Text(
-                                              _formatDate(item.transactionDate),
-                                              style: const TextStyle(
-                                                color: Color(0xFF38BDF8),
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                            const Text(
-                                              ' • ',
-                                              style: TextStyle(color: Color(0xFF64748B), fontSize: 11),
-                                            ),
-                                          ],
-                                          Flexible(
-                                            child: Text(
-                                              item.notes?.isNotEmpty == true ? item.notes! : item.paymentMode,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1E293B),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: const Color(0xFF334155), width: 1),
+                          ),
+                          child: Row(
+                            children: [
+                              const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF818CF8)),
+                              ),
+                              const SizedBox(width: 14),
+                              const Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      currency.format(item.amount),
-                                      style: TextStyle(
-                                        color: color,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16,
-                                      ),
+                                      'Connecting to Cloud Ledger...',
+                                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                                     ),
-                                    if (item.isSettled)
-                                      const Text(
-                                        'Settled',
-                                        style: TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.w600),
-                                      )
-                                    else if (item.dueDate != null)
-                                      Text(
-                                        'Due ${item.dueDate!.substring(0, 10)}',
-                                        style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 10),
-                                      ),
+                                    SizedBox(height: 2),
+                                    Text(
+                                      'Render server waking up from sleep. Auto-syncing...',
+                                      style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+                                    ),
                                   ],
                                 ),
-                                const SizedBox(width: 4),
-                                const Icon(
-                                  Icons.chevron_right_rounded,
-                                  color: Color(0xFF475569),
-                                  size: 18,
-                                ),
-                              ],
-                            ),
+                              ),
+                              TextButton(
+                                onPressed: _refreshData,
+                                child: const Text('Retry Now', style: TextStyle(color: Color(0xFF818CF8), fontWeight: FontWeight.bold, fontSize: 12)),
+                              ),
+                            ],
                           ),
-                        ),
+                        );
+                      }
+                      final stats = snapshot.data!;
+                      return Column(
+                        children: [
+                          if (!isPocketMode)
+                            NetPositionCard(stats: stats)
+                          else
+                            PersonalPocketCard(
+                              stats: stats,
+                              onBudgetUpdated: _refreshData,
+                            ),
+                          const SizedBox(height: 16),
+                          // 2. Highlights Banner (Analytics or Category Spotlight)
+                          if (!isPocketMode)
+                            _buildAnalyticsHighlightCard(stats)
+                          else
+                            _buildPocketSpendingHighlight(stats),
+                        ],
                       );
                     },
-                  );
-                },
-              ),
-              const SizedBox(height: 20),
-              Center(
-                child: Column(
-                  children: [
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // 3. Quick Action Buttons
+                  Text(
+                    !isPocketMode ? 'Len-Den Quick Actions' : 'Personal Pocket Actions',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                  const SizedBox(height: 12),
+                  if (!isPocketMode)
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.auto_awesome, color: Color(0xFF818CF8), size: 14),
-                        SizedBox(width: 6),
-                        MsmShimmerText(
-                          text: 'ORG : msm.movin 2022',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 0.8),
+                      children: [
+                        _buildActionButton(
+                          label: 'Lent',
+                          sub: 'Money Given',
+                          color: const Color(0xFF10B981),
+                          icon: Icons.call_made_rounded,
+                          onTap: () => _openAddTransaction('GIVEN'),
                         ),
-                        SizedBox(width: 6),
-                        Icon(Icons.auto_awesome, color: Color(0xFF38BDF8), size: 14),
+                        const SizedBox(width: 10),
+                        _buildActionButton(
+                          label: 'Borrowed',
+                          sub: 'Money Taken',
+                          color: const Color(0xFFEF4444),
+                          icon: Icons.call_received_rounded,
+                          onTap: () => _openAddTransaction('TAKEN'),
+                        ),
+                        const SizedBox(width: 10),
+                        _buildActionButton(
+                          label: 'Contacts',
+                          sub: 'Parties Ledger',
+                          color: const Color(0xFF818CF8),
+                          icon: Icons.people_outline_rounded,
+                          onTap: () => widget.onNavigateToTab?.call(1),
+                        ),
+                      ],
+                    )
+                  else
+                    Row(
+                      children: [
+                        _buildActionButton(
+                          label: 'Income',
+                          sub: 'Add Earnings',
+                          color: const Color(0xFF38BDF8),
+                          icon: Icons.trending_up_rounded,
+                          onTap: () => _openAddTransaction('INCOME'),
+                        ),
+                        const SizedBox(width: 10),
+                        _buildActionButton(
+                          label: 'Expense',
+                          sub: 'Expenditure',
+                          color: const Color(0xFFF59E0B),
+                          icon: Icons.shopping_bag_outlined,
+                          onTap: () => _openAddTransaction('EXPENSE'),
+                        ),
+                        const SizedBox(width: 10),
+                        _buildActionButton(
+                          label: 'Analytics',
+                          sub: 'Charts & Trends',
+                          color: const Color(0xFF10B981),
+                          icon: Icons.insights_rounded,
+                          onTap: () => widget.onNavigateToTab?.call(2),
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Multi-User Isolated Cloud Accounting System',
-                      style: TextStyle(color: Color(0xFF64748B), fontSize: 11),
+
+                  const SizedBox(height: 24),
+
+                  // 4. Recent Transactions Header with View All
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            !isPocketMode ? 'Recent Len-Den Entries' : 'Recent Pocket & Expense Entries',
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                          ),
+                          const SizedBox(width: 8),
+                          InkWell(
+                            onTap: _isSyncing ? null : _refreshData,
+                            borderRadius: BorderRadius.circular(12),
+                            child: Padding(
+                              padding: const EdgeInsets.all(4),
+                              child: Icon(
+                                Icons.sync_rounded,
+                                size: 16,
+                                color: _isSyncing ? const Color(0xFF818CF8) : const Color(0xFF64748B),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      TextButton.icon(
+                        onPressed: () {
+                          if (widget.onNavigateToTab != null) {
+                            widget.onNavigateToTab!(3); // Jump to History & Filter tab
+                          } else {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const HistoryScreen()),
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.tune_rounded, size: 16, color: Color(0xFF818CF8)),
+                        label: const Text('View All & Filter', style: TextStyle(color: Color(0xFF818CF8))),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+
+                  // 5. Recent Transactions List (Filtered by active mode)
+                  ValueListenableBuilder<bool>(
+                    valueListenable: BudgetService.privateModeNotifier,
+                    builder: (context, isPrivate, _) {
+                      return FutureBuilder<List<TransactionItem>>(
+                        future: _transactionsFuture,
+                        initialData: SyncService.cachedTransactions.isNotEmpty ? SyncService.cachedTransactions : null,
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+                            return const ShimmerTransactionList(count: 4);
+                          }
+                          final allItems = snapshot.data ?? [];
+                          final items = allItems.where((t) {
+                            if (!isPocketMode) {
+                              return t.type == 'GIVEN' || t.type == 'TAKEN';
+                            } else {
+                              return t.type == 'INCOME' || t.type == 'EXPENSE';
+                            }
+                          }).toList();
+
+                          if (items.isEmpty) {
+                            return Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(vertical: 30),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1E293B),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Column(
+                                children: [
+                                  Icon(
+                                    !isPocketMode ? Icons.handshake_outlined : Icons.receipt_long_rounded,
+                                    size: 40,
+                                    color: const Color(0xFF64748B),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    !isPocketMode
+                                        ? 'No Len-Den transactions recorded yet'
+                                        : 'No personal income or expense recorded yet',
+                                    style: const TextStyle(color: Color(0xFF94A3B8)),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+
+                          return ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: items.length > 5 ? 5 : items.length,
+                            separatorBuilder: (_, __) => const SizedBox(height: 8),
+                            itemBuilder: (context, index) {
+                              final item = items[index];
+                              final isGiven = item.type == 'GIVEN';
+                              final isTaken = item.type == 'TAKEN';
+                              final isIncome = item.type == 'INCOME';
+
+                              final color = isGiven
+                                  ? const Color(0xFF10B981)
+                                  : isTaken
+                                      ? const Color(0xFFEF4444)
+                                      : isIncome
+                                          ? const Color(0xFF38BDF8)
+                                          : const Color(0xFFF59E0B);
+
+                              return Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () async {
+                                    final changed = await TransactionDetailSheet.show(
+                                      context,
+                                      item: item,
+                                      onTransactionChanged: _refreshData,
+                                    );
+                                    if (changed == true) {
+                                      _refreshData();
+                                    }
+                                  },
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(14),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF1E293B),
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(color: const Color(0xFF334155), width: 0.6),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(10),
+                                          decoration: BoxDecoration(
+                                            color: color.withValues(alpha: 0.15),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Icon(
+                                            isGiven
+                                                ? Icons.arrow_outward_rounded
+                                                : isTaken
+                                                    ? Icons.arrow_downward_rounded
+                                                    : isIncome
+                                                        ? Icons.account_balance_wallet_rounded
+                                                        : Icons.receipt_rounded,
+                                            color: color,
+                                            size: 20,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 14),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                item.personName ?? item.categoryName ?? item.type,
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 15,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Row(
+                                                children: [
+                                                  if (item.transactionDate != null) ...[
+                                                    Text(
+                                                      _formatDate(item.transactionDate),
+                                                      style: const TextStyle(
+                                                        color: Color(0xFF38BDF8),
+                                                        fontSize: 11,
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                    const Text(
+                                                      ' • ',
+                                                      style: TextStyle(color: Color(0xFF64748B), fontSize: 11),
+                                                    ),
+                                                  ],
+                                                  Flexible(
+                                                    child: Text(
+                                                      item.notes?.isNotEmpty == true ? item.notes! : item.paymentMode,
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                      style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        Column(
+                                          crossAxisAlignment: CrossAxisAlignment.end,
+                                          children: [
+                                            Text(
+                                              (isPocketMode && isPrivate) ? '••••••' : currency.format(item.amount),
+                                              style: TextStyle(
+                                                color: color,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 16,
+                                              ),
+                                            ),
+                                            if (item.isSettled)
+                                              const Text(
+                                                'Settled',
+                                                style: TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.w600),
+                                              )
+                                            else if (item.dueDate != null)
+                                              Text(
+                                                'Due ${item.dueDate!.substring(0, 10)}',
+                                                style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 10),
+                                              ),
+                                          ],
+                                        ),
+                                        const SizedBox(width: 4),
+                                        const Icon(
+                                          Icons.chevron_right_rounded,
+                                          color: Color(0xFF475569),
+                                          size: 18,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  Center(
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            Icon(Icons.auto_awesome, color: Color(0xFF818CF8), size: 14),
+                            SizedBox(width: 6),
+                            MsmShimmerText(
+                              text: 'ORG : msm.movin 2022',
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 0.8),
+                            ),
+                            SizedBox(width: 6),
+                            Icon(Icons.auto_awesome, color: Color(0xFF38BDF8), size: 14),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Multi-User Isolated Cloud Accounting System',
+                          style: TextStyle(color: Color(0xFF64748B), fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 36),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+      floatingActionButton: ValueListenableBuilder<int>(
+        valueListenable: BudgetService.dashboardModeNotifier,
+        builder: (context, activeMode, _) {
+          final isPocketMode = activeMode == 1;
+          return FloatingActionButton(
+            backgroundColor: isPocketMode ? const Color(0xFF059669) : const Color(0xFF4F46E5),
+            tooltip: isPocketMode ? 'Add Personal Expense' : 'Add Len-Den Entry',
+            child: const Icon(Icons.add, color: Colors.white),
+            onPressed: () => _openAddTransaction(isPocketMode ? 'EXPENSE' : 'GIVEN'),
+          );
+        },
+      ),
+    );
+  }
+
+  /// Segmented Switcher for Dual Dashboard: [ 🤝 Len-Den Khata ] vs [ 💼 Personal Pocket ]
+  Widget _buildDualDashboardSwitcher(int activeMode) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF334155), width: 1),
+      ),
+      child: Row(
+        children: [
+          // Mode 0: Len-Den Khata
+          Expanded(
+            child: InkWell(
+              onTap: () => BudgetService.setDashboardMode(0),
+              borderRadius: BorderRadius.circular(12),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: activeMode == 0 ? const Color(0xFF4F46E5) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: activeMode == 0
+                      ? [
+                          BoxShadow(
+                            color: const Color(0xFF4F46E5).withValues(alpha: 0.4),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.handshake_rounded,
+                      size: 16,
+                      color: activeMode == 0 ? Colors.white : const Color(0xFF94A3B8),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Len-Den Khata',
+                      style: TextStyle(
+                        color: activeMode == 0 ? Colors.white : const Color(0xFF94A3B8),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 36),
-            ],
+            ),
           ),
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFF4F46E5),
-        child: const Icon(Icons.add, color: Colors.white),
-        onPressed: () => _openAddTransaction('GIVEN'),
+          // Mode 1: Personal Pocket & Budget
+          Expanded(
+            child: InkWell(
+              onTap: () => BudgetService.setDashboardMode(1),
+              borderRadius: BorderRadius.circular(12),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: activeMode == 1 ? const Color(0xFF059669) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: activeMode == 1
+                      ? [
+                          BoxShadow(
+                            color: const Color(0xFF059669).withValues(alpha: 0.4),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.wallet_rounded,
+                      size: 16,
+                      color: activeMode == 1 ? Colors.white : const Color(0xFF94A3B8),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Personal Pocket',
+                      style: TextStyle(
+                        color: activeMode == 1 ? Colors.white : const Color(0xFF94A3B8),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
+  }
+
+  /// Spotlight Card for Top Expense Categories in Personal Pocket Mode
+  Widget _buildPocketSpendingHighlight(DashboardStats stats) {
+    final currency = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
+    final categories = stats.categoryBreakdown;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFF059669).withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.pie_chart_rounded, color: Color(0xFF34D399), size: 18),
+                  ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'Spending Category Spotlight',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5),
+                  ),
+                ],
+              ),
+              TextButton(
+                onPressed: () => widget.onNavigateToTab?.call(2), // Jump to Analytics
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                ),
+                child: const Text('All Charts →', style: TextStyle(color: Color(0xFF34D399), fontSize: 12)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (categories.isEmpty)
+            const Text(
+              'No expense categories recorded yet. Add an expense entry to view breakdown.',
+              style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5),
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: categories.take(4).map((c) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0F172A),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFF334155), width: 0.8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: _parseHexColor(c.color),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        c.categoryName,
+                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        currency.format(c.totalAmount),
+                        style: const TextStyle(color: Color(0xFF6EE7B7), fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '(${c.percentage.toStringAsFixed(0)}%)',
+                        style: const TextStyle(color: Color(0xFF64748B), fontSize: 10),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Color _parseHexColor(String hex) {
+    try {
+      String cleanHex = hex.replaceAll('#', '');
+      if (cleanHex.length == 6) {
+        cleanHex = 'FF$cleanHex';
+      }
+      return Color(int.parse(cleanHex, radix: 16));
+    } catch (_) {
+      return const Color(0xFF10B981);
+    }
   }
 
   Widget _buildAnalyticsHighlightCard(DashboardStats stats) {
@@ -595,14 +887,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         decoration: BoxDecoration(
           color: const Color(0xFF1E293B),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFF4F46E5).withOpacity(0.4)),
+          border: Border.all(color: const Color(0xFF4F46E5).withValues(alpha: 0.4)),
         ),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFF4F46E5).withOpacity(0.18),
+                color: const Color(0xFF4F46E5).withValues(alpha: 0.18),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.insights_rounded, color: Color(0xFF818CF8), size: 24),
@@ -647,14 +939,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
           decoration: BoxDecoration(
             color: const Color(0xFF1E293B),
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: color.withOpacity(0.3), width: 1),
+            border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
           ),
           child: Column(
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.15),
+                  color: color.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(icon, color: color, size: 20),

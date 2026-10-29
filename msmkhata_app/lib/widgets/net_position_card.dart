@@ -13,12 +13,11 @@ class NetPositionCard extends StatelessWidget {
     final currency = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
 
     // Formula: (Liquid Funds + Receivable) - Payable
-    // Lene aur dene ke baad total bacha paisa
     final liquidFunds = stats.netAccountBalance;
     final receivable = stats.totalReceivable;
     final payable = stats.totalPayable;
     final finalNetBalance = (liquidFunds + receivable) - payable;
-    final isFinalPositive = finalNetBalance >= 0;
+    final isNetPositive = stats.netLenDenPosition >= 0;
 
     return ValueListenableBuilder<bool>(
       valueListenable: BudgetService.privateModeNotifier,
@@ -46,27 +45,55 @@ class NetPositionCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header Row: Net Ledger Position with Formula Subtitle
+              // Header Row: Net Ledger Position with small Net Balance chip beside it
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Net Ledger Position',
-                          style: TextStyle(
-                            color: Color(0xFFC7D2FE),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.5,
-                          ),
+                        Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 8,
+                          runSpacing: 4,
+                          children: [
+                            const Text(
+                              'Net Ledger Position',
+                              style: TextStyle(
+                                color: Color(0xFFC7D2FE),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            // Chota sa Net Balance chip theek text ke side me
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF10B981).withValues(alpha: 0.18),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: const Color(0xFF34D399).withValues(alpha: 0.4),
+                                  width: 0.8,
+                                ),
+                              ),
+                              child: Text(
+                                'Net Balance: ${mask(currency.format(finalNetBalance))}',
+                                style: const TextStyle(
+                                  color: Color(0xFF34D399),
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        SizedBox(height: 3),
+                        const SizedBox(height: 3),
                         Text(
-                          'Lene aur dene ke baad: (Liquid Fund + Receivable) - Payable',
-                          style: TextStyle(
+                          'Lene & dene ke baad: (Liquid Fund + Receivable) - Payable = ${mask(currency.format(finalNetBalance))}',
+                          style: const TextStyle(
                             color: Color(0xFF94A3B8),
                             fontSize: 11,
                             fontWeight: FontWeight.w500,
@@ -78,19 +105,19 @@ class NetPositionCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: isFinalPositive
+                      color: isNetPositive
                           ? const Color(0xFF059669).withValues(alpha: 0.3)
                           : const Color(0xFFDC2626).withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: isFinalPositive ? const Color(0xFF34D399) : const Color(0xFFF87171),
+                        color: isNetPositive ? const Color(0xFF34D399) : const Color(0xFFF87171),
                         width: 0.8,
                       ),
                     ),
                     child: Text(
-                      isFinalPositive ? 'Net Balance' : 'Shortfall',
+                      isNetPositive ? 'To Receive' : 'To Pay',
                       style: TextStyle(
-                        color: isFinalPositive ? const Color(0xFF34D399) : const Color(0xFFF87171),
+                        color: isNetPositive ? const Color(0xFF34D399) : const Color(0xFFF87171),
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                       ),
@@ -99,8 +126,9 @@ class NetPositionCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 12),
+              // Main Big Number stays Market Karza / Len-Den Position (e.g. ₹53,347)
               Text(
-                mask(currency.format(finalNetBalance)),
+                mask(currency.format(stats.netLenDenPosition.abs())),
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 34,

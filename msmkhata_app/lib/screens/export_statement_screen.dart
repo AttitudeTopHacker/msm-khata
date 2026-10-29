@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:printing/printing.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../models/account.dart';
 import '../models/stats.dart';
 import '../models/transaction.dart';
 import '../services/api_service.dart';
+import '../services/account_service.dart';
 import '../services/pdf_export_service.dart';
 import '../widgets/msm_shimmer_text.dart';
 
@@ -19,6 +23,7 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
   DashboardStats? _stats;
   List<TransactionItem> _transactions = [];
   bool _isGeneratingPdf = false;
+  bool _isDownloadingExcel = false;
 
   @override
   void initState() {
@@ -29,8 +34,9 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      final s = await ApiService.getDashboardStats();
-      final txs = await ApiService.getTransactions();
+      final activeAccount = AccountService.activeAccountNotifier.value;
+      final s = await ApiService.getDashboardStats(accountId: activeAccount.id);
+      final txs = await ApiService.getTransactions(accountId: activeAccount.id);
       if (mounted) {
         setState(() {
           _stats = s;
@@ -48,6 +54,61 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
           ),
         );
       }
+    }
+  }
+
+  Future<void> _handleDownloadPythonPdf() async {
+    final activeAccount = AccountService.activeAccountNotifier.value;
+    setState(() => _isGeneratingPdf = true);
+    try {
+      final pdfBytes = await ApiService.fetchPdfReport(
+        accountId: activeAccount.id,
+        accountName: activeAccount.name,
+      );
+      await Printing.layoutPdf(
+        onLayout: (format) async => pdfBytes,
+        name: 'msmkhata_${activeAccount.name}.pdf',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error downloading Python PDF: $e'),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isGeneratingPdf = false);
+    }
+  }
+
+  Future<void> _handleDownloadExcel() async {
+    final activeAccount = AccountService.activeAccountNotifier.value;
+    setState(() => _isDownloadingExcel = true);
+    try {
+      final url = ApiService.getExcelReportUrl(
+        accountId: activeAccount.id,
+        accountName: activeAccount.name,
+      );
+      final uri = Uri.parse(url);
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!ok && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open download URL')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error downloading Excel: $e'),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isDownloadingExcel = false);
     }
   }
 
@@ -299,50 +360,98 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
                         ),
                       ),
 
-                      const SizedBox(height: 28),
+                      const SizedBox(height: 24),
 
-                      // Primary Print / PDF Button
+                      // 1. Primary Button: Python Professional PDF with Charts
                       SizedBox(
-                        height: 52,
+                        height: 54,
                         child: ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF4F46E5),
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            elevation: 0,
+                            elevation: 4,
+                            shadowColor: const Color(0xFF4F46E5).withValues(alpha: 0.5),
                           ),
-                          onPressed: _isGeneratingPdf ? null : _handlePrintPdf,
+                          onPressed: _isGeneratingPdf ? null : _handleDownloadPythonPdf,
                           icon: _isGeneratingPdf
                               ? const SizedBox(
                                   width: 20,
                                   height: 20,
                                   child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                                 )
-                              : const Icon(Icons.picture_as_pdf_rounded, size: 20),
+                              : const Icon(Icons.analytics_rounded, size: 22),
                           label: Text(
-                            _isGeneratingPdf ? 'Preparing A4 PDF Sheet...' : 'Print / Save A4 PDF Statement',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                            _isGeneratingPdf ? 'Generating PDF with Charts...' : 'Download Full Audit PDF (With Charts)',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5),
                           ),
                         ),
                       ),
 
                       const SizedBox(height: 12),
 
-                      // Secondary Action: Export CSV
+                      // 2. Secondary Button: Multi-Tab Excel Workbook (.xlsx)
                       SizedBox(
-                        height: 48,
-                        child: OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Color(0xFF334155), width: 1.2),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        height: 52,
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF059669),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            elevation: 2,
                           ),
-                          onPressed: _handleViewCsv,
-                          icon: const Icon(Icons.table_chart_outlined, color: Color(0xFF10B981), size: 18),
-                          label: const Text(
-                            'Export Spreadsheet (CSV / Excel Sheet)',
-                            style: TextStyle(color: Color(0xFF94A3B8), fontWeight: FontWeight.bold, fontSize: 13),
+                          onPressed: _isDownloadingExcel ? null : _handleDownloadExcel,
+                          icon: _isDownloadingExcel
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Icon(Icons.table_view_rounded, size: 20),
+                          label: Text(
+                            _isDownloadingExcel ? 'Preparing Excel Workbook...' : 'Download Multi-Tab Excel Workbook (.xlsx)',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
                           ),
                         ),
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // 3. Instant Local Print / Save
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Color(0xFF334155), width: 1.2),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                              onPressed: _handlePrintPdf,
+                              icon: const Icon(Icons.print_rounded, color: Color(0xFF818CF8), size: 18),
+                              label: const Text(
+                                'Local A4 Print',
+                                style: TextStyle(color: Color(0xFF94A3B8), fontWeight: FontWeight.bold, fontSize: 12.5),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Color(0xFF334155), width: 1.2),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                              onPressed: _handleViewCsv,
+                              icon: const Icon(Icons.code_rounded, color: Color(0xFF10B981), size: 18),
+                              label: const Text(
+                                'View Raw CSV',
+                                style: TextStyle(color: Color(0xFF94A3B8), fontWeight: FontWeight.bold, fontSize: 12.5),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),

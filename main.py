@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.routers import persons, categories, transactions, stats, filters, auth, backup
+from app.routers import persons, categories, transactions, stats, filters, auth, backup, reports
 
 app = FastAPI(
     title=f"{settings.PROJECT_NAME} API",
@@ -28,6 +28,7 @@ app.include_router(transactions.router, prefix=settings.API_V1_PREFIX)
 app.include_router(stats.router, prefix=settings.API_V1_PREFIX)
 app.include_router(filters.router, prefix=settings.API_V1_PREFIX)
 app.include_router(backup.router, prefix=settings.API_V1_PREFIX)
+app.include_router(reports.router, prefix=settings.API_V1_PREFIX)
 
 @app.get("/")
 def read_root():

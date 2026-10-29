@@ -69,8 +69,23 @@ def test_api():
     assert r.status_code == 200, f"CSV backup failed: {r.text}"
     assert "Transaction ID,Date,Type" in r.text
     print("CSV backup spreadsheet generated successfully!")
+
+    # 6. Test Python Professional PDF & Excel Report Engine
+    print("\nTesting /api/v1/reports/pdf...")
+    r_pdf = client.get("/api/v1/reports/pdf?account_id=main&account_name=Main%20Account")
+    assert r_pdf.status_code == 200, f"PDF report failed: {r_pdf.text}"
+    assert r_pdf.headers.get("content-type") == "application/pdf"
+    assert len(r_pdf.content) > 1000
+    print(f"Professional PDF report generated successfully ({len(r_pdf.content):,} bytes, with embedded charts)")
+
+    print("\nTesting /api/v1/reports/excel...")
+    r_excel = client.get("/api/v1/reports/excel?account_id=main&account_name=Main%20Account")
+    assert r_excel.status_code == 200, f"Excel report failed: {r_excel.text}"
+    assert "openxmlformats" in r_excel.headers.get("content-type", "")
+    assert len(r_excel.content) > 1000
+    print(f"Professional Multi-Tab Excel Workbook generated successfully ({len(r_excel.content):,} bytes)")
     
-    # 6. Cleanup Test Data
+    # 7. Cleanup Test Data
     print("\nCleaning up test transaction & person...")
     client.delete(f"/api/v1/transactions/{t_id}")
     client.delete(f"/api/v1/persons/{p_id}")

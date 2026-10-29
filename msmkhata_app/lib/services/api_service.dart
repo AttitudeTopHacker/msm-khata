@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../models/person.dart';
@@ -254,5 +255,27 @@ class ApiService {
       return Category.fromJson(jsonDecode(res.body));
     }
     throw Exception('Failed to create category');
+  }
+
+  // 10. Python Professional Reports (PDF with Charts & Excel .xlsx)
+  static String getPdfReportUrl({String? accountId, String? accountName}) {
+    final aid = accountId ?? AccountService.activeAccountNotifier.value.id;
+    final aname = accountName ?? AccountService.activeAccountNotifier.value.name;
+    return '$_base/reports/pdf?account_id=$aid&account_name=${Uri.encodeComponent(aname)}';
+  }
+
+  static String getExcelReportUrl({String? accountId, String? accountName}) {
+    final aid = accountId ?? AccountService.activeAccountNotifier.value.id;
+    final aname = accountName ?? AccountService.activeAccountNotifier.value.name;
+    return '$_base/reports/excel?account_id=$aid&account_name=${Uri.encodeComponent(aname)}';
+  }
+
+  static Future<Uint8List> fetchPdfReport({String? accountId, String? accountName}) async {
+    final url = getPdfReportUrl(accountId: accountId, accountName: accountName);
+    final res = await http.get(Uri.parse(url));
+    if (res.statusCode == 200) {
+      return res.bodyBytes;
+    }
+    throw Exception('Failed to download PDF report: ${res.statusCode}');
   }
 }

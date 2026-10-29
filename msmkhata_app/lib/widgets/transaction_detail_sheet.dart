@@ -59,12 +59,14 @@ class _TransactionDetailSheetState extends State<TransactionDetailSheet> {
 
   void _handleChangeDate() async {
     final current = _parsedDate;
+    final now = DateTime.now();
+    final initial = current.isAfter(now) ? now : current;
     final pickedDate = await showDatePicker(
       context: context,
-      initialDate: current,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-      helpText: 'Select Transaction Date',
+      initialDate: initial,
+      firstDate: DateTime(2000),
+      lastDate: now,
+      helpText: 'Select Transaction Date (Past or Today)',
       confirmText: 'Update Date',
       builder: (context, child) {
         return Theme(

@@ -335,12 +335,14 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   }
 
   Future<void> _pickCustomDate() async {
+    final now = DateTime.now();
+    final initial = _selectedDate.isAfter(now) ? now : _selectedDate;
     final picked = await showDatePicker(
       context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-      helpText: 'Select Transaction Date',
+      initialDate: initial,
+      firstDate: DateTime(2000),
+      lastDate: now,
+      helpText: 'Select Transaction Date (Past or Today)',
       confirmText: 'Done',
       builder: (context, child) {
         return Theme(
@@ -366,6 +368,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           picked.day,
           now.hour,
           now.minute,
+          now.second,
         );
       });
     }
@@ -421,10 +424,18 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
     try {
       if (widget.existingTransaction != null) {
+        String? catId = !isLenDen ? _selectedCategory?.id : null;
+        if (catId != null && (catId.startsWith('c') || catId.startsWith('local_'))) {
+          catId = null;
+        }
+
         await ApiService.updateTransaction(
           id: widget.existingTransaction!.id,
+          type: _selectedType,
           amount: amount,
           paymentMode: _paymentMode,
+          personId: isLenDen ? _selectedPerson?.id : null,
+          categoryId: catId,
           notes: _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null,
           transactionDate: _selectedDate.toIso8601String(),
         );

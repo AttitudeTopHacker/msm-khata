@@ -9,7 +9,6 @@ import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../widgets/msm_shimmer_text.dart';
 import '../widgets/oauth_waiting_dialog.dart';
-import 'export_statement_screen.dart';
 import 'landing_screen.dart';
 
 class AuthScreen extends StatefulWidget {
@@ -391,10 +390,28 @@ class _AuthScreenState extends State<AuthScreen> {
   void _performDriveBackup() async {
     setState(() => _isBackingUp = true);
     try {
-      final txs = await ApiService.getTransactions();
-      await ApiService.getDashboardStats();
-      // Simulate/prepare Google Drive cloud snapshot upload
-      await Future.delayed(const Duration(milliseconds: 1200));
+      final session = AuthService.currentSession;
+      final providerToken = session?.providerToken;
+
+      if (providerToken == null || providerToken.isEmpty) {
+        if (!AuthService.isAuthenticated) {
+          throw Exception('Please sign in to your Google Account first to enable direct Google Drive cloud backup.');
+        } else {
+          throw Exception(
+            'Google Drive backup requires Google OAuth authorization. Please sign in with Google to sync backups directly to your Google Drive.',
+          );
+        }
+      }
+
+      final res = await ApiService.uploadBackupToGoogleDrive(
+        googleAccessToken: providerToken,
+        userId: AuthService.currentUserId,
+        includeExcel: true,
+        includePdf: true,
+      );
+
+      final uploaded = res['uploaded_files'] as List<dynamic>? ?? [];
+      final count = uploaded.length;
 
       if (mounted) {
         final nowStr = DateFormat('Today, hh:mm a').format(DateTime.now());
@@ -409,7 +426,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Backup saved to Google Drive (MsmKhata_Backups/ • ${txs.length} entries)',
+                    'Backup uploaded to Google Drive folder "MsmKhata Backups" ($count files: JSON, Excel, PDF)',
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),
@@ -426,6 +443,7 @@ class _AuthScreenState extends State<AuthScreen> {
           SnackBar(
             content: Text('Backup failed: $e'),
             backgroundColor: const Color(0xFFEF4444),
+            duration: const Duration(seconds: 4),
           ),
         );
       }
@@ -574,11 +592,6 @@ class _AuthScreenState extends State<AuthScreen> {
 
         // 3. Google Drive Cloud Backup & Settings Card
         _buildGoogleDriveBackupCard(),
-
-        const SizedBox(height: 18),
-
-        // 3. Financial Statement & A4 PDF Print Card
-        _buildExportStatementCard(),
 
         const SizedBox(height: 20),
 
@@ -1066,76 +1079,6 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 
-  Widget _buildExportStatementCard() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFF334155), width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF10B981).withOpacity(0.18),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFF10B981), size: 22),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text(
-                    'Export & A4 Statement Print',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
-                  ),
-                  Text(
-                    'Certified A4 PDF Sheet & Excel CSV',
-                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          const Text(
-            'Generate a formal A4 paper size financial statement document with executive metrics, Mandi trade summary, and complete ledger records.',
-            style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12, height: 1.35),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            height: 44,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF4F46E5),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                elevation: 0,
-              ),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const ExportStatementScreen()),
-                );
-              },
-              icon: const Icon(Icons.print_rounded, size: 18),
-              label: const Text(
-                'Open A4 Print & PDF Exporter',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildSignInCard() {
     final isGoogleLoading = _loadingProvider == 'google';

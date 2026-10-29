@@ -150,23 +150,33 @@ class ApiService {
     throw Exception('Failed to record transaction');
   }
 
-  // 6. Update Transaction (Edit Date, Amount, Notes, etc.)
+  // 6. Update Transaction (Edit Date, Amount, Notes, Type, Person, Category, etc.)
   static Future<TransactionItem> updateTransaction({
     required String id,
+    String? type,
     double? amount,
     String? paymentMode,
     String? notes,
     String? transactionDate,
     String? dueDate,
     bool? isSettled,
+    String? personId,
+    String? categoryId,
+    String? accountId,
+    String? accountName,
   }) async {
     final payload = <String, dynamic>{
+      if (type != null) 'type': type,
       if (amount != null) 'amount': amount,
       if (paymentMode != null) 'payment_mode': paymentMode,
       if (notes != null) 'notes': notes,
       if (transactionDate != null) 'transaction_date': transactionDate,
       if (dueDate != null) 'due_date': dueDate,
       if (isSettled != null) 'is_settled': isSettled,
+      if (personId != null) 'person_id': personId,
+      if (categoryId != null) 'category_id': categoryId,
+      if (accountId != null) 'account_id': accountId,
+      if (accountName != null) 'account_name': accountName,
     };
 
     final res = await http.put(
@@ -277,5 +287,38 @@ class ApiService {
       return res.bodyBytes;
     }
     throw Exception('Failed to download PDF report: ${res.statusCode}');
+  }
+
+  // 11. Google Drive Cloud Backup (JSON, Excel .xlsx, PDF .pdf)
+  static Future<Map<String, dynamic>> uploadBackupToGoogleDrive({
+    required String googleAccessToken,
+    String? userId,
+    String? accountId,
+    String? accountName,
+    bool includeExcel = true,
+    bool includePdf = true,
+  }) async {
+    final aid = accountId ?? AccountService.activeAccountNotifier.value.id;
+    final aname = accountName ?? AccountService.activeAccountNotifier.value.name;
+    final payload = {
+      'google_access_token': googleAccessToken,
+      if (userId != null) 'user_id': userId,
+      'account_id': aid,
+      'account_name': aname,
+      'include_excel': includeExcel,
+      'include_pdf': includePdf,
+    };
+
+    final res = await http.post(
+      Uri.parse('$_base/backup/google-drive'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+
+    if (res.statusCode == 200) {
+      return Map<String, dynamic>.from(jsonDecode(res.body));
+    }
+    final errorBody = res.body;
+    throw Exception('Google Drive upload failed: $errorBody');
   }
 }

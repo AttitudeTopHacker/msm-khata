@@ -11,10 +11,9 @@ class NetPositionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final currency = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
-    final isNetPositive = stats.netLenDenPosition >= 0;
 
-    // Formula requested by user: (Liquid Funds + Receivable) - Payable
-    // This represents actual real net worth / final pocket balance after settling all market debts & loans.
+    // Formula: (Liquid Funds + Receivable) - Payable
+    // Lene aur dene ke baad total bacha paisa
     final liquidFunds = stats.netAccountBalance;
     final receivable = stats.totalReceivable;
     final payable = stats.totalPayable;
@@ -35,10 +34,6 @@ class NetPositionCard extends StatelessWidget {
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: const Color(0xFF6366F1).withValues(alpha: 0.35),
-              width: 1.2,
-            ),
             boxShadow: [
               BoxShadow(
                 color: const Color(0xFF4338CA).withValues(alpha: 0.35),
@@ -51,67 +46,41 @@ class NetPositionCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header Row: Title & Subtitle + Net Status Badge
+              // Header Row: Net Ledger Position with Formula Subtitle
               Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Expanded(
+                  const Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            const Text(
-                              'Net Ledger Position',
-                              style: TextStyle(
-                                color: Color(0xFFC7D2FE),
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF6366F1).withValues(alpha: 0.25),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: const Color(0xFF818CF8).withValues(alpha: 0.4),
-                                  width: 0.8,
-                                ),
-                              ),
-                              child: const Text(
-                                'Lene & Dene Ke Baad',
-                                style: TextStyle(
-                                  color: Color(0xFFA5B4FC),
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
+                        Text(
+                          'Net Ledger Position',
+                          style: TextStyle(
+                            color: Color(0xFFC7D2FE),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.5,
+                          ),
                         ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'Lene aur dene ke baad total rupaye aapke ye hain:',
+                        SizedBox(height: 3),
+                        Text(
+                          'Lene aur dene ke baad: (Liquid Fund + Receivable) - Payable',
                           style: TextStyle(
                             color: Color(0xFF94A3B8),
-                            fontSize: 12,
+                            fontSize: 11,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: isFinalPositive
-                          ? const Color(0xFF059669).withValues(alpha: 0.25)
-                          : const Color(0xFFDC2626).withValues(alpha: 0.25),
+                          ? const Color(0xFF059669).withValues(alpha: 0.3)
+                          : const Color(0xFFDC2626).withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: isFinalPositive ? const Color(0xFF34D399) : const Color(0xFFF87171),
@@ -119,10 +88,10 @@ class NetPositionCard extends StatelessWidget {
                       ),
                     ),
                     child: Text(
-                      isFinalPositive ? 'Asli Bachat' : 'Net Karza',
+                      isFinalPositive ? 'Net Balance' : 'Shortfall',
                       style: TextStyle(
                         color: isFinalPositive ? const Color(0xFF34D399) : const Color(0xFFF87171),
-                        fontSize: 11,
+                        fontSize: 12,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -130,117 +99,39 @@ class NetPositionCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 12),
-
-              // Main Balance Display (Real Net Worth after settlement)
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
-                children: [
-                  Text(
-                    mask(currency.format(finalNetBalance)),
-                    style: TextStyle(
-                      color: isFinalPositive ? Colors.white : const Color(0xFFFCA5A5),
-                      fontSize: 34,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    isFinalPositive ? 'Net Real Worth' : 'Shortfall',
-                    style: TextStyle(
-                      color: isFinalPositive ? const Color(0xFF34D399) : const Color(0xFFF87171),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // Formula Container (User requested exact formula breakdown)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0F172A).withValues(alpha: 0.65),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: const Color(0xFF6366F1).withValues(alpha: 0.3),
-                    width: 1,
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.calculate_rounded, size: 15, color: Color(0xFF818CF8)),
-                        SizedBox(width: 6),
-                        Text(
-                          'Formula: (Liquid Funds + Receivable) - Payable',
-                          style: TextStyle(
-                            color: Color(0xFFC7D2FE),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      isPrivate
-                          ? '(•••••• Liquid + •••••• Lena) - •••••• Dena = ••••••'
-                          : '(${currency.format(liquidFunds)} Liquid + ${currency.format(receivable)} Lena) - ${currency.format(payable)} Dena = ${currency.format(finalNetBalance)}',
-                      style: const TextStyle(
-                        color: Color(0xFF94A3B8),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
+              Text(
+                mask(currency.format(finalNetBalance)),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 34,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
                 ),
               ),
-
-              const SizedBox(height: 16),
+              const SizedBox(height: 18),
               const Divider(color: Color(0xFF475569), height: 1),
-              const SizedBox(height: 14),
-
-              // Breakdown: Receivable, Payable, and Market Position
+              const SizedBox(height: 16),
               Row(
                 children: [
                   Expanded(
                     child: _buildMetric(
                       label: 'Total Receivable',
                       amount: mask(currency.format(stats.totalReceivable)),
-                      count: '${stats.peopleToReceiveCount} people (Lena)',
+                      count: '${stats.peopleToReceiveCount} people',
                       color: const Color(0xFF34D399),
                       icon: Icons.arrow_downward_rounded,
                     ),
                   ),
-                  Container(width: 1, height: 44, color: const Color(0xFF475569)),
+                  Container(width: 1, height: 45, color: const Color(0xFF475569)),
                   Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      padding: const EdgeInsets.only(left: 16),
                       child: _buildMetric(
                         label: 'Total Payable',
                         amount: mask(currency.format(stats.totalPayable)),
-                        count: '${stats.peopleToPayCount} people (Dena)',
+                        count: '${stats.peopleToPayCount} people',
                         color: const Color(0xFFF87171),
                         icon: Icons.arrow_upward_rounded,
-                      ),
-                    ),
-                  ),
-                  Container(width: 1, height: 44, color: const Color(0xFF475569)),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 10),
-                      child: _buildMetric(
-                        label: 'Market Karza',
-                        amount: mask(currency.format(stats.netLenDenPosition.abs())),
-                        count: isNetPositive ? 'To Receive' : 'To Pay',
-                        color: isNetPositive ? const Color(0xFF38BDF8) : const Color(0xFFFB923C),
-                        icon: Icons.account_balance_wallet_rounded,
                       ),
                     ),
                   ),
@@ -265,32 +156,22 @@ class NetPositionCard extends StatelessWidget {
       children: [
         Row(
           children: [
-            Icon(icon, size: 13, color: color),
+            Icon(icon, size: 14, color: color),
             const SizedBox(width: 4),
-            Expanded(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
-              ),
+            Text(
+              label,
+              style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
             ),
           ],
         ),
-        const SizedBox(height: 3),
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.centerLeft,
-          child: Text(
-            amount,
-            style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.bold),
-          ),
+        const SizedBox(height: 4),
+        Text(
+          amount,
+          style: TextStyle(color: color, fontSize: 18, fontWeight: FontWeight.bold),
         ),
         Text(
           count,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(color: Color(0xFF64748B), fontSize: 10),
+          style: const TextStyle(color: Color(0xFF64748B), fontSize: 11),
         ),
       ],
     );

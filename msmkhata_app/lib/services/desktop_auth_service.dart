@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Secure Local Loopback Authentication Server for Desktop Platforms (Linux & Windows).
@@ -62,6 +63,14 @@ class DesktopLoopbackAuth {
 
           if (rawUrl != null && rawUrl.isNotEmpty) {
             debugPrint('Received OAuth callback payload via loopback: $rawUrl');
+            try {
+              final uriParsed = Uri.parse(rawUrl.replaceFirst('#', '?'));
+              final providerToken = uriParsed.queryParameters['provider_token'];
+              if (providerToken != null && providerToken.isNotEmpty) {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setString('google_drive_access_token', providerToken);
+              }
+            } catch (_) {}
             await Supabase.instance.client.auth.getSessionFromUrl(Uri.parse(rawUrl));
           }
         } catch (e) {

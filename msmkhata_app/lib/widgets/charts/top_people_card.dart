@@ -42,10 +42,12 @@ class _TopPeopleCardState extends State<TopPeopleCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isCompact = constraints.maxWidth < 480;
+
+              final titleWidget = Row(
+                mainAxisSize: isCompact ? MainAxisSize.max : MainAxisSize.min,
                 children: [
                   Icon(
                     isDebtors ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
@@ -53,18 +55,20 @@ class _TopPeopleCardState extends State<TopPeopleCard> {
                     size: 20,
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    isDebtors ? 'Top Debtors (Receivable)' : 'Top Creditors (Payable)',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                  Flexible(
+                    child: Text(
+                      isDebtors ? 'Top Debtors (Receivable)' : 'Top Creditors (Payable)',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
-              ),
-              // Tab switch
-              Container(
+              );
+
+              final tabSwitchWidget = Container(
                 decoration: BoxDecoration(
                   color: const Color(0xFF0F172A),
                   borderRadius: BorderRadius.circular(10),
@@ -78,8 +82,27 @@ class _TopPeopleCardState extends State<TopPeopleCard> {
                     _buildTab(1, 'Payable'),
                   ],
                 ),
-              ),
-            ],
+              );
+
+              if (isCompact) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    titleWidget,
+                    const SizedBox(height: 12),
+                    tabSwitchWidget,
+                  ],
+                );
+              }
+
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  titleWidget,
+                  tabSwitchWidget,
+                ],
+              );
+            },
           ),
           const SizedBox(height: 16),
 

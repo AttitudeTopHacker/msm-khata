@@ -176,20 +176,26 @@ class _LandingScreenState extends State<LandingScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              _buildTopNavBar(context),
-              if (widget.isViewingFromDashboard) _buildDashboardReturnBanner(context),
-              _buildHeroSection(context),
-              _buildDataIsolationBanner(),
-              _buildFeatureCards(),
-              _buildDeveloperSection(),
-              _buildPreviewShowcase(),
-              _buildBottomCta(),
-              _buildFooter(),
-            ],
-          ),
+        child: Column(
+          children: [
+            _buildTopNavBar(context),
+            if (widget.isViewingFromDashboard) _buildDashboardReturnBanner(context),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    _buildHeroSection(context),
+                    _buildDataIsolationBanner(),
+                    _buildFeatureCards(),
+                    _buildDeveloperSection(),
+                    _buildPreviewShowcase(),
+                    _buildBottomCta(),
+                    _buildFooter(),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -198,18 +204,21 @@ class _LandingScreenState extends State<LandingScreen> {
   Widget _buildDashboardReturnBanner(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-      color: const Color(0xFF4F46E5).withOpacity(0.2),
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+      color: const Color(0xFF4F46E5).withOpacity(0.18),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.info_outline_rounded, color: Color(0xFF818CF8), size: 16),
+          const Icon(Icons.info_outline_rounded, color: Color(0xFF818CF8), size: 14),
           const SizedBox(width: 8),
-          const Text(
-            'Viewing Public Home Page • Tap "Back to Dashboard" anytime to return.',
-            style: TextStyle(color: Color(0xFFC7D2FE), fontSize: 12, fontWeight: FontWeight.w500),
+          const Flexible(
+            child: Text(
+              'Viewing Public Home Page • Tap Dashboard anytime to return.',
+              style: TextStyle(color: Color(0xFFC7D2FE), fontSize: 11.5, fontWeight: FontWeight.w500),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
           InkWell(
             onTap: () {
               if (Navigator.of(context).canPop()) {
@@ -217,10 +226,10 @@ class _LandingScreenState extends State<LandingScreen> {
               }
             },
             child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
               child: Text(
                 'Return',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12, decoration: TextDecoration.underline),
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.5, decoration: TextDecoration.underline),
               ),
             ),
           ),
@@ -229,92 +238,150 @@ class _LandingScreenState extends State<LandingScreen> {
     );
   }
 
-  // 1. Top Navigation Bar
+  // 1. Top Navigation Bar (Fixed Header)
   Widget _buildTopNavBar(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0F172A).withOpacity(0.9),
-        border: const Border(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: const BoxDecoration(
+        color: Color(0xFF0F172A),
+        border: Border(
           bottom: BorderSide(color: Color(0xFF1E293B), width: 1),
         ),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isVeryNarrow = constraints.maxWidth < 360;
+
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF4F46E5), Color(0xFF818CF8)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF4F46E5).withOpacity(0.35),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
+              Flexible(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF4F46E5), Color(0xFF818CF8)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF4F46E5).withOpacity(0.35),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(Icons.account_balance_wallet_rounded, color: Colors.white, size: 20),
+                    ),
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            'MsmKhata',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: -0.3,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: const [
+                              MsmShimmerText(
+                                text: 'ORG : msm.movin 2022',
+                                style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold),
+                              ),
+                              Text(
+                                ' • Ledger',
+                                style: TextStyle(color: Color(0xFF94A3B8), fontSize: 10.5),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
-                child: const Icon(Icons.account_balance_wallet_rounded, color: Colors.white, size: 22),
               ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'MsmKhata',
-                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: -0.3),
-                  ),
-                  Row(
-                    children: const [
-                      MsmShimmerText(
-                        text: 'ORG : msm.movin 2022',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                      ),
-                      Text(
-                        ' • Personal Ledger',
-                        style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+              const SizedBox(width: 8),
+              if (widget.isViewingFromDashboard || AuthService.currentSession != null)
+                Tooltip(
+                  message: 'Back to Dashboard',
+                  child: isVeryNarrow
+                      ? IconButton(
+                          style: IconButton.styleFrom(
+                            backgroundColor: const Color(0xFF10B981),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.all(8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          onPressed: _navigateToDashboard,
+                          icon: const Icon(Icons.dashboard_rounded, size: 18),
+                        )
+                      : ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF10B981),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            elevation: 0,
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          onPressed: _navigateToDashboard,
+                          icon: const Icon(Icons.dashboard_rounded, size: 16),
+                          label: const Text(
+                            'Dashboard',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                          ),
+                        ),
+                )
+              else
+                Tooltip(
+                  message: 'Sign In',
+                  child: isVeryNarrow
+                      ? IconButton(
+                          style: IconButton.styleFrom(
+                            backgroundColor: const Color(0xFF4F46E5),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.all(8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          onPressed: () => _showSignInModal(context),
+                          icon: const Icon(Icons.login_rounded, size: 18),
+                        )
+                      : ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF4F46E5),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            elevation: 0,
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          onPressed: () => _showSignInModal(context),
+                          icon: const Icon(Icons.login_rounded, size: 16),
+                          label: const Text(
+                            'Sign In',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                          ),
+                        ),
+                ),
             ],
-          ),
-          if (widget.isViewingFromDashboard || AuthService.currentSession != null)
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF10B981),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                elevation: 0,
-              ),
-              onPressed: _navigateToDashboard,
-              icon: const Icon(Icons.dashboard_rounded, size: 16),
-              label: const Text('Back to Dashboard', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-            )
-          else
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF4F46E5),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                elevation: 0,
-              ),
-              onPressed: () => _showSignInModal(context),
-              icon: const Icon(Icons.login_rounded, size: 16),
-              label: const Text('Sign In', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-            ),
-        ],
+          );
+        },
       ),
     );
   }

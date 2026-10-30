@@ -82,6 +82,20 @@ class AuthService {
     return 'io.supabase.msmkhata://login-callback/';
   }
 
+  /// Save Google access token for Drive backup
+  static Future<void> saveGoogleAccessToken(String token) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('google_drive_access_token', token);
+  }
+
+  /// Retrieve Google access token
+  static Future<String?> getGoogleAccessToken() async {
+    final token = currentSession?.providerToken;
+    if (token != null && token.isNotEmpty) return token;
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('google_drive_access_token');
+  }
+
   /// Sign in with Google (Uses 100% native Google Play Services bottom-sheet on Android; loopback auto-close on Desktop; Web OAuth)
   static Future<void> signInWithGoogle() async {
     try {
@@ -90,13 +104,20 @@ class AuthService {
           final googleSignIn = GoogleSignIn(
             clientId: ApiConfig.googleAndroidClientId,
             serverClientId: ApiConfig.googleWebClientId,
-            scopes: ['email', 'profile'],
+            scopes: [
+              'email',
+              'profile',
+              'https://www.googleapis.com/auth/drive.file',
+            ],
           );
           final googleUser = await googleSignIn.signIn();
           if (googleUser != null) {
             final googleAuth = await googleUser.authentication;
             final idToken = googleAuth.idToken;
             if (idToken != null && idToken.isNotEmpty) {
+              if (googleAuth.accessToken != null && googleAuth.accessToken!.isNotEmpty) {
+                await saveGoogleAccessToken(googleAuth.accessToken!);
+              }
               await _client.auth.signInWithIdToken(
                 provider: OAuthProvider.google,
                 idToken: idToken,
@@ -121,6 +142,7 @@ class AuthService {
       await _client.auth.signInWithOAuth(
         OAuthProvider.google,
         redirectTo: redirect,
+        scopes: 'https://www.googleapis.com/auth/drive.file',
       );
     } catch (e) {
       debugPrint('Google Sign-In Error: $e');

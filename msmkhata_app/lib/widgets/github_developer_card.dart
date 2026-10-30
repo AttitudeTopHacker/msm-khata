@@ -111,10 +111,12 @@ class GithubDeveloperCard extends StatelessWidget {
               borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
               border: Border(bottom: BorderSide(color: Color(0xFF30363D), width: 1)),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isCompact = constraints.maxWidth < 450;
+
+                final titleRow = Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
                       padding: const EdgeInsets.all(6),
@@ -135,8 +137,9 @@ class GithubDeveloperCard extends StatelessWidget {
                       ),
                     ),
                   ],
-                ),
-                Container(
+                );
+
+                final activeContributorBadge = Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: const Color(0xFF238636).withOpacity(0.2),
@@ -161,8 +164,27 @@ class GithubDeveloperCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                ),
-              ],
+                );
+
+                if (isCompact) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      titleRow,
+                      const SizedBox(height: 8),
+                      activeContributorBadge,
+                    ],
+                  );
+                }
+
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    titleRow,
+                    activeContributorBadge,
+                  ],
+                );
+              },
             ),
           ),
 
@@ -228,8 +250,8 @@ class GithubDeveloperCard extends StatelessWidget {
                         children: [
                           InkWell(
                             onTap: () => _openGitHubUrl(context, githubProfileUrl),
-                            child: Row(
-                              children: const [
+                            child: const Row(
+                              children: [
                                 Flexible(
                                   child: Text(
                                     'Mohd Salman',
@@ -247,7 +269,10 @@ class GithubDeveloperCard extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 2),
-                          Row(
+                          Wrap(
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 6,
+                            runSpacing: 2,
                             children: const [
                               Text(
                                 '@AttitudeTopHacker',
@@ -257,9 +282,7 @@ class GithubDeveloperCard extends StatelessWidget {
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
-                              SizedBox(width: 8),
                               Text('•', style: TextStyle(color: Color(0xFF484F58))),
-                              SizedBox(width: 8),
                               MsmShimmerText(
                                 text: 'ORG : msm.movin 2022',
                                 style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
@@ -400,7 +423,7 @@ class GithubDeveloperCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                   child: Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
                         colors: [Color(0xFF21262D), Color(0xFF161B22)],
@@ -410,22 +433,28 @@ class GithubDeveloperCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(color: const Color(0xFF30363D), width: 1.2),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.terminal_rounded, color: Colors.white, size: 18),
-                        SizedBox(width: 10),
-                        Text(
-                          'View GitHub Profile (@AttitudeTopHacker)',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.bold,
-                          ),
+                    child: const Center(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.terminal_rounded, color: Colors.white, size: 18),
+                            SizedBox(width: 8),
+                            Text(
+                              'View GitHub Profile (@AttitudeTopHacker)',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            SizedBox(width: 8),
+                            Icon(Icons.arrow_outward_rounded, color: Color(0xFF8B949E), size: 16),
+                          ],
                         ),
-                        SizedBox(width: 8),
-                        Icon(Icons.arrow_outward_rounded, color: Color(0xFF8B949E), size: 16),
-                      ],
+                      ),
                     ),
                   ),
                 ),

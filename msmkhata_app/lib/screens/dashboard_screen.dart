@@ -16,7 +16,7 @@ import 'add_transaction_screen.dart';
 import 'auth_screen.dart';
 import 'export_statement_screen.dart';
 import 'history_screen.dart';
-import 'landing_screen.dart';
+import '../widgets/export_backup_modal.dart';
 import '../widgets/msm_shimmer_text.dart';
 import '../widgets/transaction_detail_sheet.dart';
 import '../services/connectivity_service.dart';
@@ -148,53 +148,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
         actions: [
-          // Home Page button to navigate to Landing / Home Screen
-          Material(
-            color: Colors.transparent,
-            child: Tooltip(
-              message: 'Public Home Page & Features',
-              child: InkWell(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const LandingScreen(isViewingFromDashboard: true),
-                    ),
-                  );
-                },
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF4F46E5).withOpacity(0.5), width: 1),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.home_rounded, color: Color(0xFF818CF8), size: 16),
-                      SizedBox(width: 5),
-                      Text(
-                        'Home',
-                        style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          // A4 Statement & Print Button
+          // Export & Cloud Backup Button
           IconButton(
-            tooltip: 'Export & A4 Print Sheet',
-            icon: const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFF10B981), size: 20),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ExportStatementScreen()),
-              );
-            },
+            tooltip: 'Export Statement & Cloud Backup',
+            icon: const Icon(Icons.cloud_sync_rounded, color: Color(0xFF38BDF8), size: 22),
+            onPressed: () => ExportBackupModal.show(context),
           ),
           SyncStatusBadge(
             isSyncing: _isSyncing,

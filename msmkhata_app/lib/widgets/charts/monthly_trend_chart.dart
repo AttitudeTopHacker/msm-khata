@@ -78,25 +78,29 @@ class _MonthlyTrendChartState extends State<MonthlyTrendChart> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Row(
-                children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isCompact = constraints.maxWidth < 480;
+
+              final titleWidget = Row(
+                mainAxisSize: isCompact ? MainAxisSize.max : MainAxisSize.min,
+                children: const [
                   Icon(Icons.insights_rounded, color: Color(0xFF10B981), size: 20),
                   SizedBox(width: 8),
-                  Text(
-                    'Monthly Trend Analysis',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                  Flexible(
+                    child: Text(
+                      'Monthly Trend Analysis',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
-              ),
-              // Segmented Toggle
-              Container(
+              );
+
+              final toggleWidget = Container(
                 decoration: BoxDecoration(
                   color: const Color(0xFF0F172A),
                   borderRadius: BorderRadius.circular(10),
@@ -110,8 +114,27 @@ class _MonthlyTrendChartState extends State<MonthlyTrendChart> {
                     _buildToggleItem(index: 1, label: 'Lent/Borrow'),
                   ],
                 ),
-              ),
-            ],
+              );
+
+              if (isCompact) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    titleWidget,
+                    const SizedBox(height: 12),
+                    toggleWidget,
+                  ],
+                );
+              }
+
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  titleWidget,
+                  toggleWidget,
+                ],
+              );
+            },
           ),
           const SizedBox(height: 14),
 

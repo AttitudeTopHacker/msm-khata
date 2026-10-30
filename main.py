@@ -32,7 +32,7 @@ app.include_router(reports.router, prefix=settings.API_V1_PREFIX)
 
 from fastapi.responses import HTMLResponse
 
-@app.get("/", response_class=HTMLResponse)
+@app.api_route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
 def read_root():
     return """<!DOCTYPE html>
 <html lang="en">
@@ -265,7 +265,7 @@ def read_terms_of_service():
 </body>
 </html>"""
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health_check():
     return {"status": "healthy"}
 

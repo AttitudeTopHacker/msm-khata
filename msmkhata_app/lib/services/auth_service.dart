@@ -107,7 +107,6 @@ class AuthService {
             scopes: [
               'email',
               'profile',
-              'https://www.googleapis.com/auth/drive.file',
             ],
           );
           final googleUser = await googleSignIn.signIn();
@@ -142,10 +141,46 @@ class AuthService {
       await _client.auth.signInWithOAuth(
         OAuthProvider.google,
         redirectTo: redirect,
-        scopes: 'https://www.googleapis.com/auth/drive.file',
       );
     } catch (e) {
       debugPrint('Google Sign-In Error: $e');
+      rethrow;
+    }
+  }
+
+  /// Explicitly authorize Google Drive scope for cloud backup
+  static Future<String?> authorizeGoogleDrive() async {
+    try {
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        final googleSignIn = GoogleSignIn(
+          clientId: ApiConfig.googleAndroidClientId,
+          serverClientId: ApiConfig.googleWebClientId,
+          scopes: [
+            'email',
+            'https://www.googleapis.com/auth/drive.file',
+          ],
+        );
+        final googleUser = await googleSignIn.signIn();
+        if (googleUser != null) {
+          final googleAuth = await googleUser.authentication;
+          final token = googleAuth.accessToken;
+          if (token != null && token.isNotEmpty) {
+            await saveGoogleAccessToken(token);
+            return token;
+          }
+        }
+        return null;
+      }
+
+      final redirect = await _getRedirectUrl();
+      await _client.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: redirect,
+        scopes: 'https://www.googleapis.com/auth/drive.file',
+      );
+      return null;
+    } catch (e) {
+      debugPrint('Google Drive Authorization Error: $e');
       rethrow;
     }
   }
@@ -187,9 +222,11 @@ class AuthService {
     String? fullName,
   }) async {
     try {
+      final redirect = await _getRedirectUrl();
       return await _client.auth.signUp(
         email: email.trim(),
         password: password,
+        emailRedirectTo: redirect,
         data: fullName != null && fullName.trim().isNotEmpty
             ? {'full_name': fullName.trim()}
             : null,

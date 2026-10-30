@@ -92,7 +92,7 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
             onPressed: () async {
               Navigator.of(ctx).pop();
               try {
-                await AuthService.signInWithGoogle();
+                await AuthService.authorizeGoogleDrive();
                 await _loadBackupSettings();
               } catch (e) {
                 if (mounted) {

@@ -23,7 +23,6 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
   DashboardStats? _stats;
   List<TransactionItem> _transactions = [];
   bool _isGeneratingPdf = false;
-  bool _isDownloadingExcel = false;
 
   @override
   void initState() {
@@ -83,34 +82,7 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
     }
   }
 
-  Future<void> _handleDownloadExcel() async {
-    final activeAccount = AccountService.activeAccountNotifier.value;
-    setState(() => _isDownloadingExcel = true);
-    try {
-      final url = ApiService.getExcelReportUrl(
-        accountId: activeAccount.id,
-        accountName: activeAccount.name,
-      );
-      final uri = Uri.parse(url);
-      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-      if (!ok && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open download URL')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error downloading Excel: $e'),
-            backgroundColor: const Color(0xFFEF4444),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isDownloadingExcel = false);
-    }
-  }
+
 
   Future<void> _handlePrintPdf() async {
     if (_stats == null) return;
@@ -388,34 +360,7 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
                         ),
                       ),
 
-                      const SizedBox(height: 12),
 
-                      // 2. Secondary Button: Multi-Tab Excel Workbook (.xlsx)
-                      SizedBox(
-                        height: 52,
-                        child: ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF059669),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            elevation: 2,
-                          ),
-                          onPressed: _isDownloadingExcel ? null : _handleDownloadExcel,
-                          icon: _isDownloadingExcel
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                )
-                              : const Icon(Icons.table_view_rounded, size: 20),
-                          label: Text(
-                            _isDownloadingExcel ? 'Preparing Excel Workbook...' : 'Download Multi-Tab Excel Workbook (.xlsx)',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 12),
 
                       // 3. Instant Local Print / Save
                       Row(

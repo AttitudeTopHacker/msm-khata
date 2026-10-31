@@ -184,6 +184,15 @@ class ReportService:
             textColor=colors.HexColor('#0F172A'),
             fontName='Helvetica-Bold'
         )
+        cell_bold_right = ParagraphStyle(
+            'CellBoldRight',
+            parent=styles['Normal'],
+            fontSize=8.5,
+            leading=11,
+            textColor=colors.HexColor('#0F172A'),
+            fontName='Helvetica-Bold',
+            alignment=2
+        )
         cell_normal = ParagraphStyle(
             'CellNormal',
             parent=styles['Normal'],
@@ -207,6 +216,33 @@ class ReportService:
             fontSize=8.5,
             leading=11,
             textColor=colors.HexColor('#DC2626'),
+            fontName='Helvetica-Bold',
+            alignment=2
+        )
+        header_cell = ParagraphStyle(
+            'HeaderCell',
+            parent=styles['Normal'],
+            fontSize=8.5,
+            leading=11,
+            textColor=colors.white,
+            fontName='Helvetica-Bold',
+            alignment=0
+        )
+        header_cell_center = ParagraphStyle(
+            'HeaderCellCenter',
+            parent=styles['Normal'],
+            fontSize=8.5,
+            leading=11,
+            textColor=colors.white,
+            fontName='Helvetica-Bold',
+            alignment=1
+        )
+        header_cell_right = ParagraphStyle(
+            'HeaderCellRight',
+            parent=styles['Normal'],
+            fontSize=8.5,
+            leading=11,
+            textColor=colors.white,
             fontName='Helvetica-Bold',
             alignment=2
         )
@@ -298,15 +334,15 @@ class ReportService:
         story.append(Paragraph(f"Itemized Transaction Ledger ({len(transactions)} Records)", section_heading))
 
         headers = [
-            Paragraph("<b>#</b>", cell_bold),
-            Paragraph("<b>Date</b>", cell_bold),
-            Paragraph("<b>Type</b>", cell_bold),
-            Paragraph("<b>Party / Category</b>", cell_bold),
-            Paragraph("<b>Mode</b>", cell_bold),
-            Paragraph("<b>Notes</b>", cell_bold),
-            Paragraph("<b>Inflow (+)</b>", cell_bold),
-            Paragraph("<b>Outflow (-)</b>", cell_bold),
-            Paragraph("<b>Balance</b>", cell_bold)
+            Paragraph("<b>#</b>", header_cell_center),
+            Paragraph("<b>Date</b>", header_cell),
+            Paragraph("<b>Type</b>", header_cell),
+            Paragraph("<b>Party / Category</b>", header_cell),
+            Paragraph("<b>Mode</b>", header_cell),
+            Paragraph("<b>Notes</b>", header_cell),
+            Paragraph("<b>Inflow (+)</b>", header_cell_right),
+            Paragraph("<b>Outflow (-)</b>", header_cell_right),
+            Paragraph("<b>Balance</b>", header_cell_right)
         ]
 
         table_rows = [headers]
@@ -365,7 +401,7 @@ class ReportService:
                 Paragraph(notes, cell_normal),
                 Paragraph(inflow_str, cell_green if inflow > 0 else cell_normal),
                 Paragraph(outflow_str, cell_red if outflow > 0 else cell_normal),
-                Paragraph(bal_str, cell_bold if running_balance >= 0 else cell_red),
+                Paragraph(bal_str, cell_bold_right if running_balance >= 0 else cell_red),
             ])
 
         tx_table = Table(

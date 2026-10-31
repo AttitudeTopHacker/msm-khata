@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
 import '../widgets/msm_shimmer_text.dart';
 import '../widgets/oauth_waiting_dialog.dart';
+import 'landing_screen.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -467,24 +468,42 @@ class _AuthScreenState extends State<AuthScreen> {
 
         const SizedBox(height: 24),
 
-        // 2. Return to Dashboard Button
-        SizedBox(
-          width: double.infinity,
-          height: 48,
-          child: ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF4F46E5),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              elevation: 0,
-            ),
-            onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.dashboard_rounded, size: 18),
-            label: const Text(
-              'Return to Dashboard',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-            ),
-          ),
+        // 2. Return to Dashboard Button (Desktop) / Home Page Button (Mobile APK)
+        Builder(
+          builder: (context) {
+            final isMobile = !kIsWeb &&
+                (defaultTargetPlatform == TargetPlatform.android ||
+                 defaultTargetPlatform == TargetPlatform.iOS);
+
+            return SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4F46E5),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  elevation: 0,
+                ),
+                onPressed: () {
+                  if (isMobile) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const LandingScreen(isViewingFromDashboard: true),
+                      ),
+                    );
+                  } else {
+                    Navigator.of(context).pop();
+                  }
+                },
+                icon: Icon(isMobile ? Icons.home_rounded : Icons.dashboard_rounded, size: 18),
+                label: Text(
+                  isMobile ? 'Home Page' : 'Return to Dashboard',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+              ),
+            );
+          },
         ),
 
         const SizedBox(height: 12),

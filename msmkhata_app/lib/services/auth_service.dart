@@ -88,12 +88,20 @@ class AuthService {
     await prefs.setString('google_drive_access_token', token);
   }
 
+  /// Clear stored Google Drive access token (e.g. when scope is insufficient)
+  static Future<void> clearGoogleAccessToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('google_drive_access_token');
+  }
+
   /// Retrieve Google access token
   static Future<String?> getGoogleAccessToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedToken = prefs.getString('google_drive_access_token');
+    if (savedToken != null && savedToken.isNotEmpty) return savedToken;
     final token = currentSession?.providerToken;
     if (token != null && token.isNotEmpty) return token;
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('google_drive_access_token');
+    return null;
   }
 
   /// Sign in with Google (Uses 100% native Google Play Services bottom-sheet on Android; loopback auto-close on Desktop; Web OAuth)
@@ -107,6 +115,7 @@ class AuthService {
             scopes: [
               'email',
               'profile',
+              'https://www.googleapis.com/auth/drive.file',
             ],
           );
           final googleUser = await googleSignIn.signIn();
@@ -141,6 +150,8 @@ class AuthService {
       await _client.auth.signInWithOAuth(
         OAuthProvider.google,
         redirectTo: redirect,
+        scopes: 'https://www.googleapis.com/auth/drive.file',
+        queryParams: {'access_type': 'offline', 'prompt': 'consent'},
       );
     } catch (e) {
       debugPrint('Google Sign-In Error: $e');
@@ -157,6 +168,7 @@ class AuthService {
           serverClientId: ApiConfig.googleWebClientId,
           scopes: [
             'email',
+            'profile',
             'https://www.googleapis.com/auth/drive.file',
           ],
         );
@@ -177,6 +189,7 @@ class AuthService {
         OAuthProvider.google,
         redirectTo: redirect,
         scopes: 'https://www.googleapis.com/auth/drive.file',
+        queryParams: {'access_type': 'offline', 'prompt': 'consent'},
       );
       return null;
     } catch (e) {

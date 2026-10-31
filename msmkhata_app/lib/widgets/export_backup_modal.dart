@@ -75,7 +75,7 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
         ),
         content: const Text(
           'Google Drive backup requires authorization with your Google Account.\n\n'
-          'Would you like to connect your Google Account now to enable direct cloud backups to your Drive?',
+          'Would you like to connect your Google Account now to enable automatic PDF statement backups into your Drive folder?',
           style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, height: 1.4),
         ),
         actions: [
@@ -92,8 +92,11 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
             onPressed: () async {
               Navigator.of(ctx).pop();
               try {
-                await AuthService.authorizeGoogleDrive();
+                final token = await AuthService.authorizeGoogleDrive();
                 await _loadBackupSettings();
+                if (mounted && (token != null || _hasGoogleAuth)) {
+                  _performDriveBackup();
+                }
               } catch (e) {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -104,6 +107,59 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
             },
             icon: const Icon(Icons.login_rounded, size: 16),
             label: const Text('Connect Google Account', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDrivePermissionRequiredDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.lock_person_rounded, color: Color(0xFFF59E0B), size: 22),
+            SizedBox(width: 10),
+            Text('Google Drive Permission Required', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Text(
+          'Google Drive me PDF statement backup upload karne ke liye Drive permissions ki zaroorat hai.\n\n'
+          'Kripya "Authorize Google Drive" per tap karein aur permission allow karein.',
+          style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8))),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF4285F4),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () async {
+              Navigator.of(ctx).pop();
+              try {
+                final token = await AuthService.authorizeGoogleDrive();
+                await _loadBackupSettings();
+                if (mounted && (token != null || _hasGoogleAuth)) {
+                  _performDriveBackup();
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Drive authorization note: $e'), backgroundColor: const Color(0xFFEF4444)),
+                  );
+                }
+              }
+            },
+            icon: const Icon(Icons.security_update_good_rounded, size: 16),
+            label: const Text('Authorize Google Drive', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -123,12 +179,12 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
       final res = await ApiService.uploadBackupToGoogleDrive(
         googleAccessToken: token,
         userId: AuthService.currentUserId,
-        includeExcel: true,
+        includeExcel: false,
         includePdf: true,
       );
 
       final uploaded = res['uploaded_files'] as List<dynamic>? ?? [];
-      final count = uploaded.length;
+      final fileName = uploaded.isNotEmpty ? uploaded[0]['filename'] ?? 'Statement.pdf' : 'Statement.pdf';
 
       final nowStr = DateFormat('Today, hh:mm a').format(DateTime.now());
       if (mounted) {
@@ -147,7 +203,7 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Backup uploaded to Google Drive folder "MsmKhata Backups" ($count files: JSON, Excel, PDF)',
+                    'Statement PDF ($fileName) uploaded to Google Drive "MsmKhata Backups" folder!',
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),
@@ -159,6 +215,18 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
         );
       }
     } catch (e) {
+      final errStr = e.toString();
+      if (errStr.contains('ACCESS_TOKEN_SCOPE_INSUFFICIENT') ||
+          errStr.contains('insufficient authentication scopes') ||
+          errStr.contains('PERMISSION_DENIED') ||
+          errStr.contains('403')) {
+        await AuthService.clearGoogleAccessToken();
+        if (mounted) {
+          setState(() => _hasGoogleAuth = false);
+          _showDrivePermissionRequiredDialog();
+        }
+        return;
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -347,7 +415,7 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
                                 ),
                                 SizedBox(height: 2),
                                 Text(
-                                  'Cloud Snapshot & Ledger Archival',
+                                  'PDF Statement Archival in Drive',
                                   style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
                                 ),
                               ],
@@ -513,8 +581,8 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
                             : const Icon(Icons.cloud_upload_outlined, color: Color(0xFF4285F4), size: 18),
                         label: Text(
                           _isBackingUp
-                              ? 'Uploading Backup to Google Drive...'
-                              : (_hasGoogleAuth ? 'Backup to Google Drive Now' : 'Connect Google Drive to Backup'),
+                              ? 'Uploading PDF Statement to Drive...'
+                              : (_hasGoogleAuth ? 'Backup PDF to Google Drive' : 'Connect Google Drive to Backup'),
                           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
                         ),
                       ),

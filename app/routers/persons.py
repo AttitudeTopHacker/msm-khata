@@ -53,11 +53,18 @@ def get_person(person_id: str, user_id: Optional[str] = None):
         raise HTTPException(status_code=404, detail="Person not found")
     return match
 
+import uuid
+
 @router.put("/{person_id}", response_model=PersonResponse)
 def update_person(person_id: str, payload: PersonUpdate):
     """Update contact information."""
+    try:
+        uuid.UUID(str(person_id))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid person ID format")
+
     client = get_supabase()
-    update_data = {k: v for k, v in payload.model_dump().items() if v is not None}
+    update_data = payload.model_dump(exclude_unset=True)
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields provided for update")
         
@@ -69,6 +76,11 @@ def update_person(person_id: str, payload: PersonUpdate):
 @router.delete("/{person_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_person(person_id: str):
     """Delete person contact."""
+    try:
+        uuid.UUID(str(person_id))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid person ID format")
+
     client = get_supabase()
     res = client.table("persons").delete().eq("id", person_id).execute()
     return None

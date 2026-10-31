@@ -5,6 +5,7 @@ import '../models/person.dart';
 import '../models/transaction.dart';
 import '../services/api_service.dart';
 import '../services/account_service.dart';
+import '../services/sync_service.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final String initialType;
@@ -429,23 +430,31 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           catId = null;
         }
 
-        await ApiService.updateTransaction(
+        final notesText = _notesController.text.trim();
+        final updatedTx = await ApiService.updateTransaction(
           id: widget.existingTransaction!.id,
           type: _selectedType,
           amount: amount,
           paymentMode: _paymentMode,
           personId: isLenDen ? _selectedPerson?.id : null,
+          personName: isLenDen ? personName : null,
+          clearPerson: !isLenDen,
           categoryId: catId,
-          notes: _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null,
+          categoryName: !isLenDen ? categoryName : null,
+          clearCategory: isLenDen,
+          notes: notesText.isNotEmpty ? notesText : null,
+          clearNotes: notesText.isEmpty,
           transactionDate: _selectedDate.toIso8601String(),
         );
+
+        SyncService.onOptimisticTransactionUpdated(updatedTx);
       } else {
         String? catId = !isLenDen ? _selectedCategory?.id : null;
         if (catId != null && (catId.startsWith('c') || catId.startsWith('local_'))) {
           catId = null; // Let backend resolve UUID via name
         }
 
-        await ApiService.createTransaction(
+        final newTx = await ApiService.createTransaction(
           type: _selectedType,
           amount: amount,
           paymentMode: _paymentMode,
@@ -456,6 +465,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           notes: _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null,
           transactionDate: _selectedDate.toIso8601String(),
         );
+
+        SyncService.onOptimisticTransactionCreated(newTx);
       }
 
       if (mounted) {

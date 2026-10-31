@@ -151,21 +151,34 @@ class SyncService {
     try {
       final remoteList = await ApiService.getTransactions(limit: limit, offset: offset);
 
-      if (replaceCache || offset == 0) {
-        // Merge with existing cache using Map by ID to prevent duplicates
-        final Map<String, TransactionItem> map = {};
-
-        // If offset == 0, remoteList has the latest items; merge with existing
-        for (final item in cachedTransactions) {
-          map[item.id] = item;
+      if (replaceCache) {
+        // Full replace: server is the single source of truth
+        final List<TransactionItem> list = List.from(remoteList);
+        _sortTransactions(list);
+        cachedTransactions = list;
+      } else if (offset == 0) {
+        // If remoteList has fewer items than limit, server returned all transactions
+        if (remoteList.length < limit) {
+          final List<TransactionItem> list = List.from(remoteList);
+          _sortTransactions(list);
+          cachedTransactions = list;
+        } else {
+          // Merge page 1: remove deleted items in page 1 range
+          final remoteIds = remoteList.map((e) => e.id).toSet();
+          final List<TransactionItem> updated = List.from(remoteList);
+          final lastRemoteDate = remoteList.last.transactionDate;
+          for (final item in cachedTransactions) {
+            if (!remoteIds.contains(item.id)) {
+              if (lastRemoteDate != null &&
+                  item.transactionDate != null &&
+                  item.transactionDate!.compareTo(lastRemoteDate) < 0) {
+                updated.add(item);
+              }
+            }
+          }
+          _sortTransactions(updated);
+          cachedTransactions = updated;
         }
-        for (final item in remoteList) {
-          map[item.id] = item; // Server wins
-        }
-
-        final merged = map.values.toList();
-        _sortTransactions(merged);
-        cachedTransactions = merged;
       } else {
         // Pagination append
         final Map<String, TransactionItem> map = {
@@ -206,6 +219,46 @@ class SyncService {
     _sortTransactions(updated);
     cachedTransactions = updated;
 
+    dataVersion.value++;
+
+    // Silently update stats in background
+    syncStats().then((_) => dataVersion.value++);
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _kTransactionsKey,
+        jsonEncode(cachedTransactions.map((e) => e.toJson()).toList()),
+      );
+    } catch (_) {}
+  }
+
+  /// Optimistic Transaction Deletion: Instantly removes from local cache & SharedPreferences
+  static void onOptimisticTransactionDeleted(String id) async {
+    cachedTransactions.removeWhere((tx) => tx.id == id);
+    dataVersion.value++;
+
+    // Silently update stats in background
+    syncStats().then((_) => dataVersion.value++);
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _kTransactionsKey,
+        jsonEncode(cachedTransactions.map((e) => e.toJson()).toList()),
+      );
+    } catch (_) {}
+  }
+
+  /// Optimistic Transaction Update: Instantly updates item in local cache & SharedPreferences
+  static void onOptimisticTransactionUpdated(TransactionItem tx) async {
+    final index = cachedTransactions.indexWhere((item) => item.id == tx.id);
+    if (index != -1) {
+      cachedTransactions[index] = tx;
+    } else {
+      cachedTransactions.add(tx);
+    }
+    _sortTransactions(cachedTransactions);
     dataVersion.value++;
 
     // Silently update stats in background

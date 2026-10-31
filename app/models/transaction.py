@@ -32,9 +32,12 @@ class TransactionUpdate(BaseModel):
     notes: Optional[str] = None
     transaction_date: Optional[str] = None
     person_id: Optional[str] = None
+    person_name: Optional[str] = None
     category_id: Optional[str] = None
+    category_name: Optional[str] = None
     account_id: Optional[str] = None
     account_name: Optional[str] = None
+    user_id: Optional[str] = None
 
 class TransactionResponse(TransactionBase):
     id: str

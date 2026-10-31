@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/transaction.dart';
 import '../services/api_service.dart';
+import '../services/sync_service.dart';
 import '../screens/add_transaction_screen.dart';
 
 class TransactionDetailSheet extends StatefulWidget {
@@ -101,6 +102,7 @@ class _TransactionDetailSheetState extends State<TransactionDetailSheet> {
         id: _item.id,
         transactionDate: updatedDateTime.toIso8601String(),
       );
+      SyncService.onOptimisticTransactionUpdated(updated);
       if (mounted) {
         setState(() {
           _item = updated;
@@ -133,23 +135,27 @@ class _TransactionDetailSheetState extends State<TransactionDetailSheet> {
     setState(() => _isLoading = true);
     try {
       await ApiService.settleTransaction(_item.id, isSettled: !_item.isSettled);
+      final updatedItem = TransactionItem(
+        id: _item.id,
+        type: _item.type,
+        amount: _item.amount,
+        paymentMode: _item.paymentMode,
+        dueDate: _item.dueDate,
+        isSettled: !_item.isSettled,
+        notes: _item.notes,
+        transactionDate: _item.transactionDate,
+        personId: _item.personId,
+        personName: _item.personName,
+        categoryId: _item.categoryId,
+        categoryName: _item.categoryName,
+        categoryColor: _item.categoryColor,
+        accountId: _item.accountId,
+        accountName: _item.accountName,
+      );
+      SyncService.onOptimisticTransactionUpdated(updatedItem);
       if (mounted) {
         setState(() {
-          _item = TransactionItem(
-            id: _item.id,
-            type: _item.type,
-            amount: _item.amount,
-            paymentMode: _item.paymentMode,
-            dueDate: _item.dueDate,
-            isSettled: !_item.isSettled,
-            notes: _item.notes,
-            transactionDate: _item.transactionDate,
-            personId: _item.personId,
-            personName: _item.personName,
-            categoryId: _item.categoryId,
-            categoryName: _item.categoryName,
-            categoryColor: _item.categoryColor,
-          );
+          _item = updatedItem;
         });
         widget.onTransactionChanged?.call();
       }
@@ -193,6 +199,7 @@ class _TransactionDetailSheetState extends State<TransactionDetailSheet> {
     setState(() => _isLoading = true);
     try {
       await ApiService.deleteTransaction(_item.id);
+      SyncService.onOptimisticTransactionDeleted(_item.id);
       if (mounted) {
         widget.onTransactionChanged?.call();
         Navigator.pop(context, true);

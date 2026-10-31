@@ -7,7 +7,7 @@ def test_api():
     print("Testing / health and root...")
     r = client.get("/")
     assert r.status_code == 200, f"Root failed: {r.text}"
-    print("Root response:", r.json())
+    print("Root response preview:", r.text[:100])
     
     # 1. Test Persons
     print("\nTesting /api/v1/persons...")

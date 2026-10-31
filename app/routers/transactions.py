@@ -161,9 +161,16 @@ def create_transaction(payload: TransactionCreate):
         created_at=row.get("created_at")
     )
 
+import uuid
+
 @router.get("/{transaction_id}", response_model=TransactionResponse)
 def get_transaction(transaction_id: str):
     """Get single transaction by ID."""
+    try:
+        uuid.UUID(str(transaction_id))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid transaction ID format")
+
     client = get_supabase()
     res = client.table("transactions").select(
         "*, persons(name), categories(name, color)"
@@ -199,8 +206,35 @@ def get_transaction(transaction_id: str):
 @router.put("/{transaction_id}", response_model=TransactionResponse)
 def update_transaction(transaction_id: str, payload: TransactionUpdate):
     """Update transaction fields."""
+    try:
+        uuid.UUID(str(transaction_id))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid transaction ID format")
+
     client = get_supabase()
-    update_data = {k: v for k, v in payload.model_dump().items() if v is not None}
+    update_data = payload.model_dump(
+        exclude_unset=True,
+        exclude={"person_name", "category_name", "user_id"}
+    )
+
+    # 1. Resolve Person if person_name provided
+    if payload.person_name and payload.person_name.strip():
+        resolved_pid = LedgerService.get_or_create_person(
+            name=payload.person_name.strip(),
+            user_id=payload.user_id
+        )
+        update_data["person_id"] = resolved_pid
+
+    # 2. Resolve Category if category_name provided
+    if payload.category_name and payload.category_name.strip():
+        cat_type = "INCOME" if payload.type == "INCOME" else "EXPENSE"
+        resolved_cid = LedgerService.get_or_create_category(
+            name=payload.category_name.strip(),
+            category_type=cat_type,
+            user_id=payload.user_id
+        )
+        update_data["category_id"] = resolved_cid
+
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields provided for update")
         
@@ -213,6 +247,11 @@ def update_transaction(transaction_id: str, payload: TransactionUpdate):
 @router.patch("/{transaction_id}/settle", response_model=TransactionResponse)
 def toggle_settle_transaction(transaction_id: str, is_settled: bool = True):
     """Mark a loan/borrow transaction as settled or unsettled."""
+    try:
+        uuid.UUID(str(transaction_id))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid transaction ID format")
+
     client = get_supabase()
     res = client.table("transactions").update({"is_settled": is_settled}).eq("id", transaction_id).execute()
     if not res.data:
@@ -222,6 +261,11 @@ def toggle_settle_transaction(transaction_id: str, is_settled: bool = True):
 @router.delete("/{transaction_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_transaction(transaction_id: str):
     """Delete a transaction."""
+    try:
+        uuid.UUID(str(transaction_id))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid transaction ID format")
+
     client = get_supabase()
     client.table("transactions").delete().eq("id", transaction_id).execute()
     return None

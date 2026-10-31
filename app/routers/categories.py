@@ -58,11 +58,18 @@ def create_category(payload: CategoryCreate):
         raise HTTPException(status_code=400, detail="Failed to create category")
     return res.data[0]
 
+import uuid
+
 @router.put("/{category_id}", response_model=CategoryResponse)
 def update_category(category_id: str, payload: CategoryUpdate):
     """Update category properties."""
+    try:
+        uuid.UUID(str(category_id))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid category ID format")
+
     client = get_supabase()
-    update_data = {k: v for k, v in payload.model_dump().items() if v is not None}
+    update_data = payload.model_dump(exclude_unset=True)
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields provided for update")
         
@@ -74,6 +81,11 @@ def update_category(category_id: str, payload: CategoryUpdate):
 @router.delete("/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_category(category_id: str):
     """Delete a category."""
+    try:
+        uuid.UUID(str(category_id))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid category ID format")
+
     client = get_supabase()
     client.table("categories").delete().eq("id", category_id).execute()
     return None

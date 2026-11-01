@@ -21,7 +21,26 @@ class _PersonsScreenState extends State<PersonsScreen> {
   @override
   void initState() {
     super.initState();
+    SyncService.dataVersion.addListener(_onDataVersionChanged);
     _loadPersons();
+  }
+
+  @override
+  void dispose() {
+    SyncService.dataVersion.removeListener(_onDataVersionChanged);
+    super.dispose();
+  }
+
+  void _onDataVersionChanged() {
+    if (mounted) {
+      final cached = SyncService.cachedPersons;
+      final filtered = _statusFilter == null
+          ? cached
+          : cached.where((p) => p.status == _statusFilter).toList();
+      setState(() {
+        _personsFuture = Future.value(filtered);
+      });
+    }
   }
 
   Future<void> _loadPersons() async {
@@ -80,7 +99,7 @@ class _PersonsScreenState extends State<PersonsScreen> {
               onRefresh: _loadPersons,
               child: FutureBuilder<List<Person>>(
                 future: _personsFuture,
-                initialData: _statusFilter == null && SyncService.cachedPersons.isNotEmpty ? SyncService.cachedPersons : null,
+                initialData: _statusFilter == null ? SyncService.cachedPersons : null,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
                     return const ShimmerContactList(count: 6);

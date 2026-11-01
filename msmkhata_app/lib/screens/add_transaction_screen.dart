@@ -6,6 +6,7 @@ import '../models/transaction.dart';
 import '../services/api_service.dart';
 import '../services/account_service.dart';
 import '../services/sync_service.dart';
+import '../services/connectivity_service.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final String initialType;
@@ -419,6 +420,29 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         isExpense: _selectedType == 'EXPENSE',
       );
       if (!shouldProceed) return;
+    }
+
+    // Offline Safety Guard: Disallow mutations while offline to guarantee zero ledger conflict
+    if (!ConnectivityService().isOnline.value) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Color(0xFFEF4444),
+          content: Row(
+            children: [
+              Icon(Icons.wifi_off_rounded, color: Colors.white, size: 20),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Aap offline hain! Ledger ko safe rakhne ke liye internet judne par hi entry add/update karein.',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      return;
     }
 
     setState(() => _isLoading = true);

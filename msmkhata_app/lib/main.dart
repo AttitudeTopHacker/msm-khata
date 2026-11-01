@@ -29,6 +29,7 @@ void main(List<String> args) async {
   }
 
   // Restore local offline cache for 0ms instant display
+  await AuthService.initialize();
   await SyncService.initialize();
   await BudgetService.initialize();
   await AccountService.initialize();
@@ -53,6 +54,9 @@ void main(List<String> args) async {
   // Initialize network monitor and offline listener
   ConnectivityService().initialize(
     onStatusChanged: (isOnline) {
+      if (isOnline) {
+        AuthService.ensureSessionRefreshed();
+      }
       final messenger = rootScaffoldMessengerKey.currentState;
       if (messenger != null) {
         messenger.removeCurrentSnackBar();
@@ -133,8 +137,13 @@ class AuthGate extends StatelessWidget {
     return StreamBuilder<AuthState>(
       stream: AuthService.onAuthStateChange,
       builder: (context, snapshot) {
+        // If user explicitly signed out, navigate to LandingScreen
+        if (snapshot.data?.event == AuthChangeEvent.signedOut) {
+          return const LandingScreen();
+        }
+
         final session = snapshot.data?.session ?? AuthService.currentSession;
-        if (session != null) {
+        if (session != null || AuthService.isPersistentLoggedIn) {
           return const MainNavigationScreen();
         }
 
@@ -193,6 +202,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     // Real-time synchronization when switching pages
     if (index == 0) {
       SyncService.syncStats();
+      SyncService.syncTransactions(limit: 35, offset: 0);
     } else if (index == 1) {
       SyncService.syncPersons();
     } else if (index == 2) {

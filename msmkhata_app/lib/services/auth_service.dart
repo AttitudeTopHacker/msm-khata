@@ -11,6 +11,107 @@ import 'sync_service.dart';
 class AuthService {
   static SupabaseClient get _client => Supabase.instance.client;
 
+  static const String _kIsLoggedInKey = 'msm_auth_is_logged_in';
+  static const String _kCachedUserIdKey = 'msm_auth_user_id';
+  static const String _kCachedUserEmailKey = 'msm_auth_user_email';
+  static const String _kCachedUserNameKey = 'msm_auth_user_name';
+  static const String _kCachedAvatarUrlKey = 'msm_auth_avatar_url';
+
+  static bool isPersistentLoggedIn = false;
+  static String? cachedUserId;
+  static String? cachedUserEmail;
+  static String? cachedDisplayName;
+  static String? cachedAvatarUrl;
+
+  static bool _initialized = false;
+
+  /// Initialize and restore persistent authentication state
+  static Future<void> initialize() async {
+    if (_initialized) return;
+    _initialized = true;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      isPersistentLoggedIn = prefs.getBool(_kIsLoggedInKey) ?? false;
+      cachedUserId = prefs.getString(_kCachedUserIdKey);
+      cachedUserEmail = prefs.getString(_kCachedUserEmailKey);
+      cachedDisplayName = prefs.getString(_kCachedUserNameKey);
+      cachedAvatarUrl = prefs.getString(_kCachedAvatarUrlKey);
+
+      // Check current Supabase session on startup
+      final session = currentSession;
+      if (session != null) {
+        isPersistentLoggedIn = true;
+        cachedUserId = session.user.id;
+        cachedUserEmail = session.user.email;
+        final meta = session.user.userMetadata ?? {};
+        cachedDisplayName = meta['full_name'] ?? meta['name'] ?? session.user.email?.split('@').first;
+        cachedAvatarUrl = meta['avatar_url'] ?? meta['picture'];
+        await _saveLoginState(prefs);
+      }
+
+      // Listen to Supabase auth events
+      _client.auth.onAuthStateChange.listen((data) async {
+        final s = data.session;
+        if (data.event == AuthChangeEvent.signedOut) {
+          isPersistentLoggedIn = false;
+          cachedUserId = null;
+          cachedUserEmail = null;
+          cachedDisplayName = null;
+          cachedAvatarUrl = null;
+          try {
+            final p = await SharedPreferences.getInstance();
+            await p.remove(_kIsLoggedInKey);
+            await p.remove(_kCachedUserIdKey);
+            await p.remove(_kCachedUserEmailKey);
+            await p.remove(_kCachedUserNameKey);
+            await p.remove(_kCachedAvatarUrlKey);
+          } catch (_) {}
+        } else if (s != null) {
+          isPersistentLoggedIn = true;
+          cachedUserId = s.user.id;
+          cachedUserEmail = s.user.email;
+          final meta = s.user.userMetadata ?? {};
+          cachedDisplayName = meta['full_name'] ?? meta['name'] ?? s.user.email?.split('@').first;
+          cachedAvatarUrl = meta['avatar_url'] ?? meta['picture'];
+          final p = await SharedPreferences.getInstance();
+          await _saveLoginState(p);
+        }
+      });
+
+      // Silently refresh expired session without kicking user out
+      ensureSessionRefreshed();
+    } catch (e) {
+      debugPrint('AuthService init notice: $e');
+    }
+  }
+
+  static Future<void> _saveLoginState(SharedPreferences p) async {
+    try {
+      await p.setBool(_kIsLoggedInKey, true);
+      if (cachedUserId != null) await p.setString(_kCachedUserIdKey, cachedUserId!);
+      if (cachedUserEmail != null) await p.setString(_kCachedUserEmailKey, cachedUserEmail!);
+      if (cachedDisplayName != null) await p.setString(_kCachedUserNameKey, cachedDisplayName!);
+      if (cachedAvatarUrl != null) await p.setString(_kCachedAvatarUrlKey, cachedAvatarUrl!);
+    } catch (_) {}
+  }
+
+  /// Silently refresh the session without logging out or interrupting the user
+  static Future<void> ensureSessionRefreshed() async {
+    if (!isPersistentLoggedIn) return;
+    try {
+      final session = currentSession;
+      if (session == null || session.isExpired) {
+        debugPrint('Refreshing Supabase session in background...');
+        await _client.auth.refreshSession();
+        debugPrint('Session refreshed successfully.');
+      }
+    } catch (e) {
+      debugPrint('Background session refresh notice: $e');
+      // NEVER log out or set isPersistentLoggedIn = false on network failure!
+    }
+  }
+
   /// Currently logged in Supabase user
   static User? get currentUser {
     try {
@@ -39,26 +140,28 @@ class AuthService {
   }
 
   /// Whether user is authenticated
-  static bool get isAuthenticated => currentUser != null;
+  static bool get isAuthenticated => currentUser != null || isPersistentLoggedIn;
 
   /// Unique Supabase User UUID
-  static String? get currentUserId => currentUser?.id;
+  static String? get currentUserId => currentUser?.id ?? cachedUserId;
 
   /// User display name
   static String get displayName {
     final user = currentUser;
-    if (user == null) return 'Guest';
-    final meta = user.userMetadata ?? {};
-    return meta['full_name'] ?? meta['name'] ?? user.email?.split('@').first ?? 'User';
+    if (user != null) {
+      final meta = user.userMetadata ?? {};
+      return meta['full_name'] ?? meta['name'] ?? user.email?.split('@').first ?? 'User';
+    }
+    return cachedDisplayName ?? 'User';
   }
 
   /// User email
-  static String get email => currentUser?.email ?? '';
+  static String get email => currentUser?.email ?? cachedUserEmail ?? '';
 
   /// User avatar image URL
   static String? get avatarUrl {
     final meta = currentUser?.userMetadata ?? {};
-    return meta['avatar_url'] ?? meta['picture'];
+    return meta['avatar_url'] ?? meta['picture'] ?? cachedAvatarUrl;
   }
 
   static bool get _isDesktop =>
@@ -264,6 +367,19 @@ class AuthService {
 
   /// Sign out
   static Future<void> signOut() async {
+    isPersistentLoggedIn = false;
+    cachedUserId = null;
+    cachedUserEmail = null;
+    cachedDisplayName = null;
+    cachedAvatarUrl = null;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_kIsLoggedInKey);
+      await prefs.remove(_kCachedUserIdKey);
+      await prefs.remove(_kCachedUserEmailKey);
+      await prefs.remove(_kCachedUserNameKey);
+      await prefs.remove(_kCachedAvatarUrlKey);
+    } catch (_) {}
     try {
       await _client.auth.signOut();
     } catch (e) {

@@ -41,13 +41,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     AccountService.activeAccountNotifier.addListener(_onAccountChanged);
+    SyncService.dataVersion.addListener(_onDataVersionChanged);
     _refreshData();
   }
 
   @override
   void dispose() {
     AccountService.activeAccountNotifier.removeListener(_onAccountChanged);
+    SyncService.dataVersion.removeListener(_onDataVersionChanged);
     super.dispose();
+  }
+
+  void _onDataVersionChanged() {
+    if (mounted) {
+      setState(() {
+        if (SyncService.cachedStats != null) {
+          _statsFuture = Future.value(SyncService.cachedStats!);
+        }
+        _transactionsFuture = Future.value(List.from(SyncService.cachedTransactions));
+      });
+    }
   }
 
   void _onAccountChanged() {
@@ -452,7 +465,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     builder: (context, isPrivate, _) {
                       return FutureBuilder<List<TransactionItem>>(
                         future: _transactionsFuture,
-                        initialData: SyncService.cachedTransactions.isNotEmpty ? SyncService.cachedTransactions : null,
+                        initialData: SyncService.cachedTransactions,
                         builder: (context, snapshot) {
                           if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
                             return const ShimmerTransactionList(count: 4);

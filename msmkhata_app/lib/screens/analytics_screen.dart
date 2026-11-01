@@ -24,7 +24,22 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   @override
   void initState() {
     super.initState();
+    SyncService.dataVersion.addListener(_onDataVersionChanged);
     _loadStats();
+  }
+
+  @override
+  void dispose() {
+    SyncService.dataVersion.removeListener(_onDataVersionChanged);
+    super.dispose();
+  }
+
+  void _onDataVersionChanged() {
+    if (mounted && SyncService.cachedStats != null) {
+      setState(() {
+        _statsFuture = Future.value(SyncService.cachedStats!);
+      });
+    }
   }
 
   Future<DashboardStats> _getStats() async {

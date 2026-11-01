@@ -193,6 +193,28 @@ class DashboardStats {
     );
   }
 
+  factory DashboardStats.empty() {
+    return DashboardStats(
+      netAccountBalance: 0.0,
+      totalMoneyIn: 0.0,
+      totalMoneyOut: 0.0,
+      activeAccountId: 'main',
+      totalReceivable: 0.0,
+      totalPayable: 0.0,
+      netLenDenPosition: 0.0,
+      totalIncome: 0.0,
+      totalExpense: 0.0,
+      netSavings: 0.0,
+      peopleToReceiveCount: 0,
+      peopleToPayCount: 0,
+      totalTransactionsCount: 0,
+      categoryBreakdown: [],
+      topDebtors: [],
+      topCreditors: [],
+      monthlyTrends: [],
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'net_account_balance': netAccountBalance,

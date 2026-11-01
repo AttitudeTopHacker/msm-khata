@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../models/transaction.dart';
 import '../services/api_service.dart';
 import '../services/sync_service.dart';
+import '../services/connectivity_service.dart';
 import '../screens/add_transaction_screen.dart';
 
 class TransactionDetailSheet extends StatefulWidget {
@@ -86,6 +87,28 @@ class _TransactionDetailSheetState extends State<TransactionDetailSheet> {
 
     if (pickedDate == null || !mounted) return;
 
+    if (!ConnectivityService().isOnline.value) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Color(0xFFEF4444),
+          content: Row(
+            children: [
+              Icon(Icons.wifi_off_rounded, color: Colors.white, size: 20),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Aap offline hain! Date update karne ke liye internet connection zaroori hai.',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      return;
+    }
+
     // Retain the current time of day or set to current time
     final updatedDateTime = DateTime(
       pickedDate.year,
@@ -132,6 +155,28 @@ class _TransactionDetailSheetState extends State<TransactionDetailSheet> {
   }
 
   void _handleToggleSettle() async {
+    if (!ConnectivityService().isOnline.value) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Color(0xFFEF4444),
+          content: Row(
+            children: [
+              Icon(Icons.wifi_off_rounded, color: Colors.white, size: 20),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Aap offline hain! Settlement status update karne ke liye internet connection zaroori hai.',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
     try {
       await ApiService.settleTransaction(_item.id, isSettled: !_item.isSettled);
@@ -171,6 +216,28 @@ class _TransactionDetailSheetState extends State<TransactionDetailSheet> {
   }
 
   void _handleDelete() async {
+    if (!ConnectivityService().isOnline.value) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Color(0xFFEF4444),
+          content: Row(
+            children: [
+              Icon(Icons.wifi_off_rounded, color: Colors.white, size: 20),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Aap offline hain! Ledger ko safe rakhne ke liye internet judne par hi entry delete karein.',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      return;
+    }
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(

@@ -221,9 +221,6 @@ class SyncService {
 
     dataVersion.value++;
 
-    // Silently update stats in background
-    syncStats().then((_) => dataVersion.value++);
-
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
@@ -231,6 +228,9 @@ class SyncService {
         jsonEncode(cachedTransactions.map((e) => e.toJson()).toList()),
       );
     } catch (_) {}
+
+    // Silently update stats and contacts in background
+    Future.wait([syncStats(), syncPersons()]).then((_) => dataVersion.value++);
   }
 
   /// Optimistic Transaction Deletion: Instantly removes from local cache & SharedPreferences
@@ -238,9 +238,6 @@ class SyncService {
     cachedTransactions.removeWhere((tx) => tx.id == id);
     dataVersion.value++;
 
-    // Silently update stats in background
-    syncStats().then((_) => dataVersion.value++);
-
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
@@ -248,6 +245,9 @@ class SyncService {
         jsonEncode(cachedTransactions.map((e) => e.toJson()).toList()),
       );
     } catch (_) {}
+
+    // Silently update stats and contacts in background
+    Future.wait([syncStats(), syncPersons()]).then((_) => dataVersion.value++);
   }
 
   /// Optimistic Transaction Update: Instantly updates item in local cache & SharedPreferences
@@ -261,9 +261,6 @@ class SyncService {
     _sortTransactions(cachedTransactions);
     dataVersion.value++;
 
-    // Silently update stats in background
-    syncStats().then((_) => dataVersion.value++);
-
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
@@ -271,6 +268,9 @@ class SyncService {
         jsonEncode(cachedTransactions.map((e) => e.toJson()).toList()),
       );
     } catch (_) {}
+
+    // Silently update stats and contacts in background
+    Future.wait([syncStats(), syncPersons()]).then((_) => dataVersion.value++);
   }
 
   /// Sort transactions descending by date

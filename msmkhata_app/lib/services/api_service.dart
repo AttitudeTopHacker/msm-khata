@@ -219,16 +219,28 @@ class ApiService {
 
   // 7. Fetch Categories (with default fallback for offline / immediate display)
   static final List<Category> defaultCategories = [
-    Category(id: 'c1', name: 'Market', type: 'BOTH', color: '#3B82F6'),
-    Category(id: 'c2', name: 'Mandi', type: 'BOTH', color: '#10B981'),
-    Category(id: 'c3', name: 'Agriculture', type: 'BOTH', color: '#84CC16'),
-    Category(id: 'c4', name: 'Ploughing', type: 'EXPENSE', color: '#D97706'),
-    Category(id: 'c5', name: 'Irrigation', type: 'EXPENSE', color: '#06B6D4'),
-    Category(id: 'c6', name: 'Diesel', type: 'EXPENSE', color: '#EF4444'),
-    Category(id: 'c7', name: 'Fertiliser & Seeds', type: 'EXPENSE', color: '#14B8A6'),
-    Category(id: 'c8', name: 'Labour', type: 'EXPENSE', color: '#8B5CF6'),
-    Category(id: 'c9', name: 'Household Expenses', type: 'EXPENSE', color: '#F59E0B'),
-    Category(id: 'c10', name: 'General', type: 'BOTH', color: '#64748B'),
+    // Income Categories
+    Category(id: 'c_inc_1', name: 'Paddy (Dhan Bikri)', type: 'INCOME', color: '#10B981'),
+    Category(id: 'c_inc_2', name: 'Wheat (Gehu Bikri)', type: 'INCOME', color: '#F59E0B'),
+    Category(id: 'c_inc_3', name: 'Sugarcane (Ganna)', type: 'INCOME', color: '#84CC16'),
+    Category(id: 'c_inc_4', name: 'Mustard / Oilseeds (Sarson)', type: 'INCOME', color: '#EAB308'),
+    Category(id: 'c_inc_5', name: 'Vegetables & Fruits (Sabzi/Fal)', type: 'INCOME', color: '#14B8A6'),
+    Category(id: 'c_inc_6', name: 'Dairy & Milk (Doodh)', type: 'INCOME', color: '#38BDF8'),
+    Category(id: 'c_inc_7', name: 'Rental Income (Kiraya/Bhaada)', type: 'INCOME', color: '#6366F1'),
+    Category(id: 'c_inc_8', name: 'Other Income (Anya Kamai)', type: 'INCOME', color: '#8B5CF6'),
+
+    // Expense Categories
+    Category(id: 'c_exp_1', name: 'Mandi & Selling', type: 'EXPENSE', color: '#F97316'),
+    Category(id: 'c_exp_2', name: 'Ploughing', type: 'EXPENSE', color: '#D97706'),
+    Category(id: 'c_exp_3', name: 'Irrigation', type: 'EXPENSE', color: '#06B6D4'),
+    Category(id: 'c_exp_4', name: 'Diesel & Fuel', type: 'EXPENSE', color: '#EF4444'),
+    Category(id: 'c_exp_5', name: 'Fertiliser & Seeds / Pesticides', type: 'EXPENSE', color: '#10B981'),
+    Category(id: 'c_exp_6', name: 'Labour', type: 'EXPENSE', color: '#8B5CF6'),
+    Category(id: 'c_exp_7', name: 'Machinery & Equipment', type: 'EXPENSE', color: '#64748B'),
+    Category(id: 'c_exp_8', name: 'Family', type: 'EXPENSE', color: '#EC4899'),
+    Category(id: 'c_exp_9', name: 'Household Expenses', type: 'EXPENSE', color: '#F59E0B'),
+    Category(id: 'c_exp_10', name: 'Cropping / Harvester', type: 'EXPENSE', color: '#84CC16'),
+    Category(id: 'c_exp_11', name: 'Personal', type: 'EXPENSE', color: '#3B82F6'),
   ];
 
   static Future<List<Category>> getCategories({String? type, String? userId}) async {
@@ -249,6 +261,9 @@ class ApiService {
       }
     } catch (_) {
       // Return defaults on error
+    }
+    if (type != null) {
+      return defaultCategories.where((c) => c.type == type || c.type == 'BOTH').toList();
     }
     return defaultCategories;
   }
@@ -279,7 +294,58 @@ class ApiService {
     throw Exception('Failed to create category');
   }
 
-  // 10. Python Professional Reports (PDF with Charts & Excel .xlsx)
+  // 9. Update Category (Rename, Color, Type)
+  static Future<Category> updateCategory({
+    required String id,
+    String? name,
+    String? type,
+    String? color,
+  }) async {
+    final payload = <String, dynamic>{
+      if (name != null && name.trim().isNotEmpty) 'name': name.trim(),
+      if (type != null) 'type': type,
+      if (color != null) 'color': color,
+    };
+
+    final res = await http.put(
+      Uri.parse('$_base/categories/$id'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+
+    if (res.statusCode == 200) {
+      return Category.fromJson(jsonDecode(res.body));
+    }
+    try {
+      final err = jsonDecode(res.body);
+      if (err is Map && err['detail'] != null) {
+        throw Exception(err['detail']);
+      }
+    } catch (e) {
+      if (e is! FormatException) rethrow;
+    }
+    throw Exception('Failed to update category');
+  }
+
+  // 10. Delete Category (Guarded by transactions usage check)
+  static Future<void> deleteCategory(String id) async {
+    final res = await http.delete(Uri.parse('$_base/categories/$id'));
+    if (res.statusCode == 204 || res.statusCode == 200) {
+      return;
+    }
+
+    try {
+      final err = jsonDecode(res.body);
+      if (err is Map && err['detail'] != null) {
+        throw Exception(err['detail']);
+      }
+    } catch (e) {
+      if (e is! FormatException) rethrow;
+    }
+    throw Exception('Failed to delete category');
+  }
+
+  // 11. Python Professional Reports (PDF with Charts & Excel .xlsx)
   static String getPdfReportUrl({String? accountId, String? accountName}) {
     final aid = accountId ?? AccountService.activeAccountNotifier.value.id;
     final aname = accountName ?? AccountService.activeAccountNotifier.value.name;

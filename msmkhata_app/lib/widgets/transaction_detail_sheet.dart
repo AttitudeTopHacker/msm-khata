@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/transaction.dart';
 import '../services/api_service.dart';
-import '../services/sync_service.dart';
 import '../services/connectivity_service.dart';
+import '../services/policy_service.dart';
+import '../services/sync_service.dart';
 import '../screens/add_transaction_screen.dart';
 
 class TransactionDetailSheet extends StatefulWidget {
@@ -60,6 +61,15 @@ class _TransactionDetailSheetState extends State<TransactionDetailSheet> {
   }
 
   void _handleChangeDate() async {
+    if (!PolicyService.canEditDate) {
+      PolicyService.showRestrictedDialog(
+        context,
+        title: 'Date Modification Restricted',
+        message: 'Changing or modifying transaction dates has been disabled by the administrator. All entries retain their recorded timestamps.',
+      );
+      return;
+    }
+
     final current = _parsedDate;
     final now = DateTime.now();
     final initial = current.isAfter(now) ? now : current;
@@ -238,6 +248,15 @@ class _TransactionDetailSheetState extends State<TransactionDetailSheet> {
       return;
     }
 
+    if (!PolicyService.canDeleteEntry) {
+      PolicyService.showRestrictedDialog(
+        context,
+        title: 'Entry Deletion Restricted',
+        message: 'Deleting historical ledger transactions has been disabled by the administrator.',
+      );
+      return;
+    }
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -290,6 +309,15 @@ class _TransactionDetailSheetState extends State<TransactionDetailSheet> {
   }
 
   void _handleEditFull() async {
+    if (!PolicyService.canEditEntry) {
+      PolicyService.showRestrictedDialog(
+        context,
+        title: 'Entry Editing Restricted',
+        message: 'Editing existing ledger entries has been disabled by the administrator. You may still record new transactions without restriction.',
+      );
+      return;
+    }
+
     final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -443,17 +471,23 @@ class _TransactionDetailSheetState extends State<TransactionDetailSheet> {
                     ],
                   ),
                 ),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4F46E5),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    elevation: 0,
-                  ),
-                  onPressed: _isLoading ? null : _handleChangeDate,
-                  icon: const Icon(Icons.edit_calendar_rounded, size: 15),
-                  label: const Text('Edit Date', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                ValueListenableBuilder<int>(
+                  valueListenable: PolicyService.policyVersion,
+                  builder: (context, _, __) {
+                    final canEditDate = PolicyService.canEditDate;
+                    return ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: canEditDate ? const Color(0xFF4F46E5) : const Color(0xFF334155),
+                        foregroundColor: canEditDate ? Colors.white : const Color(0xFF94A3B8),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        elevation: 0,
+                      ),
+                      onPressed: _isLoading ? null : _handleChangeDate,
+                      icon: Icon(canEditDate ? Icons.edit_calendar_rounded : Icons.lock_outline_rounded, size: 15),
+                      label: Text(canEditDate ? 'Edit Date' : 'Locked', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    );
+                  },
                 ),
               ],
             ),
@@ -502,38 +536,55 @@ class _TransactionDetailSheetState extends State<TransactionDetailSheet> {
           ),
           const SizedBox(height: 22),
 
-          // Bottom Action Buttons: Edit Full Details & Delete
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFEF4444),
-                    side: const BorderSide(color: Color(0xFFEF4444), width: 1),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          // Bottom Action Buttons: Edit Full Details & Delete (Guarded by Enterprise Policy)
+          ValueListenableBuilder<int>(
+            valueListenable: PolicyService.policyVersion,
+            builder: (context, _, __) {
+              final canDelete = PolicyService.canDeleteEntry;
+              final canEdit = PolicyService.canEditEntry;
+
+              return Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: canDelete ? const Color(0xFFEF4444) : const Color(0xFF64748B),
+                        side: BorderSide(
+                          color: canDelete ? const Color(0xFFEF4444) : const Color(0xFF334155),
+                          width: 1,
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      onPressed: _isLoading ? null : _handleDelete,
+                      icon: Icon(canDelete ? Icons.delete_outline_rounded : Icons.lock_outline_rounded, size: 18),
+                      label: Text(
+                        canDelete ? 'Delete Entry' : 'Delete (Restricted)',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
                   ),
-                  onPressed: _isLoading ? null : _handleDelete,
-                  icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                  label: const Text('Delete Entry', style: TextStyle(fontWeight: FontWeight.bold)),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4F46E5),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    elevation: 0,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: canEdit ? const Color(0xFF4F46E5) : const Color(0xFF334155),
+                        foregroundColor: canEdit ? Colors.white : const Color(0xFF94A3B8),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        elevation: 0,
+                      ),
+                      onPressed: _isLoading ? null : _handleEditFull,
+                      icon: Icon(canEdit ? Icons.edit_rounded : Icons.lock_outline_rounded, size: 18),
+                      label: Text(
+                        canEdit ? 'Edit Entry' : 'Edit (Restricted)',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
                   ),
-                  onPressed: _isLoading ? null : _handleEditFull,
-                  icon: const Icon(Icons.edit_rounded, size: 18),
-                  label: const Text('Edit Entry', style: TextStyle(fontWeight: FontWeight.bold)),
-                ),
-              ),
-            ],
+                ],
+              );
+            },
           ),
           const SizedBox(height: 10),
         ],

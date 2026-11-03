@@ -33,6 +33,7 @@ class NetPositionCard extends StatelessWidget {
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: const Color(0xFF4F46E5).withValues(alpha: 0.4), width: 1.2),
             boxShadow: [
               BoxShadow(
                 color: const Color(0xFF4338CA).withValues(alpha: 0.35),

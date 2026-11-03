@@ -13,6 +13,7 @@ import '../widgets/adaptive_refresh_indicator.dart';
 import '../widgets/shimmer_loading.dart';
 import '../widgets/sync_status_badge.dart';
 import 'add_transaction_screen.dart';
+import 'admin_panel_screen.dart';
 import 'auth_screen.dart';
 import 'export_statement_screen.dart';
 import 'history_screen.dart';
@@ -161,6 +162,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
         actions: [
+          // Admin Panel Button (Exclusive to primary administrator)
+          if (AuthService.isAdmin)
+            IconButton(
+              tooltip: 'Administrator Control Panel',
+              icon: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF59E0B).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFF59E0B), width: 1),
+                ),
+                child: const Icon(Icons.admin_panel_settings_rounded, color: Color(0xFFF59E0B), size: 18),
+              ),
+              onPressed: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AdminPanelScreen()),
+                );
+                if (mounted) setState(() {});
+              },
+            ),
+
           // Export & Cloud Backup Button
           IconButton(
             tooltip: 'Export Statement & Cloud Backup',

@@ -20,6 +20,7 @@ class AnalyticsScreen extends StatefulWidget {
 class _AnalyticsScreenState extends State<AnalyticsScreen> {
   late Future<DashboardStats> _statsFuture;
   bool _isSyncing = false;
+  String _selectedYear = 'All'; // 'All', '2026', '2025', etc.
 
   @override
   void initState() {
@@ -61,6 +62,29 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     } finally {
       if (mounted) setState(() => _isSyncing = false);
     }
+  }
+
+  List<String> _extractAvailableYears(DashboardStats stats) {
+    final Set<String> years = {};
+    for (final t in stats.monthlyTrends) {
+      final parts = t.month.split('-');
+      if (parts.isNotEmpty && parts[0].length == 4) {
+        years.add(parts[0]);
+      }
+    }
+    for (final tx in SyncService.cachedTransactions) {
+      if (tx.transactionDate != null && tx.transactionDate!.length >= 4) {
+        final y = tx.transactionDate!.substring(0, 4);
+        if (int.tryParse(y) != null) {
+          years.add(y);
+        }
+      }
+    }
+    if (years.isEmpty) {
+      years.add(DateTime.now().year.toString());
+    }
+    final sorted = years.toList()..sort((a, b) => b.compareTo(a));
+    return ['All', ...sorted];
   }
 
   @override
@@ -132,8 +156,31 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             }
 
             final stats = snapshot.data!;
-            final savingsRate = stats.totalIncome > 0
-                ? ((stats.netSavings / stats.totalIncome) * 100).clamp(-100.0, 100.0)
+            final availableYears = _extractAvailableYears(stats);
+
+            // Filter monthly trends based on selected year
+            final List<MonthlyTrendItem> filteredTrends = _selectedYear == 'All'
+                ? stats.monthlyTrends
+                : stats.monthlyTrends.where((t) => t.month.startsWith(_selectedYear)).toList();
+
+            // Calculate Year-Specific Totals
+            double activeIncome = 0.0;
+            double activeExpense = 0.0;
+
+            if (_selectedYear == 'All') {
+              activeIncome = stats.totalIncome;
+              activeExpense = stats.totalExpense;
+            } else {
+              for (final t in filteredTrends) {
+                activeIncome += t.totalIncome;
+                activeExpense += t.totalExpense;
+              }
+            }
+
+            final netBenefit = activeIncome - activeExpense;
+            final isProfitable = netBenefit >= 0;
+            final benefitRate = activeIncome > 0
+                ? ((netBenefit / activeIncome) * 100).clamp(-100.0, 100.0)
                 : 0.0;
 
             return SingleChildScrollView(
@@ -142,10 +189,43 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 1. Financial Health Matrix (KPI Cards)
-                  const Text(
-                    'Financial Health Overview',
-                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                  // 0. YEAR-WISE SELECTOR BAR
+                  _buildYearFilterBar(availableYears),
+                  const SizedBox(height: 16),
+
+                  // 1. BENEFITS & LOSS (P&L) HIGHLIGHT MATRIX CARD
+                  _buildBenefitLossCard(
+                    currency: currency,
+                    income: activeIncome,
+                    expense: activeExpense,
+                    netBenefit: netBenefit,
+                    isProfitable: isProfitable,
+                    rate: benefitRate,
+                    trends: filteredTrends,
+                  ),
+                  const SizedBox(height: 20),
+
+                  // 2. Financial Health Matrix (KPI Cards)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Financial Performance',
+                        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1E293B),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFF334155)),
+                        ),
+                        child: Text(
+                          _selectedYear == 'All' ? 'All Time Overview' : 'Year $_selectedYear Record',
+                          style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 12),
                   Row(
@@ -153,8 +233,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       Expanded(
                         child: _buildKpiCard(
                           title: 'Total Income',
-                          amount: currency.format(stats.totalIncome),
-                          sub: 'Earnings',
+                          amount: currency.format(activeIncome),
+                          sub: _selectedYear == 'All' ? 'All-Time Earnings' : '$_selectedYear Earnings',
                           color: const Color(0xFF10B981),
                           icon: Icons.trending_up_rounded,
                         ),
@@ -163,8 +243,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       Expanded(
                         child: _buildKpiCard(
                           title: 'Total Expense',
-                          amount: currency.format(stats.totalExpense),
-                          sub: 'Expenditure',
+                          amount: currency.format(activeExpense),
+                          sub: _selectedYear == 'All' ? 'All-Time Expenses' : '$_selectedYear Expenditure',
                           color: const Color(0xFFF59E0B),
                           icon: Icons.shopping_bag_outlined,
                         ),
@@ -176,19 +256,21 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     children: [
                       Expanded(
                         child: _buildKpiCard(
-                          title: 'Net Savings',
-                          amount: currency.format(stats.netSavings),
-                          sub: '${savingsRate.toStringAsFixed(1)}% savings rate',
-                          color: stats.netSavings >= 0 ? const Color(0xFF38BDF8) : const Color(0xFFEF4444),
-                          icon: Icons.savings_outlined,
+                          title: isProfitable ? 'Net Benefit (Profit)' : 'Net Loss (Deficit)',
+                          amount: currency.format(netBenefit.abs()),
+                          sub: isProfitable
+                              ? '+${benefitRate.toStringAsFixed(1)}% Net Margin'
+                              : '-${benefitRate.abs().toStringAsFixed(1)}% Deficit',
+                          color: isProfitable ? const Color(0xFF38BDF8) : const Color(0xFFEF4444),
+                          icon: isProfitable ? Icons.savings_outlined : Icons.money_off_csred_rounded,
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: _buildKpiCard(
                           title: 'Total Transactions',
-                          amount: '${stats.totalTransactionsCount}',
-                          sub: 'All Ledger Entries',
+                          amount: '${_selectedYear == 'All' ? stats.totalTransactionsCount : filteredTrends.length > 0 ? stats.totalTransactionsCount : 0}',
+                          sub: 'Recorded Ledger Rows',
                           color: const Color(0xFF818CF8),
                           icon: Icons.receipt_long_rounded,
                         ),
@@ -198,12 +280,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
                   const SizedBox(height: 24),
 
-                  // 2. Monthly Cash Flow & Len-Den Trends Bar Chart
-                  MonthlyTrendChart(trends: stats.monthlyTrends),
+                  // 3. Monthly Cash Flow & Len-Den Trends Bar Chart
+                  MonthlyTrendChart(trends: filteredTrends),
 
                   const SizedBox(height: 20),
 
-                  // 3. Category Spending Donut / Pie Chart with %
+                  // 4. Category Spending Donut / Pie Chart with %
                   CategoryPieChart(
                     categories: stats.categoryBreakdown,
                     totalExpense: stats.totalExpense,
@@ -211,7 +293,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
                   const SizedBox(height: 20),
 
-                  // 4. Top Debtors & Top Creditors Highlight Card
+                  // 5. Top Debtors & Top Creditors Highlight Card
                   TopPeopleCard(
                     topDebtors: stats.topDebtors,
                     topCreditors: stats.topCreditors,
@@ -225,6 +307,236 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             );
           },
         ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Year Filter Bar
+  // ---------------------------------------------------------------------------
+  Widget _buildYearFilterBar(List<String> years) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF4F46E5).withOpacity(0.4), width: 1.2),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.calendar_today_rounded, color: Color(0xFF818CF8), size: 18),
+          const SizedBox(width: 10),
+          const Text(
+            'Select Year:',
+            style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: years.map((y) {
+                  final isSelected = _selectedYear == y;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text(y == 'All' ? 'All Years' : y),
+                      selected: isSelected,
+                      selectedColor: const Color(0xFF4F46E5),
+                      backgroundColor: const Color(0xFF0F172A),
+                      labelStyle: TextStyle(
+                        color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                        fontSize: 12,
+                      ),
+                      side: BorderSide(
+                        color: isSelected ? const Color(0xFF818CF8) : const Color(0xFF334155),
+                        width: isSelected ? 1.4 : 0.8,
+                      ),
+                      onSelected: (_) {
+                        setState(() {
+                          _selectedYear = y;
+                        });
+                      },
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Benefits vs Loss (Profit & Loss / P&L) Highlight Card
+  // ---------------------------------------------------------------------------
+  Widget _buildBenefitLossCard({
+    required NumberFormat currency,
+    required double income,
+    required double expense,
+    required double netBenefit,
+    required bool isProfitable,
+    required double rate,
+    required List<MonthlyTrendItem> trends,
+  }) {
+    final statusColor = isProfitable ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isProfitable
+              ? [const Color(0xFF064E3B).withOpacity(0.4), const Color(0xFF1E293B)]
+              : [const Color(0xFF7F1D1D).withOpacity(0.4), const Color(0xFF1E293B)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: statusColor.withOpacity(0.5), width: 1.4),
+        boxShadow: [
+          BoxShadow(
+            color: statusColor.withOpacity(0.12),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(0.18),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      isProfitable ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                      color: statusColor,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Benefits vs Loss Analysis',
+                        style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        _selectedYear == 'All' ? 'All-Time Net Profit & Loss (P&L)' : 'Year $_selectedYear P&L Statement',
+                        style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.18),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: statusColor, width: 1),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isProfitable ? Icons.check_circle_rounded : Icons.warning_amber_rounded,
+                      color: statusColor,
+                      size: 13,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      isProfitable ? 'Net Profit' : 'Net Loss',
+                      style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+
+          // Big Amount
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                '${isProfitable ? "+" : "-"}${currency.format(netBenefit.abs())}',
+                style: TextStyle(
+                  color: statusColor,
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: -0.5,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                isProfitable
+                    ? '(${rate.toStringAsFixed(1)}% Profit Margin)'
+                    : '(${rate.abs().toStringAsFixed(1)}% Deficit)',
+                style: TextStyle(color: statusColor.withOpacity(0.85), fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // Visual Ratio Bar: Income vs Expense
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: income > 0 ? (income * 100).toInt() : 1,
+                  child: Container(
+                    height: 8,
+                    color: const Color(0xFF10B981),
+                  ),
+                ),
+                const SizedBox(width: 2),
+                Expanded(
+                  flex: expense > 0 ? (expense * 100).toInt() : 1,
+                  child: Container(
+                    height: 8,
+                    color: const Color(0xFFF59E0B),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // Breakdown Row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(width: 8, height: 8, decoration: const BoxDecoration(color: Color(0xFF10B981), shape: BoxShape.circle)),
+                  const SizedBox(width: 6),
+                  Text('Income: ${currency.format(income)}', style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 12)),
+                ],
+              ),
+              Row(
+                children: [
+                  Container(width: 8, height: 8, decoration: const BoxDecoration(color: Color(0xFFF59E0B), shape: BoxShape.circle)),
+                  const SizedBox(width: 6),
+                  Text('Expense: ${currency.format(expense)}', style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 12)),
+                ],
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

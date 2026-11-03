@@ -72,4 +72,40 @@ class TransactionItem {
       'account_name': accountName,
     };
   }
+
+  TransactionItem copyWith({
+    String? id,
+    String? type,
+    double? amount,
+    String? paymentMode,
+    String? dueDate,
+    bool? isSettled,
+    String? notes,
+    String? transactionDate,
+    String? personId,
+    String? personName,
+    String? categoryId,
+    String? categoryName,
+    String? categoryColor,
+    String? accountId,
+    String? accountName,
+  }) {
+    return TransactionItem(
+      id: id ?? this.id,
+      type: type ?? this.type,
+      amount: amount ?? this.amount,
+      paymentMode: paymentMode ?? this.paymentMode,
+      dueDate: dueDate ?? this.dueDate,
+      isSettled: isSettled ?? this.isSettled,
+      notes: notes ?? this.notes,
+      transactionDate: transactionDate ?? this.transactionDate,
+      personId: personId ?? this.personId,
+      personName: personName ?? this.personName,
+      categoryId: categoryId ?? this.categoryId,
+      categoryName: categoryName ?? this.categoryName,
+      categoryColor: categoryColor ?? this.categoryColor,
+      accountId: accountId ?? this.accountId,
+      accountName: accountName ?? this.accountName,
+    );
+  }
 }

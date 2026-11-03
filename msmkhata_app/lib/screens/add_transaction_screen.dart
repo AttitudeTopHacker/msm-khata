@@ -5,8 +5,9 @@ import '../models/person.dart';
 import '../models/transaction.dart';
 import '../services/api_service.dart';
 import '../services/account_service.dart';
-import '../services/sync_service.dart';
 import '../services/connectivity_service.dart';
+import '../services/policy_service.dart';
+import '../services/sync_service.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final String initialType;
@@ -149,15 +150,29 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
   IconData _getCategoryIcon(String name) {
     final lower = name.toLowerCase();
-    if (lower.contains('market')) return Icons.storefront_rounded;
-    if (lower.contains('mandi')) return Icons.store_rounded;
-    if (lower.contains('agri') || lower.contains('crop')) return Icons.eco_rounded;
-    if (lower.contains('plough') || lower.contains('jutai') || lower.contains('tractor')) return Icons.agriculture_rounded;
+    // Income Categories
+    if (lower.contains('paddy') || lower.contains('dhan')) return Icons.grass_rounded;
+    if (lower.contains('wheat') || lower.contains('gehu')) return Icons.grain_rounded;
+    if (lower.contains('sugar') || lower.contains('ganna')) return Icons.eco_rounded;
+    if (lower.contains('mustard') || lower.contains('sarson') || lower.contains('oilseed')) return Icons.wb_sunny_rounded;
+    if (lower.contains('vegetable') || lower.contains('sabzi') || lower.contains('fruit') || lower.contains('fal')) return Icons.local_florist_rounded;
+    if (lower.contains('dairy') || lower.contains('milk') || lower.contains('doodh')) return Icons.coffee_rounded;
+    if (lower.contains('rental') || lower.contains('kiraya') || lower.contains('bhaada')) return Icons.real_estate_agent_rounded;
+    if (lower.contains('income') || lower.contains('kamai')) return Icons.payments_rounded;
+
+    // Expense Categories
+    if (lower.contains('mandi') || lower.contains('selling') || lower.contains('market')) return Icons.storefront_rounded;
+    if (lower.contains('plough') || lower.contains('jutai')) return Icons.agriculture_rounded;
     if (lower.contains('irrigat') || lower.contains('water') || lower.contains('sinch')) return Icons.water_drop_rounded;
     if (lower.contains('diesel') || lower.contains('fuel') || lower.contains('petrol')) return Icons.local_gas_station_rounded;
-    if (lower.contains('seed') || lower.contains('fertilis') || lower.contains('beej')) return Icons.grass_rounded;
-    if (lower.contains('labour') || lower.contains('worker') || lower.contains('wage')) return Icons.engineering_rounded;
-    if (lower.contains('house') || lower.contains('home') || lower.contains('grocery')) return Icons.shopping_basket_rounded;
+    if (lower.contains('fertil') || lower.contains('seed') || lower.contains('pesticide') || lower.contains('khaad') || lower.contains('beej')) return Icons.spa_rounded;
+    if (lower.contains('labour') || lower.contains('mazdoor') || lower.contains('wage')) return Icons.groups_rounded;
+    if (lower.contains('machin') || lower.contains('equip') || lower.contains('tool')) return Icons.handyman_rounded;
+    if (lower.contains('family')) return Icons.family_restroom_rounded;
+    if (lower.contains('house') || lower.contains('home')) return Icons.home_rounded;
+    if (lower.contains('crop') || lower.contains('harvest')) return Icons.cut_rounded;
+    if (lower.contains('person')) return Icons.person_rounded;
+
     return Icons.category_rounded;
   }
 
@@ -269,7 +284,32 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   ),
                   onPressed: isSaving ? null : () async {
                     final name = nameCtrl.text.trim();
-                    if (name.isEmpty) return;
+                    if (name.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please enter a category name.'),
+                          backgroundColor: Color(0xFFEF4444),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                      return;
+                    }
+
+                    // Check for duplicate category name (case-insensitive)
+                    final isDuplicate = _categories.any(
+                      (c) => c.name.trim().toLowerCase() == name.toLowerCase(),
+                    );
+                    if (isDuplicate) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text("A category named '$name' already exists. Duplicate category names are not permitted."),
+                          backgroundColor: const Color(0xFFEF4444),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                      return;
+                    }
+
                     setDialogState(() => isSaving = true);
 
                     try {
@@ -288,13 +328,26 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                         Navigator.pop(ctx);
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text("Category '$name' added and selected!"),
+                            content: Text("Category '$name' created and selected."),
                             backgroundColor: const Color(0xFF10B981),
                             behavior: SnackBarBehavior.floating,
                           ),
                         );
                       }
-                    } catch (_) {
+                    } catch (err) {
+                      final errMsg = err.toString().replaceFirst('Exception: ', '');
+                      if (errMsg.toLowerCase().contains('duplicate') || errMsg.toLowerCase().contains('already exists')) {
+                        setDialogState(() => isSaving = false);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(errMsg),
+                            backgroundColor: const Color(0xFFEF4444),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                        return;
+                      }
+
                       // Offline/local fallback
                       final localCat = Category(
                         id: 'local_${DateTime.now().millisecondsSinceEpoch}',
@@ -312,7 +365,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                         Navigator.pop(ctx);
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text("Category '$name' selected!"),
+                            content: Text("Category '$name' created and selected."),
                             backgroundColor: const Color(0xFF10B981),
                             behavior: SnackBarBehavior.floating,
                           ),
@@ -336,7 +389,540 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     );
   }
 
+  int _getCategoryUsageCount(Category cat) {
+    int count = 0;
+    final catNameLower = cat.name.trim().toLowerCase();
+    for (final tx in SyncService.cachedTransactions) {
+      if (tx.categoryId != null && tx.categoryId == cat.id) {
+        count++;
+      } else if (tx.categoryName != null &&
+          tx.categoryName!.trim().toLowerCase() == catNameLower) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  void _showCategoryInUseWarningDialog(Category cat, int usageCount) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: const [
+            Icon(Icons.warning_amber_rounded, color: Color(0xFFF59E0B), size: 26),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Cannot Delete Category',
+                style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            RichText(
+              text: TextSpan(
+                style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 14, height: 1.4),
+                children: [
+                  const TextSpan(text: 'The category "'),
+                  TextSpan(
+                    text: cat.name,
+                    style: const TextStyle(color: Color(0xFF38BDF8), fontWeight: FontWeight.bold),
+                  ),
+                  TextSpan(
+                    text: usageCount > 0
+                        ? '" is currently associated with $usageCount transaction(s).'
+                        : '" is currently associated with existing transactions.',
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F172A),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF334155)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Icon(Icons.info_outline_rounded, color: Color(0xFF38BDF8), size: 18),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Categories with existing transaction records cannot be deleted to preserve the integrity of your ledger. You may rename this category instead.',
+                      style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12, height: 1.35),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Dismiss', style: TextStyle(color: Color(0xFF94A3B8))),
+          ),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.edit_rounded, size: 16),
+            label: const Text('Rename Instead'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF4F46E5),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _showRenameCategoryDialog(cat);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showCategoryOptionsSheet(Category cat) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E293B),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        final catColor = _parseHexColor(cat.color);
+        final catIcon = _getCategoryIcon(cat.name);
+
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Drag Handle
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF475569),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+
+                // Category Header
+                Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: catColor.withOpacity(0.18),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: catColor, width: 1.5),
+                      ),
+                      child: Icon(catIcon, color: catColor, size: 24),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            cat.name,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            'Category Options • Touch & Hold Actions',
+                            style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Divider(color: Color(0xFF334155), height: 1),
+                const SizedBox(height: 8),
+
+                // Option 1: Rename Category
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF38BDF8).withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.edit_rounded, color: Color(0xFF38BDF8), size: 22),
+                  ),
+                  title: const Text(
+                    'Rename Category',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15),
+                  ),
+                  subtitle: const Text(
+                    'Change category name or color',
+                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                  ),
+                  trailing: const Icon(Icons.chevron_right_rounded, color: Color(0xFF64748B)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _showRenameCategoryDialog(cat);
+                  },
+                ),
+
+                // Option 2: Delete Category
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEF4444).withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.delete_forever_rounded, color: Color(0xFFEF4444), size: 22),
+                  ),
+                  title: const Text(
+                    'Delete Category',
+                    style: TextStyle(color: Color(0xFFEF4444), fontWeight: FontWeight.w600, fontSize: 15),
+                  ),
+                  subtitle: const Text(
+                    'Permanently remove if not used in any transactions',
+                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                  ),
+                  trailing: const Icon(Icons.chevron_right_rounded, color: Color(0xFF64748B)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _handleDeleteCategory(cat);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showRenameCategoryDialog(Category cat) {
+    final nameCtrl = TextEditingController(text: cat.name);
+    String selectedHex = cat.color;
+    final presetColors = [
+      '#3B82F6', // Blue (Market)
+      '#10B981', // Emerald (Mandi)
+      '#84CC16', // Lime (Agriculture)
+      '#D97706', // Amber (Ploughing)
+      '#06B6D4', // Cyan (Irrigation)
+      '#EF4444', // Red (Diesel)
+      '#8B5CF6', // Purple (Labour)
+      '#14B8A6', // Teal (Fertiliser)
+      '#F59E0B', // Orange (Household)
+      '#EC4899', // Pink
+    ];
+    bool isSaving = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF1E293B),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+              title: Row(
+                children: const [
+                  Icon(Icons.edit_rounded, color: Color(0xFF38BDF8), size: 22),
+                  SizedBox(width: 8),
+                  Text(
+                    'Rename Category',
+                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Enter new name or choose a new color badge:',
+                      style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: nameCtrl,
+                      autofocus: true,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        labelText: 'Category Name',
+                        labelStyle: const TextStyle(color: Color(0xFF38BDF8), fontSize: 13),
+                        filled: true,
+                        fillColor: const Color(0xFF0F172A),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Select Category Colour:',
+                      style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: presetColors.map((hex) {
+                        final color = _parseHexColor(hex);
+                        final isSel = selectedHex == hex;
+                        return GestureDetector(
+                          onTap: () => setDialogState(() => selectedHex = hex),
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: color,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: isSel ? Colors.white : Colors.transparent,
+                                width: 2.5,
+                              ),
+                              boxShadow: isSel
+                                  ? [BoxShadow(color: color.withOpacity(0.5), blurRadius: 6, spreadRadius: 1)]
+                                  : null,
+                            ),
+                            child: isSel ? const Icon(Icons.check, size: 18, color: Colors.white) : null,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8))),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF4F46E5),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                  ),
+                  onPressed: isSaving ? null : () async {
+                    final newName = nameCtrl.text.trim();
+                    if (newName.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please enter a valid category name.'),
+                          backgroundColor: Color(0xFFEF4444),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                      return;
+                    }
+
+                    // Prevent duplicate category name when renaming (ignoring the current category itself)
+                    final isDuplicate = _categories.any(
+                      (c) => c.id != cat.id && c.name.trim().toLowerCase() == newName.toLowerCase(),
+                    );
+                    if (isDuplicate) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text("A category named '$newName' already exists. Duplicate categories are not permitted."),
+                          backgroundColor: const Color(0xFFEF4444),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                      return;
+                    }
+
+                    setDialogState(() => isSaving = true);
+
+                    try {
+                      Category updatedCat;
+                      if (!cat.id.startsWith('c') && !cat.id.startsWith('local_')) {
+                        updatedCat = await ApiService.updateCategory(
+                          id: cat.id,
+                          name: newName,
+                          color: selectedHex,
+                        );
+                      } else {
+                        updatedCat = Category(
+                          id: cat.id,
+                          name: newName,
+                          type: cat.type,
+                          color: selectedHex,
+                        );
+                      }
+
+                      // Update local cached transactions to reflect new category name immediately
+                      for (int i = 0; i < SyncService.cachedTransactions.length; i++) {
+                        final tx = SyncService.cachedTransactions[i];
+                        if (tx.categoryId == cat.id ||
+                            (tx.categoryName != null &&
+                                tx.categoryName!.trim().toLowerCase() == cat.name.trim().toLowerCase())) {
+                          SyncService.cachedTransactions[i] = tx.copyWith(
+                            categoryName: newName,
+                            categoryColor: selectedHex,
+                          );
+                        }
+                      }
+                      SyncService.dataVersion.value++;
+
+                      if (mounted) {
+                        setState(() {
+                          final idx = _categories.indexWhere((c) => c.id == cat.id || c.name.toLowerCase() == cat.name.toLowerCase());
+                          if (idx != -1) {
+                            _categories[idx] = updatedCat;
+                          }
+                          if (_selectedCategory?.id == cat.id ||
+                              _selectedCategory?.name.toLowerCase() == cat.name.toLowerCase()) {
+                            _selectedCategory = updatedCat;
+                            _categoryController.text = updatedCat.name;
+                          }
+                        });
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text("Category renamed to '$newName' successfully."),
+                            backgroundColor: const Color(0xFF10B981),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      }
+                    } catch (err) {
+                      setDialogState(() => isSaving = false);
+                      final errMsg = err.toString().replaceFirst('Exception: ', '');
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(errMsg),
+                          backgroundColor: const Color(0xFFEF4444),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
+                  },
+                  child: isSaving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        )
+                      : const Text('Save', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _handleDeleteCategory(Category cat) async {
+    // 1. Strict check if category is used in existing transactions
+    final inUseCount = _getCategoryUsageCount(cat);
+    if (inUseCount > 0) {
+      _showCategoryInUseWarningDialog(cat, inUseCount);
+      return;
+    }
+
+    // 2. If not found in memory cache, show confirmation dialog before delete
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: const [
+            Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444), size: 24),
+            SizedBox(width: 10),
+            Text('Delete Category?', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(
+          'Are you sure you wish to delete "${cat.name}"?\nThis action cannot be undone.',
+          style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8))),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFEF4444),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    // 3. Delete from backend/local
+    try {
+      if (!cat.id.startsWith('c') && !cat.id.startsWith('local_')) {
+        await ApiService.deleteCategory(cat.id);
+      }
+      if (mounted) {
+        setState(() {
+          _categories.removeWhere((c) => c.id == cat.id || c.name.toLowerCase() == cat.name.toLowerCase());
+          if (_selectedCategory?.id == cat.id || _selectedCategory?.name.toLowerCase() == cat.name.toLowerCase()) {
+            _selectedCategory = null;
+            _categoryController.text = '';
+          }
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Category "${cat.name}" deleted successfully.'),
+            backgroundColor: const Color(0xFFEF4444),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      final msg = e.toString().replaceFirst('Exception: ', '');
+      if (msg.toLowerCase().contains('used') ||
+          msg.toLowerCase().contains('exist') ||
+          msg.toLowerCase().contains('associat') ||
+          msg.toLowerCase().contains('link')) {
+        _showCategoryInUseWarningDialog(cat, inUseCount > 0 ? inUseCount : 1);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(msg),
+            backgroundColor: const Color(0xFFEF4444),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _pickCustomDate() async {
+    if (!PolicyService.canEditDate) {
+      PolicyService.showRestrictedDialog(
+        context,
+        title: 'Date Modification Restricted',
+        message: 'Changing or selecting past transaction dates has been disabled by the administrator. All entries record current timestamp.',
+      );
+      return;
+    }
+
     final now = DateTime.now();
     final initial = _selectedDate.isAfter(now) ? now : _selectedDate;
     final picked = await showDatePicker(
@@ -449,6 +1035,16 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
     try {
       if (widget.existingTransaction != null) {
+        if (!PolicyService.canEditEntry) {
+          setState(() => _isLoading = false);
+          PolicyService.showRestrictedDialog(
+            context,
+            title: 'Entry Editing Restricted',
+            message: 'Editing existing ledger entries has been disabled by the administrator. You may still record new transactions without restriction.',
+          );
+          return;
+        }
+
         String? catId = !isLenDen ? _selectedCategory?.id : null;
         if (catId != null && (catId.startsWith('c') || catId.startsWith('local_'))) {
           catId = null;
@@ -1035,12 +1631,17 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Row(
-                    children: const [
-                      Icon(Icons.category_rounded, size: 16, color: Color(0xFFF59E0B)),
-                      SizedBox(width: 6),
-                      Text(
+                    children: [
+                      const Icon(Icons.category_rounded, size: 16, color: Color(0xFFF59E0B)),
+                      const SizedBox(width: 6),
+                      const Text(
                         'Select Category',
                         style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '(Hold to edit/delete)',
+                        style: TextStyle(color: Colors.grey.shade500, fontSize: 11, fontStyle: FontStyle.italic),
                       ),
                     ],
                   ),
@@ -1080,39 +1681,48 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     onPressed: _showAddCategoryDialog,
                   ),
 
-                  // Loaded / Default Categories
-                  ..._categories.map((cat) {
+                  // Loaded / Default Categories (Filtered by Expense vs Income)
+                  ..._categories
+                      .where((cat) => cat.type == 'BOTH' || cat.type == _selectedType)
+                      .map((cat) {
                     final isSelected = _selectedCategory?.id == cat.id ||
                         _categoryController.text.trim().toLowerCase() == cat.name.toLowerCase();
                     final catColor = _parseHexColor(cat.color);
                     final catIcon = _getCategoryIcon(cat.name);
 
-                    return ChoiceChip(
-                      avatar: Icon(catIcon, size: 16, color: isSelected ? Colors.white : catColor),
-                      label: Text(cat.name),
-                      selected: isSelected,
-                      selectedColor: catColor.withOpacity(0.35),
-                      backgroundColor: const Color(0xFF0F172A),
-                      labelStyle: TextStyle(
-                        color: isSelected ? Colors.white : const Color(0xFFCBD5E1),
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                        fontSize: 12,
+                    return GestureDetector(
+                      onLongPress: () => _showCategoryOptionsSheet(cat),
+                      onSecondaryTap: () => _showCategoryOptionsSheet(cat),
+                      child: Tooltip(
+                        message: 'Touch & hold to rename or delete',
+                        child: ChoiceChip(
+                          avatar: Icon(catIcon, size: 16, color: isSelected ? Colors.white : catColor),
+                          label: Text(cat.name),
+                          selected: isSelected,
+                          selectedColor: catColor.withOpacity(0.35),
+                          backgroundColor: const Color(0xFF0F172A),
+                          labelStyle: TextStyle(
+                            color: isSelected ? Colors.white : const Color(0xFFCBD5E1),
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                            fontSize: 12,
+                          ),
+                          side: BorderSide(
+                            color: isSelected ? catColor : const Color(0xFF334155),
+                            width: isSelected ? 1.8 : 1,
+                          ),
+                          onSelected: (selected) {
+                            setState(() {
+                              if (selected) {
+                                _selectedCategory = cat;
+                                _categoryController.text = cat.name;
+                              } else {
+                                _selectedCategory = null;
+                                _categoryController.text = '';
+                              }
+                            });
+                          },
+                        ),
                       ),
-                      side: BorderSide(
-                        color: isSelected ? catColor : const Color(0xFF334155),
-                        width: isSelected ? 1.8 : 1,
-                      ),
-                      onSelected: (selected) {
-                        setState(() {
-                          if (selected) {
-                            _selectedCategory = cat;
-                            _categoryController.text = cat.name;
-                          } else {
-                            _selectedCategory = null;
-                            _categoryController.text = '';
-                          }
-                        });
-                      },
                     );
                   }),
                 ],
@@ -1186,23 +1796,43 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
             const SizedBox(height: 24),
 
-            // Submit Button
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF4F46E5),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                ),
-                onPressed: _isLoading ? null : _submit,
-                child: _isLoading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : Text(
-                        widget.existingTransaction != null ? 'Update Entry' : 'Save Entry',
-                        style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-              ),
+            // Submit Button (Guarded by Enterprise Policy when in Edit Mode)
+            ValueListenableBuilder<int>(
+              valueListenable: PolicyService.policyVersion,
+              builder: (context, _, __) {
+                final isEdit = widget.existingTransaction != null;
+                final isBlocked = isEdit && !PolicyService.canEditEntry;
+
+                return SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isBlocked ? const Color(0xFF334155) : const Color(0xFF4F46E5),
+                      foregroundColor: isBlocked ? const Color(0xFF94A3B8) : Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                    onPressed: _isLoading ? null : _submit,
+                    child: _isLoading
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              if (isBlocked) ...[
+                                const Icon(Icons.lock_outline_rounded, size: 18),
+                                const SizedBox(width: 8),
+                              ],
+                              Text(
+                                isEdit
+                                    ? (isBlocked ? 'Editing Restricted' : 'Update Entry')
+                                    : 'Save Entry',
+                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -1232,6 +1862,17 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           width: isSelected ? 1.4 : 1,
         ),
         onSelected: (_) {
+          if (!PolicyService.canEditDate &&
+              (targetDate.year != DateTime.now().year ||
+               targetDate.month != DateTime.now().month ||
+               targetDate.day != DateTime.now().day)) {
+            PolicyService.showRestrictedDialog(
+              context,
+              title: 'Date Modification Restricted',
+              message: 'Selecting past transaction dates has been disabled by the administrator. All entries record current timestamp.',
+            );
+            return;
+          }
           final now = DateTime.now();
           setState(() {
             _selectedDate = DateTime(
@@ -1267,6 +1908,12 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         ),
         onSelected: (_) => setState(() {
           _selectedType = type;
+          if (_selectedCategory != null &&
+              _selectedCategory!.type != 'BOTH' &&
+              _selectedCategory!.type != type) {
+            _selectedCategory = null;
+            _categoryController.text = '';
+          }
         }),
       ),
     );

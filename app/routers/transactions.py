@@ -8,6 +8,7 @@ from app.models.transaction import (
     TransactionResponse
 )
 from app.services.ledger_service import LedgerService
+from app.services.policy_service import PolicyService
 
 router = APIRouter(prefix="/transactions", tags=["Transactions (Ledger)"])
 
@@ -88,6 +89,13 @@ def create_transaction(payload: TransactionCreate):
     - If `person_name` is provided, person is auto-created/linked in background.
     - If `category_name` is provided, category is auto-created/linked in background.
     """
+    # 0. Check User Suspension
+    if payload.user_id and PolicyService.is_user_suspended(payload.user_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account Suspended: Your account has been suspended by the administrator. Ledger operations are restricted."
+        )
+
     client = get_supabase()
     
     # 1. Resolve Person
@@ -205,11 +213,32 @@ def get_transaction(transaction_id: str):
 
 @router.put("/{transaction_id}", response_model=TransactionResponse)
 def update_transaction(transaction_id: str, payload: TransactionUpdate):
-    """Update transaction fields."""
+    """Update transaction fields with policy enforcement."""
     try:
         uuid.UUID(str(transaction_id))
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid transaction ID format")
+
+    # 0. Check User Suspension
+    if payload.user_id and PolicyService.is_user_suspended(payload.user_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account Suspended: Your account has been suspended by the administrator."
+        )
+
+    # 1. Enforce Global Entry Update Policy
+    if not PolicyService.get_setting("allow_entry_update", default=True):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Action Restricted: Editing entries has been disabled by the administrator."
+        )
+
+    # 2. Enforce Global Date Modification Policy
+    if payload.transaction_date is not None and not PolicyService.get_setting("allow_date_edit", default=True):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Action Restricted: Changing entry dates has been disabled by the administrator."
+        )
 
     client = get_supabase()
     update_data = payload.model_dump(
@@ -260,11 +289,18 @@ def toggle_settle_transaction(transaction_id: str, is_settled: bool = True):
 
 @router.delete("/{transaction_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_transaction(transaction_id: str):
-    """Delete a transaction."""
+    """Delete a transaction with policy enforcement."""
     try:
         uuid.UUID(str(transaction_id))
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid transaction ID format")
+
+    # 1. Enforce Global Entry Deletion Policy
+    if not PolicyService.get_setting("allow_entry_delete", default=True):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Action Restricted: Deleting entries has been disabled by the administrator."
+        )
 
     client = get_supabase()
     client.table("transactions").delete().eq("id", transaction_id).execute()

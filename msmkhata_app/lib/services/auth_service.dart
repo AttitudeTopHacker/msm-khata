@@ -158,6 +158,12 @@ class AuthService {
   /// User email
   static String get email => currentUser?.email ?? cachedUserEmail ?? '';
 
+  /// Primary administrator email
+  static const String primaryAdminEmail = 'mohdsalman4151@gmail.com';
+
+  /// Whether current logged-in user possesses administrator privileges
+  static bool get isAdmin => email.trim().toLowerCase() == primaryAdminEmail;
+
   /// User avatar image URL
   static String? get avatarUrl {
     final meta = currentUser?.userMetadata ?? {};

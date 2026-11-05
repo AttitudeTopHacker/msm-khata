@@ -176,7 +176,6 @@ class DesktopLoopbackAuth {
       _authCompleter!.complete(null);
     }
   }
-  }
 
   /// Dark-mode auto-closing HTML response
   static String _buildAutoCloseHtml() {

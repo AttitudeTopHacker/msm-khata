@@ -60,6 +60,79 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
     } catch (_) {}
   }
 
+  Future<void> _connectGoogleDrive() async {
+    if (_isBackingUp) return;
+
+    // Show persistent in-flight notification while browser OAuth is active
+    ScaffoldMessenger.of(context).removeCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            ),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Waiting for Google authorization... Browser window me "Continue" per click karein.',
+                style: TextStyle(fontSize: 12.5),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Color(0xFF4F46E5),
+        duration: Duration(seconds: 90),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+
+    try {
+      final token = await AuthService.authorizeGoogleDrive();
+      ScaffoldMessenger.of(context).removeCurrentSnackBar();
+      await _loadBackupSettings();
+
+      if (mounted && (token != null && token.isNotEmpty || _hasGoogleAuth)) {
+        setState(() => _hasGoogleAuth = true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                SizedBox(width: 10),
+                Text('Google Drive jud gaya! Ab backup upload ho raha hai...'),
+              ],
+            ),
+            backgroundColor: Color(0xFF10B981),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        _performDriveBackup();
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Google Drive authorization complete nahi hui. Kripya browser me "Continue" allow karein.'),
+            backgroundColor: Color(0xFFEF4444),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).removeCurrentSnackBar();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Google Drive connection notice: $e'),
+            backgroundColor: const Color(0xFFEF4444),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
   void _showGoogleSignInPrompt() {
     showDialog(
       context: context,
@@ -98,37 +171,9 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
-            onPressed: () async {
+            onPressed: () {
               Navigator.of(ctx).pop();
-              try {
-                final token = await AuthService.authorizeGoogleDrive();
-                await _loadBackupSettings();
-                if (mounted && (token != null || _hasGoogleAuth)) {
-                  _performDriveBackup();
-                } else if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Row(
-                        children: [
-                          Icon(Icons.info_outline_rounded, color: Colors.white, size: 18),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text('Google Drive authorization was not completed. Google Account connection is required to upload backups to Drive.'),
-                          ),
-                        ],
-                      ),
-                      backgroundColor: Color(0xFFEF4444),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Google Sign-In note: $e'), backgroundColor: const Color(0xFFEF4444)),
-                  );
-                }
-              }
+              _connectGoogleDrive();
             },
             icon: const Icon(Icons.login_rounded, size: 16),
             label: const Text('Connect Google Account', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -167,29 +212,9 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
-            onPressed: () async {
+            onPressed: () {
               Navigator.of(ctx).pop();
-              try {
-                final token = await AuthService.authorizeGoogleDrive();
-                await _loadBackupSettings();
-                if (mounted && (token != null || _hasGoogleAuth)) {
-                  _performDriveBackup();
-                } else if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Drive authorization was not granted. Please allow Drive permissions to upload backups.'),
-                      backgroundColor: Color(0xFFEF4444),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Drive authorization note: $e'), backgroundColor: const Color(0xFFEF4444)),
-                  );
-                }
-              }
+              _connectGoogleDrive();
             },
             icon: const Icon(Icons.security_update_good_rounded, size: 16),
             label: const Text('Authorize Google Drive', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -203,7 +228,7 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
     final token = await AuthService.getGoogleAccessToken();
 
     if (token == null || token.isEmpty) {
-      _showGoogleSignInPrompt();
+      _connectGoogleDrive();
       return;
     }
 
@@ -662,7 +687,7 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
                           ),
                           elevation: 0,
                         ),
-                        onPressed: _isBackingUp ? null : _performDriveBackup,
+                        onPressed: _isBackingUp ? null : (_hasGoogleAuth ? _performDriveBackup : _connectGoogleDrive),
                         icon: _isBackingUp
                             ? const SizedBox(
                                 width: 18,

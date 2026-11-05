@@ -74,6 +74,9 @@ class AuthService {
           final meta = s.user.userMetadata ?? {};
           cachedDisplayName = meta['full_name'] ?? meta['name'] ?? s.user.email?.split('@').first;
           cachedAvatarUrl = meta['avatar_url'] ?? meta['picture'];
+          if (s.providerToken != null && s.providerToken!.isNotEmpty) {
+            await saveGoogleAccessToken(s.providerToken!);
+          }
           final p = await SharedPreferences.getInstance();
           await _saveLoginState(p);
         }
@@ -293,6 +296,29 @@ class AuthService {
         return null;
       }
 
+      if (_isDesktop) {
+        final port = await DesktopLoopbackAuth.start();
+        final redirect = 'http://localhost:$port';
+
+        await _client.auth.signInWithOAuth(
+          OAuthProvider.google,
+          redirectTo: redirect,
+          scopes: 'https://www.googleapis.com/auth/drive.file',
+          queryParams: {'access_type': 'offline', 'prompt': 'consent'},
+        );
+
+        // Await loopback server to capture authorization credentials from the browser
+        final token = await DesktopLoopbackAuth.waitForAuth(timeout: const Duration(minutes: 3));
+        if (token != null && token.isNotEmpty) {
+          await saveGoogleAccessToken(token);
+          return token;
+        }
+
+        final saved = await getGoogleAccessToken();
+        if (saved != null && saved.isNotEmpty) return saved;
+        return null;
+      }
+
       final redirect = await _getRedirectUrl();
       await _client.auth.signInWithOAuth(
         OAuthProvider.google,
@@ -300,7 +326,7 @@ class AuthService {
         scopes: 'https://www.googleapis.com/auth/drive.file',
         queryParams: {'access_type': 'offline', 'prompt': 'consent'},
       );
-      return null;
+      return await getGoogleAccessToken();
     } catch (e) {
       debugPrint('Google Drive Authorization Error: $e');
       rethrow;

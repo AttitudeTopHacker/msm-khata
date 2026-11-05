@@ -15,13 +15,33 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class DesktopLoopbackAuth {
   static HttpServer? _server;
   static int? _port;
+  static Completer<String?>? _authCompleter;
 
   static int? get port => _port;
   static bool get isRunning => _server != null;
 
+  /// Wait for loopback auth completion with a timeout
+  static Future<String?> waitForAuth({Duration timeout = const Duration(minutes: 3)}) async {
+    if (_authCompleter == null || _authCompleter!.isCompleted) {
+      _authCompleter = Completer<String?>();
+    }
+    try {
+      return await _authCompleter!.future.timeout(timeout);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static void _completeAuth(String? token) {
+    if (_authCompleter != null && !_authCompleter!.isCompleted) {
+      _authCompleter!.complete(token);
+    }
+  }
+
   /// Start the loopback listener on port 3000 (pre-registered in Supabase), with fallback to any available port
   static Future<int> start() async {
     await stop();
+    _authCompleter = Completer<String?>();
 
     // Prefer port 3000 as it is pre-configured in Supabase OAuth redirect URLs
     try {
@@ -63,15 +83,34 @@ class DesktopLoopbackAuth {
 
           if (rawUrl != null && rawUrl.isNotEmpty) {
             debugPrint('Received OAuth callback payload via loopback: $rawUrl');
+            
+            // 1. Try URL parameters and hash fragment directly
             try {
               final uriParsed = Uri.parse(rawUrl.replaceFirst('#', '?'));
-              final providerToken = uriParsed.queryParameters['provider_token'];
-              if (providerToken != null && providerToken.isNotEmpty) {
+              final extractedToken = uriParsed.queryParameters['provider_token'] ??
+                                     uriParsed.queryParameters['access_token'];
+              if (extractedToken != null && extractedToken.isNotEmpty) {
                 final prefs = await SharedPreferences.getInstance();
-                await prefs.setString('google_drive_access_token', providerToken);
+                await prefs.setString('google_drive_access_token', extractedToken);
+                _completeAuth(extractedToken);
               }
             } catch (_) {}
-            await Supabase.instance.client.auth.getSessionFromUrl(Uri.parse(rawUrl));
+
+            // 2. Exchange with Supabase session if code or access token is present
+            try {
+              final authRes = await Supabase.instance.client.auth.getSessionFromUrl(Uri.parse(rawUrl));
+              final pToken = authRes.session?.providerToken ??
+                             Supabase.instance.client.auth.currentSession?.providerToken;
+              if (pToken != null && pToken.isNotEmpty) {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setString('google_drive_access_token', pToken);
+                _completeAuth(pToken);
+              } else if (authRes.session != null) {
+                _completeAuth(authRes.session?.accessToken);
+              }
+            } catch (e) {
+              debugPrint('Loopback getSessionFromUrl notice: $e');
+            }
           }
         } catch (e) {
           debugPrint('Loopback token parse error: $e');
@@ -82,15 +121,35 @@ class DesktopLoopbackAuth {
         response.write('{"status":"authenticated"}');
         await response.close();
 
-        // Gracefully stop loopback server after 800ms
-        Future.delayed(const Duration(milliseconds: 800), stop);
+        // Gracefully stop loopback server after 1200ms
+        Future.delayed(const Duration(milliseconds: 1200), stop);
         return;
       }
 
-      // If auth code is passed in query parameters (PKCE flow)
-      if (uri.queryParameters.containsKey('code') || uri.queryParameters.containsKey('access_token')) {
+      // If auth code or tokens are passed in query parameters (GET request)
+      if (uri.queryParameters.containsKey('code') ||
+          uri.queryParameters.containsKey('access_token') ||
+          uri.queryParameters.containsKey('provider_token')) {
         try {
-          await Supabase.instance.client.auth.getSessionFromUrl(uri);
+          // Direct token check
+          final directToken = uri.queryParameters['provider_token'] ??
+                              uri.queryParameters['access_token'];
+          if (directToken != null && directToken.isNotEmpty) {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString('google_drive_access_token', directToken);
+            _completeAuth(directToken);
+          }
+
+          final authRes = await Supabase.instance.client.auth.getSessionFromUrl(uri);
+          final pToken = authRes.session?.providerToken ??
+                         Supabase.instance.client.auth.currentSession?.providerToken;
+          if (pToken != null && pToken.isNotEmpty) {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString('google_drive_access_token', pToken);
+            _completeAuth(pToken);
+          } else if (authRes.session != null) {
+            _completeAuth(authRes.session?.accessToken);
+          }
         } catch (e) {
           debugPrint('Loopback query session error: $e');
         }
@@ -113,6 +172,10 @@ class DesktopLoopbackAuth {
     } catch (_) {}
     _server = null;
     _port = null;
+    if (_authCompleter != null && !_authCompleter!.isCompleted) {
+      _authCompleter!.complete(null);
+    }
+  }
   }
 
   /// Dark-mode auto-closing HTML response
@@ -232,9 +295,9 @@ class DesktopLoopbackAuth {
 <body>
   <div class="card">
     <div class="icon-wrapper">✓</div>
-    <h1>Login Successful!</h1>
+    <h1>Authorization Successful!</h1>
     <div class="tag">MsmKhata Connected</div>
-    <p>Aapka account MsmKhata desktop application ke sath safely authenticate ho gaya hai.</p>
+    <p>Aapka account aur Google Drive safely authorize ho gaya hai. Ab aap MsmKhata app me return kar sakte hain.</p>
     
     <div class="status-box">
       <div class="spinner"></div>

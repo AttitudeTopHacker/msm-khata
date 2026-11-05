@@ -7,6 +7,7 @@ import 'screens/dashboard_screen.dart';
 import 'screens/persons_screen.dart';
 import 'screens/analytics_screen.dart';
 import 'screens/history_screen.dart';
+import 'screens/splash_screen.dart';
 import 'services/auth_service.dart';
 import 'services/account_service.dart';
 import 'services/budget_service.dart';
@@ -128,7 +129,7 @@ class MsmKhataApp extends StatelessWidget {
           ],
         );
       },
-      home: const AuthGate(),
+      home: const SplashScreen(),
     );
   }
 }

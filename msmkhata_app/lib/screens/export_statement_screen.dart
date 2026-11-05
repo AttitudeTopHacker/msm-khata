@@ -22,7 +22,7 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
   bool _isLoading = true;
   DashboardStats? _stats;
   List<TransactionItem> _transactions = [];
-  bool _isGeneratingPdf = false;
+  String? _activeAction; // 'full_pdf', 'full_print', 'fast_pdf', 'fast_print'
 
   @override
   void initState() {
@@ -56,9 +56,10 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
     }
   }
 
-  Future<void> _handleDownloadPythonPdf({String mode = 'full'}) async {
+  Future<void> _handleDownloadPythonPdf({required String mode}) async {
+    final actionKey = mode == 'full' ? 'full_pdf' : 'fast_pdf';
     final activeAccount = AccountService.activeAccountNotifier.value;
-    setState(() => _isGeneratingPdf = true);
+    setState(() => _activeAction = actionKey);
     try {
       final pdfBytes = await ApiService.fetchPdfReport(
         accountId: activeAccount.id,
@@ -101,13 +102,14 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
         );
       }
     } finally {
-      if (mounted) setState(() => _isGeneratingPdf = false);
+      if (mounted) setState(() => _activeAction = null);
     }
   }
 
-  Future<void> _handlePrintPdf({bool isFastMode = false}) async {
+  Future<void> _handlePrintPdf({required bool isFastMode}) async {
     if (_stats == null) return;
-    setState(() => _isGeneratingPdf = true);
+    final actionKey = isFastMode ? 'fast_print' : 'full_print';
+    setState(() => _activeAction = actionKey);
     try {
       await PdfExportService.printOrSaveA4Statement(
         stats: _stats!,
@@ -146,7 +148,7 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
         );
       }
     } finally {
-      if (mounted) setState(() => _isGeneratingPdf = false);
+      if (mounted) setState(() => _activeAction = null);
     }
   }
 
@@ -448,17 +450,17 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                                       padding: const EdgeInsets.symmetric(vertical: 14),
                                     ),
-                                    onPressed: _isGeneratingPdf ? null : () => _handleDownloadPythonPdf(mode: 'full'),
-                                    icon: _isGeneratingPdf
+                                    onPressed: _activeAction != null ? null : () => _handleDownloadPythonPdf(mode: 'full'),
+                                    icon: _activeAction == 'full_pdf'
                                         ? const SizedBox(
                                             width: 18,
                                             height: 18,
                                             child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                                           )
                                         : const Icon(Icons.picture_as_pdf_rounded, size: 20),
-                                    label: const Text(
-                                      'Full Review PDF (With Charts)',
-                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                    label: Text(
+                                      _activeAction == 'full_pdf' ? 'Generating Audit...' : 'Full Review PDF (With Charts)',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                                     ),
                                   ),
                                 ),
@@ -471,11 +473,17 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                                       padding: const EdgeInsets.symmetric(vertical: 14),
                                     ),
-                                    onPressed: _isGeneratingPdf ? null : () => _handlePrintPdf(isFastMode: false),
-                                    icon: const Icon(Icons.print_rounded, size: 18, color: Color(0xFF818CF8)),
-                                    label: const Text(
-                                      'Full Print',
-                                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                    onPressed: _activeAction != null ? null : () => _handlePrintPdf(isFastMode: false),
+                                    icon: _activeAction == 'full_print'
+                                        ? const SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF818CF8)),
+                                          )
+                                        : const Icon(Icons.print_rounded, size: 18, color: Color(0xFF818CF8)),
+                                    label: Text(
+                                      _activeAction == 'full_print' ? 'Preparing...' : 'Full Print',
+                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                                     ),
                                   ),
                                 ),
@@ -557,17 +565,17 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                                       padding: const EdgeInsets.symmetric(vertical: 14),
                                     ),
-                                    onPressed: _isGeneratingPdf ? null : () => _handleDownloadPythonPdf(mode: 'fast'),
-                                    icon: _isGeneratingPdf
+                                    onPressed: _activeAction != null ? null : () => _handleDownloadPythonPdf(mode: 'fast'),
+                                    icon: _activeAction == 'fast_pdf'
                                         ? const SizedBox(
                                             width: 18,
                                             height: 18,
                                             child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                                           )
                                         : const Icon(Icons.flash_on_rounded, size: 20),
-                                    label: const Text(
-                                      'Fast Report PDF',
-                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                    label: Text(
+                                      _activeAction == 'fast_pdf' ? 'Generating Fast...' : 'Fast Report PDF',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                                     ),
                                   ),
                                 ),
@@ -580,11 +588,17 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                                       padding: const EdgeInsets.symmetric(vertical: 14),
                                     ),
-                                    onPressed: _isGeneratingPdf ? null : () => _handlePrintPdf(isFastMode: true),
-                                    icon: const Icon(Icons.print_rounded, size: 18, color: Color(0xFF10B981)),
-                                    label: const Text(
-                                      'Quick Print',
-                                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                    onPressed: _activeAction != null ? null : () => _handlePrintPdf(isFastMode: true),
+                                    icon: _activeAction == 'fast_print'
+                                        ? const SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF10B981)),
+                                          )
+                                        : const Icon(Icons.print_rounded, size: 18, color: Color(0xFF10B981)),
+                                    label: Text(
+                                      _activeAction == 'fast_print' ? 'Preparing...' : 'Quick Print',
+                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                                     ),
                                   ),
                                 ),

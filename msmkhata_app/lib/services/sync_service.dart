@@ -144,7 +144,7 @@ class SyncService {
 
   /// Incremental / Paged sync for transactions with 100% deterministic UUID deduplication
   static Future<List<TransactionItem>> syncTransactions({
-    int limit = 25,
+    int limit = 100,
     int offset = 0,
     bool replaceCache = false,
   }) async {
@@ -152,35 +152,13 @@ class SyncService {
       final remoteList = await ApiService.getTransactions(limit: limit, offset: offset);
 
       if (replaceCache) {
-        // Full replace: server is the single source of truth
+        // Explicit full reset only
         final List<TransactionItem> list = List.from(remoteList);
         _sortTransactions(list);
         cachedTransactions = list;
-      } else if (offset == 0) {
-        // If remoteList has fewer items than limit, server returned all transactions
-        if (remoteList.length < limit) {
-          final List<TransactionItem> list = List.from(remoteList);
-          _sortTransactions(list);
-          cachedTransactions = list;
-        } else {
-          // Merge page 1: remove deleted items in page 1 range
-          final remoteIds = remoteList.map((e) => e.id).toSet();
-          final List<TransactionItem> updated = List.from(remoteList);
-          final lastRemoteDate = remoteList.last.transactionDate;
-          for (final item in cachedTransactions) {
-            if (!remoteIds.contains(item.id)) {
-              if (lastRemoteDate != null &&
-                  item.transactionDate != null &&
-                  item.transactionDate!.compareTo(lastRemoteDate) < 0) {
-                updated.add(item);
-              }
-            }
-          }
-          _sortTransactions(updated);
-          cachedTransactions = updated;
-        }
       } else {
-        // Pagination append
+        // Deterministic ID-based Upsert / Merge:
+        // Remote entries take precedence, existing local entries are preserved so they NEVER vanish!
         final Map<String, TransactionItem> map = {
           for (final item in cachedTransactions) item.id: item
         };
@@ -273,12 +251,16 @@ class SyncService {
     Future.wait([syncStats(), syncPersons()]).then((_) => dataVersion.value++);
   }
 
-  /// Sort transactions descending by date
+  /// Sort transactions descending by date (tie-breaker by created_at)
   static void _sortTransactions(List<TransactionItem> list) {
     list.sort((a, b) {
       final da = a.transactionDate ?? '';
       final db = b.transactionDate ?? '';
-      return db.compareTo(da);
+      final cmp = db.compareTo(da);
+      if (cmp != 0) return cmp;
+      final ca = a.createdAt ?? '';
+      final cb = b.createdAt ?? '';
+      return cb.compareTo(ca);
     });
   }
 

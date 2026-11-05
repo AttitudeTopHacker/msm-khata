@@ -80,7 +80,16 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Drive connection skipped. You can still export & print statements locally.'),
+                  backgroundColor: Color(0xFF64748B),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
             child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8))),
           ),
           ElevatedButton.icon(
@@ -96,6 +105,22 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
                 await _loadBackupSettings();
                 if (mounted && (token != null || _hasGoogleAuth)) {
                   _performDriveBackup();
+                } else if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Row(
+                        children: [
+                          Icon(Icons.info_outline_rounded, color: Colors.white, size: 18),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text('Google Drive authorization was not completed. Google Account connection is required to upload backups to Drive.'),
+                          ),
+                        ],
+                      ),
+                      backgroundColor: Color(0xFFEF4444),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
                 }
               } catch (e) {
                 if (mounted) {
@@ -149,6 +174,14 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
                 await _loadBackupSettings();
                 if (mounted && (token != null || _hasGoogleAuth)) {
                   _performDriveBackup();
+                } else if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Drive authorization was not granted. Please allow Drive permissions to upload backups.'),
+                      backgroundColor: Color(0xFFEF4444),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
                 }
               } catch (e) {
                 if (mounted) {
@@ -195,22 +228,55 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
       _saveBackupSettings();
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: const Color(0xFF1E293B),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+            title: const Row(
               children: [
-                const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 20),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Statement PDF ($fileName) uploaded to Google Drive "MsmKhata Backups" folder!',
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+                Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 24),
+                SizedBox(width: 10),
+                Text('Backup Uploaded!', style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Aapka official statement PDF "$fileName" safely Google Drive ke "MsmKhata Backups" folder me upload ho gaya hai.',
+                  style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 13, height: 1.4),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0F172A),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFF334155)),
+                  ),
+                  child: Row(
+                    children: const [
+                      Icon(Icons.folder_open_rounded, color: Color(0xFF38BDF8), size: 18),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Destination: Google Drive > MsmKhata Backups',
+                          style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-            backgroundColor: const Color(0xFF1E293B),
-            behavior: SnackBarBehavior.floating,
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('OK', style: TextStyle(color: Color(0xFF818CF8), fontWeight: FontWeight.bold)),
+              ),
+            ],
           ),
         );
       }
@@ -228,11 +294,36 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
         return;
       }
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Backup failed: $e'),
-            backgroundColor: const Color(0xFFEF4444),
-            duration: const Duration(seconds: 4),
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: const Color(0xFF1E293B),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+            title: const Row(
+              children: [
+                Icon(Icons.error_outline_rounded, color: Color(0xFFEF4444), size: 24),
+                SizedBox(width: 10),
+                Text('Backup Failed', style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            content: Text(
+              'PDF statement Google Drive me upload nahi ho pa rahi:\n\n$e\n\nKripya apna internet connection check karein ya Google account reconnect karein.',
+              style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 13, height: 1.4),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Dismiss', style: TextStyle(color: Color(0xFF94A3B8))),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4285F4)),
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  _showGoogleSignInPrompt();
+                },
+                child: const Text('Reconnect Google', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ],
           ),
         );
       }

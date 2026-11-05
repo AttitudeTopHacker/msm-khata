@@ -12,6 +12,7 @@ class PdfExportService {
   static Future<void> printOrSaveA4Statement({
     required DashboardStats stats,
     required List<TransactionItem> transactions,
+    bool isFastMode = false,
   }) async {
     final doc = pw.Document();
     final font = await PdfGoogleFonts.interRegular();
@@ -29,6 +30,8 @@ class PdfExportService {
     final totalIncome = stats.totalIncome;
     final totalExpense = stats.totalExpense;
     final netBalance = stats.netLenDenPosition;
+
+    final displayTxs = isFastMode ? transactions.take(30).toList() : transactions;
 
     doc.addPage(
       pw.MultiPage(
@@ -61,24 +64,33 @@ class PdfExportService {
             fontSemiBold: fontSemiBold,
           ),
 
-          pw.SizedBox(height: 16),
+          pw.SizedBox(height: 14),
 
-          // 2. Category & Trade Breakdown (if available)
-          if (stats.categoryBreakdown.isNotEmpty) ...[
+          // 2. Year-Wise Benefit & Loss Breakdown Section ("Har Saal Ka Hisaab")
+          _buildYearWiseBreakdownSection(
+            transactions: transactions,
+            currency: currency,
+            fontBold: fontBold,
+          ),
+
+          pw.SizedBox(height: 14),
+
+          // 3. Category & Trade Breakdown (if available)
+          if (stats.categoryBreakdown.isNotEmpty && !isFastMode) ...[
             _buildCategoryBreakdownSection(
               stats.categoryBreakdown,
               currency,
               fontBold,
             ),
-            pw.SizedBox(height: 16),
+            pw.SizedBox(height: 14),
           ],
 
-          // 3. Detailed Transaction Ledger
+          // 4. Detailed Transaction Ledger
           pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
               pw.Text(
-                'DETAILED TRANSACTION LEDGER ENTRIES',
+                isFastMode ? 'RECENT TRANSACTION LEDGER (FAST STATEMENT)' : 'DETAILED TRANSACTION LEDGER ENTRIES',
                 style: pw.TextStyle(
                   font: fontBold,
                   fontSize: 10,
@@ -87,7 +99,9 @@ class PdfExportService {
                 ),
               ),
               pw.Text(
-                'Total Entries: ${transactions.length}',
+                isFastMode
+                    ? 'Showing ${displayTxs.length} of ${transactions.length} entries'
+                    : 'Total Entries: ${transactions.length}',
                 style: const pw.TextStyle(
                   fontSize: 9,
                   color: PdfColors.blueGrey600,
@@ -98,7 +112,7 @@ class PdfExportService {
           pw.SizedBox(height: 6),
 
           _buildTransactionsTable(
-            transactions,
+            displayTxs,
             currency,
             fontBold,
           ),
@@ -107,9 +121,104 @@ class PdfExportService {
     );
 
     // Trigger A4 Print / Save PDF Dialog
+    final modePrefix = isFastMode ? 'Fast_Statement' : 'Full_Audit_Report';
     await Printing.layoutPdf(
       onLayout: (PdfPageFormat format) async => doc.save(),
-      name: 'MsmKhata_Ledger_Statement_${DateFormat('yyyyMMdd').format(DateTime.now())}.pdf',
+      name: 'MsmKhata_${modePrefix}_${DateFormat('yyyyMMdd').format(DateTime.now())}.pdf',
+    );
+  }
+
+  static pw.Widget _buildYearWiseBreakdownSection({
+    required List<TransactionItem> transactions,
+    required NumberFormat currency,
+    required pw.Font fontBold,
+  }) {
+    final Map<String, Map<String, dynamic>> yearMap = {};
+    for (final t in transactions) {
+      final d = t.transactionDate ?? '';
+      final y = d.length >= 4 && int.tryParse(d.substring(0, 4)) != null ? d.substring(0, 4) : 'Other';
+      yearMap.putIfAbsent(y, () => {
+        'income': 0.0,
+        'expense': 0.0,
+        'given': 0.0,
+        'taken': 0.0,
+        'count': 0,
+      });
+      final map = yearMap[y]!;
+      map['count'] = (map['count'] as int) + 1;
+      if (t.type == 'INCOME') {
+        map['income'] = (map['income'] as double) + t.amount;
+      } else if (t.type == 'EXPENSE') {
+        map['expense'] = (map['expense'] as double) + t.amount;
+      } else if (t.type == 'GIVEN') {
+        map['given'] = (map['given'] as double) + t.amount;
+      } else if (t.type == 'TAKEN') {
+        map['taken'] = (map['taken'] as double) + t.amount;
+      }
+    }
+
+    if (yearMap.isEmpty) return pw.SizedBox();
+
+    final sortedYears = yearMap.keys.toList()..sort((a, b) => b.compareTo(a));
+
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(10),
+      decoration: pw.BoxDecoration(
+        borderRadius: pw.BorderRadius.circular(6),
+        border: pw.Border.all(color: PdfColors.blueGrey100, width: 0.8),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text(
+                'YEAR-WISE BENEFIT & LOSS PERFORMANCE AUDIT',
+                style: pw.TextStyle(font: fontBold, fontSize: 9.5, color: PdfColors.blueGrey800, letterSpacing: 0.5),
+              ),
+              pw.Text(
+                '${sortedYears.length} Financial Years Recorded',
+                style: const pw.TextStyle(fontSize: 8.5, color: PdfColors.blueGrey600),
+              ),
+            ],
+          ),
+          pw.SizedBox(height: 6),
+          pw.TableHelper.fromTextArray(
+            headers: ['Year', 'Total Income', 'Total Expense', 'Market Lent', 'Market Borrowed', 'Net Benefit / Loss', 'Txns'],
+            data: sortedYears.map((y) {
+              final vals = yearMap[y]!;
+              final inc = vals['income'] as double;
+              final exp = vals['expense'] as double;
+              final pl = inc - exp;
+              final plStr = pl >= 0 ? '+${currency.format(pl)}' : '-${currency.format(pl.abs())}';
+              return [
+                y,
+                currency.format(inc),
+                currency.format(exp),
+                currency.format(vals['given'] as double),
+                currency.format(vals['taken'] as double),
+                plStr,
+                vals['count'].toString(),
+              ];
+            }).toList(),
+            headerStyle: pw.TextStyle(font: fontBold, fontSize: 8, color: PdfColors.white),
+            headerDecoration: const pw.BoxDecoration(color: PdfColors.blueGrey900),
+            cellStyle: const pw.TextStyle(fontSize: 8, color: PdfColors.blueGrey900),
+            cellAlignment: pw.Alignment.centerLeft,
+            cellAlignments: {
+              0: pw.Alignment.center,
+              1: pw.Alignment.centerRight,
+              2: pw.Alignment.centerRight,
+              3: pw.Alignment.centerRight,
+              4: pw.Alignment.centerRight,
+              5: pw.Alignment.centerRight,
+              6: pw.Alignment.center,
+            },
+            cellPadding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 3.5),
+          ),
+        ],
+      ),
     );
   }
 
@@ -411,9 +520,16 @@ class PdfExportService {
           String dateFormatted = '';
           if (item.transactionDate != null && item.transactionDate!.isNotEmpty) {
             try {
-              dateFormatted = DateFormat('dd MMM yyyy').format(DateTime.parse(item.transactionDate!));
+              final clean = item.transactionDate!.split('T')[0].split(' ')[0];
+              final parts = clean.split('-');
+              if (parts.length == 3) {
+                final dt = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+                dateFormatted = DateFormat('dd MMM yyyy').format(dt);
+              } else {
+                dateFormatted = DateFormat('dd MMM yyyy').format(DateTime.parse(clean));
+              }
             } catch (_) {
-              dateFormatted = item.transactionDate!.substring(0, 10);
+              dateFormatted = item.transactionDate!.length >= 10 ? item.transactionDate!.substring(0, 10) : item.transactionDate!;
             }
           }
 

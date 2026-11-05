@@ -48,7 +48,7 @@ class LedgerService:
         cleaned_name = name.strip()
         query = client.table("categories").select("id").ilike("name", cleaned_name)
         if user_id:
-            query = query.eq("user_id", user_id)
+            query = query.or_(f"user_id.is.null,user_id.eq.{user_id}")
         
         result = query.execute()
         if result.data and len(result.data) > 0:

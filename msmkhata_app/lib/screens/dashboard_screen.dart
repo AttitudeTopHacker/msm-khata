@@ -84,7 +84,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ConnectivityService.checkNow();
     final activeId = AccountService.activeAccountNotifier.value.id;
     final stats = _getStats();
-    final txs = SyncService.syncTransactions(limit: 35, offset: 0);
+    final txs = SyncService.syncTransactions(limit: 100, offset: 0);
     setState(() {
       _statsFuture = stats;
       _transactionsFuture = txs;
@@ -115,20 +115,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String _formatDate(String? raw) {
     if (raw == null || raw.isEmpty) return '';
     try {
-      final dt = DateTime.parse(raw).toLocal();
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-      final txDate = DateTime(dt.year, dt.month, dt.day);
-      if (txDate == today) {
-        return 'Today';
-      } else if (txDate == today.subtract(const Duration(days: 1))) {
-        return 'Yesterday';
-      } else {
-        return DateFormat('dd MMM').format(dt);
+      final clean = raw.split('T')[0].split(' ')[0];
+      final parts = clean.split('-');
+      if (parts.length == 3) {
+        final y = int.parse(parts[0]);
+        final m = int.parse(parts[1]);
+        final d = int.parse(parts[2]);
+        final dt = DateTime(y, m, d);
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        if (dt == today) {
+          return 'Today';
+        } else if (dt == today.subtract(const Duration(days: 1))) {
+          return 'Yesterday';
+        } else {
+          return DateFormat('dd MMM').format(dt);
+        }
       }
-    } catch (_) {
-      return raw.length >= 10 ? raw.substring(0, 10) : raw;
-    }
+    } catch (_) {}
+    return raw.length >= 10 ? raw.substring(0, 10) : raw;
   }
 
   @override
@@ -162,28 +167,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
         actions: [
-          // Admin Panel Button (Exclusive to primary administrator)
-          if (AuthService.isAdmin)
-            IconButton(
-              tooltip: 'Administrator Control Panel',
-              icon: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF59E0B).withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFF59E0B), width: 1),
-                ),
-                child: const Icon(Icons.admin_panel_settings_rounded, color: Color(0xFFF59E0B), size: 18),
-              ),
-              onPressed: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AdminPanelScreen()),
-                );
-                if (mounted) setState(() {});
-              },
-            ),
-
           // Export & Cloud Backup Button
           IconButton(
             tooltip: 'Export Statement & Cloud Backup',

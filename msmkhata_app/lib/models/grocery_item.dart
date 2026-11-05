@@ -1,3 +1,5 @@
+import 'package:intl/intl.dart';
+
 class GroceryStore {
   final String id;
   final String? userId;
@@ -79,6 +81,19 @@ class GroceryEntry {
   bool get isChukaya => type == 'CHUKAYA';
 
   factory GroceryEntry.fromJson(Map<String, dynamic> json) {
+    DateTime parsedEntryDate = DateTime.now();
+    if (json['entry_date'] != null) {
+      try {
+        final raw = json['entry_date'].toString().split('T')[0].split(' ')[0];
+        final parts = raw.split('-');
+        if (parts.length == 3) {
+          parsedEntryDate = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+        } else {
+          parsedEntryDate = DateTime.tryParse(raw) ?? DateTime.now();
+        }
+      } catch (_) {}
+    }
+
     return GroceryEntry(
       id: json['id']?.toString() ?? '',
       storeId: json['store_id']?.toString() ?? '',
@@ -86,9 +101,7 @@ class GroceryEntry {
       type: json['type']?.toString() ?? 'UDHAAR',
       amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
       itemsDescription: json['items_description']?.toString() ?? '',
-      entryDate: json['entry_date'] != null
-          ? DateTime.tryParse(json['entry_date'].toString()) ?? DateTime.now()
-          : DateTime.now(),
+      entryDate: parsedEntryDate,
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
           : DateTime.now(),
@@ -103,7 +116,7 @@ class GroceryEntry {
       'type': type,
       'amount': amount,
       'items_description': itemsDescription,
-      'entry_date': entryDate.toIso8601String(),
+      'entry_date': DateFormat('yyyy-MM-dd').format(entryDate),
       'created_at': createdAt.toIso8601String(),
     };
   }

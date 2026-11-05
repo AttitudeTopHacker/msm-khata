@@ -30,7 +30,7 @@ def get_transactions(
     client = get_supabase()
     query = client.table("transactions").select(
         "*, persons(name), categories(name, color)"
-    ).order("transaction_date", desc=True)
+    ).order("transaction_date", desc=True).order("created_at", desc=True)
     
     if user_id:
         query = query.eq("user_id", user_id)
@@ -47,9 +47,11 @@ def get_transactions(
     if is_settled is not None:
         query = query.eq("is_settled", is_settled)
     if start_date:
-        query = query.gte("transaction_date", f"{start_date}T00:00:00Z")
+        s_date = start_date.split("T")[0].split(" ")[0]
+        query = query.gte("transaction_date", s_date)
     if end_date:
-        query = query.lte("transaction_date", f"{end_date}T23:59:59Z")
+        e_date = end_date.split("T")[0].split(" ")[0]
+        query = query.lte("transaction_date", e_date)
         
     query = query.range(offset, offset + limit - 1)
     res = query.execute().data or []
@@ -117,7 +119,10 @@ def create_transaction(payload: TransactionCreate):
         )
         
     # 3. Insert Transaction
-    t_date = payload.transaction_date or datetime.now(timezone.utc).isoformat()
+    t_date = payload.transaction_date or datetime.now().strftime("%Y-%m-%d")
+    if t_date and ("T" in t_date or " " in t_date):
+        t_date = t_date.split("T")[0].split(" ")[0]
+
     record = {
         "type": payload.type,
         "amount": payload.amount,
@@ -266,6 +271,11 @@ def update_transaction(transaction_id: str, payload: TransactionUpdate):
 
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields provided for update")
+
+    if "transaction_date" in update_data and update_data["transaction_date"]:
+        val = str(update_data["transaction_date"])
+        if "T" in val or " " in val:
+            update_data["transaction_date"] = val.split("T")[0].split(" ")[0]
         
     res = client.table("transactions").update(update_data).eq("id", transaction_id).execute()
     if not res.data:

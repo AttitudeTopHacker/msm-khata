@@ -59,7 +59,13 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       _notesController.text = tx.notes ?? '';
       if (tx.transactionDate != null && tx.transactionDate!.isNotEmpty) {
         try {
-          _selectedDate = DateTime.parse(tx.transactionDate!).toLocal();
+          final clean = tx.transactionDate!.split('T')[0].split(' ')[0];
+          final parts = clean.split('-');
+          if (parts.length == 3) {
+            _selectedDate = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+          } else {
+            _selectedDate = DateTime.parse(clean);
+          }
         } catch (_) {}
       }
     }
@@ -948,15 +954,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     );
 
     if (picked != null) {
-      final now = DateTime.now();
       setState(() {
         _selectedDate = DateTime(
           picked.year,
           picked.month,
           picked.day,
-          now.hour,
-          now.minute,
-          now.second,
         );
       });
     }
@@ -1051,6 +1053,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         }
 
         final notesText = _notesController.text.trim();
+        final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
         final updatedTx = await ApiService.updateTransaction(
           id: widget.existingTransaction!.id,
           type: _selectedType,
@@ -1064,7 +1067,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           clearCategory: isLenDen,
           notes: notesText.isNotEmpty ? notesText : null,
           clearNotes: notesText.isEmpty,
-          transactionDate: _selectedDate.toIso8601String(),
+          transactionDate: dateStr,
         );
 
         SyncService.onOptimisticTransactionUpdated(updatedTx);
@@ -1074,6 +1077,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           catId = null; // Let backend resolve UUID via name
         }
 
+        final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
         final newTx = await ApiService.createTransaction(
           type: _selectedType,
           amount: amount,
@@ -1083,7 +1087,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           categoryName: !isLenDen ? categoryName : null,
           categoryId: catId,
           notes: _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null,
-          transactionDate: _selectedDate.toIso8601String(),
+          transactionDate: dateStr,
         );
 
         SyncService.onOptimisticTransactionCreated(newTx);
@@ -1225,25 +1229,31 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   Widget build(BuildContext context) {
     final isLenDen = _selectedType == 'GIVEN' || _selectedType == 'TAKEN';
 
-    return Container(
-      padding: EdgeInsets.only(
-        top: 24,
-        left: 20,
-        right: 20,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
-      decoration: const BoxDecoration(
-        color: Color(0xFF1E293B),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
+    return PopScope(
+      canPop: !_isLoading,
+      child: Stack(
+        children: [
+          AbsorbPointer(
+            absorbing: _isLoading,
+            child: Container(
+              padding: EdgeInsets.only(
+                top: 24,
+                left: 20,
+                right: 20,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+              ),
+              decoration: const BoxDecoration(
+                color: Color(0xFF1E293B),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
                 height: 4,
                 decoration: BoxDecoration(
                   color: const Color(0xFF64748B),
@@ -1837,7 +1847,48 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           ],
         ),
       ),
-    );
+    ),
+  ),
+  if (_isLoading)
+    Positioned.fill(
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF0F172A).withValues(alpha: 0.72),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E293B),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFF4F46E5), width: 1.2),
+              boxShadow: const [
+                BoxShadow(color: Colors.black54, blurRadius: 16, offset: Offset(0, 4)),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2.2, color: Color(0xFF818CF8)),
+                ),
+                const SizedBox(width: 14),
+                Text(
+                  widget.existingTransaction != null ? 'Updating Entry...' : 'Saving Entry...',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+],
+),
+);
   }
 
   Widget _dateQuickChip(String label, DateTime targetDate) {
@@ -1873,14 +1924,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             );
             return;
           }
-          final now = DateTime.now();
           setState(() {
             _selectedDate = DateTime(
               targetDate.year,
               targetDate.month,
               targetDate.day,
-              now.hour,
-              now.minute,
             );
           });
         },

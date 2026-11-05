@@ -92,14 +92,20 @@ class _StoreLedgerScreenState extends State<StoreLedgerScreen> {
         builder: (context, setSheetState) {
           final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
-          return Container(
-            padding: EdgeInsets.fromLTRB(22, 20, 22, bottomInset + 20),
-            decoration: const BoxDecoration(
-              color: Color(0xFF1E293B),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-              border: Border(top: BorderSide(color: Color(0xFF334155), width: 1.2)),
-            ),
-            child: SingleChildScrollView(
+          return PopScope(
+            canPop: !isSaving,
+            child: Stack(
+              children: [
+                AbsorbPointer(
+                  absorbing: isSaving,
+                  child: Container(
+                    padding: EdgeInsets.fromLTRB(22, 20, 22, bottomInset + 20),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF1E293B),
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                      border: Border(top: BorderSide(color: Color(0xFF334155), width: 1.2)),
+                    ),
+                    child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -192,7 +198,7 @@ class _StoreLedgerScreenState extends State<StoreLedgerScreen> {
                   const SizedBox(height: 14),
 
                   // Date (Default Today)
-                  const Text('Date & Time (Set by default) *', style: TextStyle(color: Color(0xFFCBD5E1), fontSize: 13, fontWeight: FontWeight.w600)),
+                  const Text('Date (Set by default to Today) *', style: TextStyle(color: Color(0xFFCBD5E1), fontSize: 13, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 6),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -208,7 +214,7 @@ class _StoreLedgerScreenState extends State<StoreLedgerScreen> {
                             const Icon(Icons.event_available_rounded, color: Color(0xFF10B981), size: 18),
                             const SizedBox(width: 10),
                             Text(
-                              DateFormat('EEE, dd MMM yyyy, hh:mm a').format(entryDate),
+                              DateFormat('EEE, dd MMM yyyy').format(entryDate),
                               style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
                             ),
                           ],
@@ -318,8 +324,38 @@ class _StoreLedgerScreenState extends State<StoreLedgerScreen> {
                 ],
               ),
             ),
-          );
-        },
+          ),
+        ),
+        if (isSaving)
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F172A).withValues(alpha: 0.72),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+              ),
+              child: const Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2.2, color: Color(0xFF818CF8)),
+                    ),
+                    SizedBox(width: 14),
+                    Text(
+                      'Recording Entry...',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
+    ),
+  );
+},
       ),
     );
   }
@@ -699,7 +735,7 @@ class _StoreLedgerScreenState extends State<StoreLedgerScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  DateFormat('dd MMM yyyy, hh:mm a').format(entry.entryDate),
+                  DateFormat('dd MMM yyyy').format(entry.entryDate),
                   style: const TextStyle(color: Color(0xFF64748B), fontSize: 11.5),
                 ),
               ],

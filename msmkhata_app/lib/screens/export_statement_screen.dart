@@ -56,23 +56,46 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
     }
   }
 
-  Future<void> _handleDownloadPythonPdf() async {
+  Future<void> _handleDownloadPythonPdf({String mode = 'full'}) async {
     final activeAccount = AccountService.activeAccountNotifier.value;
     setState(() => _isGeneratingPdf = true);
     try {
       final pdfBytes = await ApiService.fetchPdfReport(
         accountId: activeAccount.id,
         accountName: activeAccount.name,
+        mode: mode,
       );
       await Printing.layoutPdf(
         onLayout: (format) async => pdfBytes,
-        name: 'msmkhata_${activeAccount.name}.pdf',
+        name: 'msmkhata_${mode}_${activeAccount.name}.pdf',
       );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    mode == 'full'
+                        ? 'Full Review Report with Analytics Charts generated successfully!'
+                        : 'Fast Report Statement ready for print / share!',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xFF1E293B),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error downloading Python PDF: $e'),
+            content: Text('Error generating PDF report: $e'),
             backgroundColor: const Color(0xFFEF4444),
           ),
         );
@@ -82,21 +105,42 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
     }
   }
 
-
-
-  Future<void> _handlePrintPdf() async {
+  Future<void> _handlePrintPdf({bool isFastMode = false}) async {
     if (_stats == null) return;
     setState(() => _isGeneratingPdf = true);
     try {
       await PdfExportService.printOrSaveA4Statement(
         stats: _stats!,
         transactions: _transactions,
+        isFastMode: isFastMode,
       );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    isFastMode
+                        ? 'Fast Report layout ready for Print / Save!'
+                        : 'Full A4 Statement ready for Print / Save!',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xFF1E293B),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error generating PDF: $e'),
+            content: Text('Error generating local PDF: $e'),
             backgroundColor: const Color(0xFFEF4444),
           ),
         );
@@ -334,69 +378,237 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
 
                       const SizedBox(height: 24),
 
-                      // 1. Primary Button: Python Professional PDF with Charts
-                      SizedBox(
-                        height: 54,
-                        child: ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF4F46E5),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            elevation: 4,
-                            shadowColor: const Color(0xFF4F46E5).withValues(alpha: 0.5),
-                          ),
-                          onPressed: _isGeneratingPdf ? null : _handleDownloadPythonPdf,
-                          icon: _isGeneratingPdf
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                )
-                              : const Icon(Icons.analytics_rounded, size: 22),
-                          label: Text(
-                            _isGeneratingPdf ? 'Generating PDF with Charts...' : 'Download Full Audit PDF (With Charts)',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5),
-                          ),
+                      // ==========================================
+                      // 1. FULL REVIEW REPORT CARD (Comprehensive with Charts & Year-Wise Breakdown)
+                      // ==========================================
+                      Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1E293B),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: const Color(0xFF4F46E5), width: 1.2),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF4F46E5).withValues(alpha: 0.2),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: const Icon(Icons.analytics_rounded, color: Color(0xFF818CF8), size: 22),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: const [
+                                        Text(
+                                          'Full Review Report',
+                                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                        ),
+                                        Text(
+                                          'Complete Financial & Analytics Audit',
+                                          style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF4F46E5).withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: const Color(0xFF818CF8), width: 0.8),
+                                  ),
+                                  child: const Text('AUDIT DOSSIER', style: TextStyle(color: Color(0xFFA5B4FC), fontSize: 10, fontWeight: FontWeight.bold)),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            const Text(
+                              'Includes executive KPI dashboard, Har Saal Ka Hisaab (Year-wise benefit/loss audit), visual analytics graphs (Cashflow, Monthly trends, Category donut), Len-Den party balances, and complete itemized passbook ledger.',
+                              style: TextStyle(color: Color(0xFFCBD5E1), fontSize: 12, height: 1.38),
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Expanded(
+                                  flex: 3,
+                                  child: ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF4F46E5),
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                    ),
+                                    onPressed: _isGeneratingPdf ? null : () => _handleDownloadPythonPdf(mode: 'full'),
+                                    icon: _isGeneratingPdf
+                                        ? const SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                          )
+                                        : const Icon(Icons.picture_as_pdf_rounded, size: 20),
+                                    label: const Text(
+                                      'Full Review PDF (With Charts)',
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  flex: 2,
+                                  child: OutlinedButton.icon(
+                                    style: OutlinedButton.styleFrom(
+                                      side: const BorderSide(color: Color(0xFF475569)),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                    ),
+                                    onPressed: _isGeneratingPdf ? null : () => _handlePrintPdf(isFastMode: false),
+                                    icon: const Icon(Icons.print_rounded, size: 18, color: Color(0xFF818CF8)),
+                                    label: const Text(
+                                      'Full Print',
+                                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
 
+                      const SizedBox(height: 16),
 
+                      // ==========================================
+                      // 2. FAST REPORT CARD (Quick Single/Double Page Statement)
+                      // ==========================================
+                      Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1E293B),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.6), width: 1.2),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: const Icon(Icons.bolt_rounded, color: Color(0xFF10B981), size: 22),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: const [
+                                        Text(
+                                          'Fast Report',
+                                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                        ),
+                                        Text(
+                                          'Quick 1-2 Page Statement',
+                                          style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: const Color(0xFF10B981), width: 0.8),
+                                  ),
+                                  child: const Text('INSTANT SHARE', style: TextStyle(color: Color(0xFF6EE7B7), fontSize: 10, fontWeight: FontWeight.bold)),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            const Text(
+                              'Instant, lightweight statement containing key performance indicators, Year snapshot, and recent 30 transactions. Perfect for rapid printing, WhatsApp sharing, or daily passbook receipts.',
+                              style: TextStyle(color: Color(0xFFCBD5E1), fontSize: 12, height: 1.38),
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Expanded(
+                                  flex: 3,
+                                  child: ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF047857),
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                    ),
+                                    onPressed: _isGeneratingPdf ? null : () => _handleDownloadPythonPdf(mode: 'fast'),
+                                    icon: _isGeneratingPdf
+                                        ? const SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                          )
+                                        : const Icon(Icons.flash_on_rounded, size: 20),
+                                    label: const Text(
+                                      'Fast Report PDF',
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  flex: 2,
+                                  child: OutlinedButton.icon(
+                                    style: OutlinedButton.styleFrom(
+                                      side: const BorderSide(color: Color(0xFF475569)),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                    ),
+                                    onPressed: _isGeneratingPdf ? null : () => _handlePrintPdf(isFastMode: true),
+                                    icon: const Icon(Icons.print_rounded, size: 18, color: Color(0xFF10B981)),
+                                    label: const Text(
+                                      'Quick Print',
+                                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
 
-                      // 3. Instant Local Print / Save
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: Color(0xFF334155), width: 1.2),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                              ),
-                              onPressed: _handlePrintPdf,
-                              icon: const Icon(Icons.print_rounded, color: Color(0xFF818CF8), size: 18),
-                              label: const Text(
-                                'Local A4 Print',
-                                style: TextStyle(color: Color(0xFF94A3B8), fontWeight: FontWeight.bold, fontSize: 12.5),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: Color(0xFF334155), width: 1.2),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                              ),
-                              onPressed: _handleViewCsv,
-                              icon: const Icon(Icons.code_rounded, color: Color(0xFF10B981), size: 18),
-                              label: const Text(
-                                'View Raw CSV',
-                                style: TextStyle(color: Color(0xFF94A3B8), fontWeight: FontWeight.bold, fontSize: 12.5),
-                              ),
-                            ),
-                          ),
-                        ],
+                      const SizedBox(height: 16),
+
+                      // 3. Raw CSV Export
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Color(0xFF334155), width: 1.2),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        onPressed: _handleViewCsv,
+                        icon: const Icon(Icons.code_rounded, color: Color(0xFF10B981), size: 18),
+                        label: const Text(
+                          'View Raw CSV (Excel / Google Sheets)',
+                          style: TextStyle(color: Color(0xFF94A3B8), fontWeight: FontWeight.bold, fontSize: 12.5),
+                        ),
                       ),
                     ],
                   ),

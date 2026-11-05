@@ -50,14 +50,19 @@ class _TransactionDetailSheetState extends State<TransactionDetailSheet> {
   DateTime get _parsedDate {
     if (_item.transactionDate != null && _item.transactionDate!.isNotEmpty) {
       try {
-        return DateTime.parse(_item.transactionDate!).toLocal();
+        final clean = _item.transactionDate!.split('T')[0].split(' ')[0];
+        final parts = clean.split('-');
+        if (parts.length == 3) {
+          return DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+        }
+        return DateTime.parse(clean);
       } catch (_) {}
     }
     return DateTime.now();
   }
 
   String _formatFullDate(DateTime dt) {
-    return DateFormat('EEE, dd MMMM yyyy, hh:mm a').format(dt);
+    return DateFormat('EEEE, dd MMMM yyyy').format(dt);
   }
 
   void _handleChangeDate() async {
@@ -119,21 +124,14 @@ class _TransactionDetailSheetState extends State<TransactionDetailSheet> {
       return;
     }
 
-    // Retain the current time of day or set to current time
-    final updatedDateTime = DateTime(
-      pickedDate.year,
-      pickedDate.month,
-      pickedDate.day,
-      current.hour,
-      current.minute,
-    );
+    final dateStr = DateFormat('yyyy-MM-dd').format(pickedDate);
 
     setState(() => _isLoading = true);
 
     try {
       final updated = await ApiService.updateTransaction(
         id: _item.id,
-        transactionDate: updatedDateTime.toIso8601String(),
+        transactionDate: dateStr,
       );
       SyncService.onOptimisticTransactionUpdated(updated);
       if (mounted) {

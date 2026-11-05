@@ -11,11 +11,12 @@ router = APIRouter(prefix="/reports", tags=["Reports (PDF & Excel Engine)"])
 def download_pdf_statement(
     account_id: Optional[str] = Query(default="main", description="Account/Book ID to isolate"),
     account_name: Optional[str] = Query(default="Main Account", description="Display name of account"),
-    user_id: Optional[str] = Query(default=None)
+    user_id: Optional[str] = Query(default=None),
+    mode: Optional[str] = Query(default="full", description="'full' for comprehensive audit or 'fast' for quick statement")
 ):
     """
     Generate and stream an executive A4 Financial Audit Statement in PDF
-    featuring Matplotlib analytics charts, Cashflow tiles, and full Passbook Ledger.
+    featuring Matplotlib analytics charts, Cashflow tiles, Year-wise breakdown, and full Passbook Ledger.
     """
     client = get_supabase()
     
@@ -62,7 +63,8 @@ def download_pdf_statement(
             account_name=account_name,
             transactions=transactions,
             summary=summary_dict,
-            persons=persons_list
+            persons=persons_list,
+            mode=mode or "full"
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"PDF generation error: {str(e)}")

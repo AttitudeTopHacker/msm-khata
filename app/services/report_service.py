@@ -1,6 +1,7 @@
 import io
 import os
 from datetime import datetime
+from collections import defaultdict
 from typing import List, Dict, Any, Optional
 
 import matplotlib
@@ -128,6 +129,60 @@ class ReportService:
             print(f"Chart generation error: {e}")
             return None
 
+    @staticmethod
+    def _create_monthly_trend_chart_image(monthly_trends: List[Dict[str, Any]]) -> Optional[io.BytesIO]:
+        """Generate high-resolution matplotlib chart of Monthly Income vs Expense trends matching Analytics Screen."""
+        try:
+            if not monthly_trends:
+                return None
+
+            # Display up to last 8 chronological months
+            trends = monthly_trends[-8:]
+            months = [t.get('month', '') for t in trends]
+            incomes = [float(t.get('total_income', 0.0)) for t in trends]
+            expenses = [float(t.get('total_expense', 0.0)) for t in trends]
+
+            if sum(incomes) == 0 and sum(expenses) == 0:
+                return None
+
+            import numpy as np
+            fig, ax = plt.subplots(figsize=(10, 3.4), dpi=200)
+            fig.patch.set_facecolor('#FFFFFF')
+
+            x = np.arange(len(months))
+            width = 0.36
+
+            bars1 = ax.bar(x - width/2, incomes, width, label='Income (Aamadni)', color='#10B981', edgecolor='#CBD5E1', linewidth=0.7)
+            bars2 = ax.bar(x + width/2, expenses, width, label='Expense (Kharcha)', color='#EF4444', edgecolor='#CBD5E1', linewidth=0.7)
+
+            ax.set_title('Monthly Analytics Trends: Income vs Expense (₹)', fontsize=11, fontweight='bold', pad=10, color='#1E293B')
+            ax.set_xticks(x)
+            ax.set_xticklabels(months, fontsize=8.5, color='#334155', fontweight='bold')
+            ax.grid(axis='y', linestyle='--', alpha=0.4, color='#94A3B8')
+            ax.set_axisbelow(True)
+            ax.legend(frameon=True, facecolor='#F8FAFC', edgecolor='#E2E8F0', fontsize=8.5)
+            ax.tick_params(axis='y', labelsize=8, labelcolor='#334155')
+
+            # Data labels on top of bars
+            for bar in list(bars1) + list(bars2):
+                h = bar.get_height()
+                if h > 0:
+                    ax.annotate(f'₹{int(h):,}',
+                                xy=(bar.get_x() + bar.get_width() / 2, h),
+                                xytext=(0, 2),
+                                textcoords="offset points",
+                                ha='center', va='bottom', fontsize=6.8, fontweight='bold', color='#1E293B')
+
+            plt.tight_layout()
+            img_buf = io.BytesIO()
+            plt.savefig(img_buf, format='png', bbox_inches='tight', dpi=200)
+            plt.close(fig)
+            img_buf.seek(0)
+            return img_buf
+        except Exception as e:
+            print(f"Monthly trend chart error: {e}")
+            return None
+
     @classmethod
     def generate_pdf(
         cls,
@@ -135,7 +190,8 @@ class ReportService:
         account_name: str,
         transactions: List[Dict[str, Any]],
         summary: Dict[str, Any],
-        persons: Optional[List[Dict[str, Any]]] = None
+        persons: Optional[List[Dict[str, Any]]] = None,
+        mode: str = "full"
     ) -> bytes:
         """Build an executive, multi-page financial audit PDF with embedded charts and full passbook ledger."""
         pdf_buffer = io.BytesIO()
@@ -260,15 +316,16 @@ class ReportService:
 
         # 1. Header Banner
         now_str = datetime.now().strftime("%d %b %Y, %I:%M %p")
+        doc_type_title = "Financial & Analytics Audit Report" if mode == "full" else "Fast Financial Statement"
         header_table = Table(
             [
                 [
-                    Paragraph("<b>MsmKhata Financial Statement</b>", title_style),
+                    Paragraph(f"<b>MsmKhata {doc_type_title}</b>", title_style),
                     Paragraph(f"<b>ACCOUNT / BOOK</b><br/>{account_name}", badge_style)
                 ],
                 [
                     Paragraph("Enterprise Cloud Ledger • ORG: msm.movin 2022", subtitle_style),
-                    Paragraph(f"Generated: {now_str}", subtitle_style)
+                    Paragraph(f"Generated: {now_str} • Mode: {mode.upper()}", subtitle_style)
                 ]
             ],
             colWidths=[340, 180]
@@ -322,16 +379,145 @@ class ReportService:
         story.append(kpi_table)
         story.append(Spacer(1, 14))
 
-        # 3. Visual Charts (Cashflow & Donut)
-        categories = summary.get('category_breakdown', [])
-        chart_buf = cls._create_charts_image(summary, categories)
-        if chart_buf:
-            story.append(Paragraph("Visual Analytics & Cashflow Trends", section_heading))
-            story.append(Image(chart_buf, width=520, height=218))
+        # 3. Year-Wise Financial Performance & Profit/Loss Audit Table ("Har Saal Ka Hisaab")
+        year_data = defaultdict(lambda: {
+            "income": 0.0,
+            "expense": 0.0,
+            "given": 0.0,
+            "taken": 0.0,
+            "count": 0
+        })
+        for t in transactions:
+            raw_date = str(t.get("transaction_date") or t.get("created_at") or "")
+            y = raw_date[:4] if len(raw_date) >= 4 and raw_date[:4].isdigit() else "Other"
+            amt = float(t.get("amount") or 0.0)
+            t_type = (t.get("type") or "").upper()
+            year_data[y]["count"] += 1
+            if t_type == "INCOME":
+                year_data[y]["income"] += amt
+            elif t_type == "EXPENSE":
+                year_data[y]["expense"] += amt
+            elif t_type == "GIVEN":
+                year_data[y]["given"] += amt
+            elif t_type == "TAKEN":
+                year_data[y]["taken"] += amt
+
+        if year_data:
+            story.append(Paragraph("Year-Wise Financial Performance & Benefit/Loss Audit", section_heading))
+            year_headers = [
+                Paragraph("<b>Year</b>", header_cell_center),
+                Paragraph("<b>Total Income (+)</b>", header_cell_right),
+                Paragraph("<b>Total Expense (-)</b>", header_cell_right),
+                Paragraph("<b>Market Lent</b>", header_cell_right),
+                Paragraph("<b>Market Borrowed</b>", header_cell_right),
+                Paragraph("<b>Net Benefit / Loss</b>", header_cell_right),
+                Paragraph("<b>Txns</b>", header_cell_center),
+            ]
+            year_rows = [year_headers]
+            for y_key in sorted(year_data.keys(), reverse=True):
+                vals = year_data[y_key]
+                inc = vals["income"]
+                exp = vals["expense"]
+                profit_loss = inc - exp
+                pl_color = cell_green if profit_loss >= 0 else cell_red
+                pl_str = f"+₹{profit_loss:,.0f}" if profit_loss >= 0 else f"-₹{abs(profit_loss):,.0f}"
+
+                year_rows.append([
+                    Paragraph(str(y_key), cell_bold),
+                    Paragraph(f"+₹{inc:,.0f}", cell_green),
+                    Paragraph(f"-₹{exp:,.0f}", cell_red),
+                    Paragraph(f"₹{vals['given']:,.0f}", cell_normal),
+                    Paragraph(f"₹{vals['taken']:,.0f}", cell_normal),
+                    Paragraph(pl_str, pl_color),
+                    Paragraph(str(vals["count"]), cell_normal),
+                ])
+
+            year_table = Table(year_rows, colWidths=[60, 80, 80, 75, 75, 100, 50])
+            year_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1E293B')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('ALIGN', (1, 0), (5, -1), 'RIGHT'),
+                ('ALIGN', (0, 0), (0, -1), 'CENTER'),
+                ('ALIGN', (6, 0), (6, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F8FAFC')]),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+            ]))
+            story.append(year_table)
             story.append(Spacer(1, 14))
 
-        # 4. Detailed Transaction Audit Ledger
-        story.append(Paragraph(f"Itemized Transaction Ledger ({len(transactions)} Records)", section_heading))
+        # 4. Visual Analytics & Charts (Full Review Mode Only)
+        if mode == "full":
+            categories = summary.get('category_breakdown', [])
+            chart_buf = cls._create_charts_image(summary, categories)
+            if chart_buf:
+                story.append(Paragraph("Visual Analytics & Cashflow Distribution", section_heading))
+                story.append(Image(chart_buf, width=520, height=218))
+                story.append(Spacer(1, 12))
+
+            # Monthly Trends Chart (Income vs Expense bar chart from Analytics)
+            monthly_trends = summary.get('monthly_trends', [])
+            trend_buf = cls._create_monthly_trend_chart_image(monthly_trends)
+            if trend_buf:
+                story.append(Paragraph("Monthly Analytics Trends (Income vs Expense)", section_heading))
+                story.append(Image(trend_buf, width=520, height=175))
+                story.append(Spacer(1, 14))
+
+            # Len-Den Party Balances Table (if contacts present)
+            if persons and len(persons) > 0:
+                story.append(Paragraph("Len-Den Market Outstandings (Party Balances)", section_heading))
+                party_headers = [
+                    Paragraph("<b>Party Name</b>", header_cell),
+                    Paragraph("<b>Total Lent (Diya)</b>", header_cell_right),
+                    Paragraph("<b>Total Borrowed (Liya)</b>", header_cell_right),
+                    Paragraph("<b>Net Balance</b>", header_cell_right),
+                    Paragraph("<b>Status</b>", header_cell_center),
+                ]
+                party_rows = [party_headers]
+                for p in persons[:12]:
+                    p_name = p.get("name") or "Contact"
+                    given = float(p.get("total_given", 0.0))
+                    taken = float(p.get("total_taken", 0.0))
+                    net_bal = float(p.get("net_balance", 0.0))
+                    if net_bal > 0:
+                        status_str = "Lena Hai"
+                        status_color = cell_green
+                    elif net_bal < 0:
+                        status_str = "Dena Hai"
+                        status_color = cell_red
+                    else:
+                        status_str = "Chukta"
+                        status_color = cell_normal
+
+                    party_rows.append([
+                        Paragraph(p_name, cell_bold),
+                        Paragraph(f"₹{given:,.0f}", cell_normal),
+                        Paragraph(f"₹{taken:,.0f}", cell_normal),
+                        Paragraph(f"₹{abs(net_bal):,.0f}", status_color),
+                        Paragraph(status_str, status_color),
+                    ])
+
+                party_table = Table(party_rows, colWidths=[160, 95, 95, 95, 75])
+                party_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1E293B')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('TOPPADDING', (0, 0), (-1, -1), 4),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                    ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F8FAFC')]),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+                ]))
+                story.append(party_table)
+                story.append(Spacer(1, 14))
+
+        # 5. Itemized Transaction Ledger
+        # In Fast mode, include recent 30 transactions for instant printing
+        # In Full mode, include full chronological passbook
+        tx_count_label = f"({len(transactions)} Records)" if mode == "full" else f"(Recent {min(len(transactions), 30)} of {len(transactions)} Records - Fast Statement)"
+        story.append(Paragraph(f"Itemized Transaction Passbook Ledger {tx_count_label}", section_heading))
 
         headers = [
             Paragraph("<b>#</b>", header_cell_center),
@@ -346,21 +532,23 @@ class ReportService:
         ]
 
         table_rows = [headers]
-        
+
         # Sort chronologically to compute running balance
         sorted_txs = sorted(
             transactions,
             key=lambda x: x.get('transaction_date') or x.get('created_at') or ''
         )
 
+        display_txs = sorted_txs if mode == "full" else sorted_txs[-30:]
+
         running_balance = 0.0
         for idx, t in enumerate(sorted_txs, start=1):
             t_type = (t.get('type') or 'OTHER').upper()
             amt = float(t.get('amount', 0.0))
-            
+
             inflow = 0.0
             outflow = 0.0
-            
+
             if t_type in ('INCOME', 'TAKEN'):
                 inflow = amt
                 running_balance += amt
@@ -368,41 +556,41 @@ class ReportService:
                 outflow = amt
                 running_balance -= amt
 
-            # Format Date
-            t_date_raw = t.get('transaction_date') or t.get('created_at') or ''
-            try:
-                dt = datetime.fromisoformat(t_date_raw.replace('Z', '+00:00'))
-                date_str = dt.strftime("%d %b %y")
-            except Exception:
-                date_str = t_date_raw[:10] if len(t_date_raw) >= 10 else t_date_raw
+            if t in display_txs:
+                # Format Date
+                t_date_raw = t.get('transaction_date') or t.get('created_at') or ''
+                try:
+                    dt = datetime.fromisoformat(t_date_raw.replace('Z', '+00:00'))
+                    date_str = dt.strftime("%d %b %y")
+                except Exception:
+                    date_str = t_date_raw[:10] if len(t_date_raw) >= 10 else t_date_raw
 
-            party_or_cat = t.get('person_name') or t.get('category_name') or 'General'
-            notes = t.get('notes') or '-'
-            if len(notes) > 28:
-                notes = notes[:26] + '..'
+                party_or_cat = t.get('person_name') or t.get('category_name') or 'General'
+                notes = t.get('notes') or '-'
+                if len(notes) > 28:
+                    notes = notes[:26] + '..'
 
-            # Type Badge Color
-            type_label = t_type
-            if t_type == 'GIVEN':
-                type_label = 'LENT'
-            elif t_type == 'TAKEN':
-                type_label = 'BORROW'
+                type_label = t_type
+                if t_type == 'GIVEN':
+                    type_label = 'LENT'
+                elif t_type == 'TAKEN':
+                    type_label = 'BORROW'
 
-            inflow_str = f"+₹{inflow:,.0f}" if inflow > 0 else "-"
-            outflow_str = f"-₹{outflow:,.0f}" if outflow > 0 else "-"
-            bal_str = f"₹{running_balance:,.0f}"
+                inflow_str = f"+₹{inflow:,.0f}" if inflow > 0 else "-"
+                outflow_str = f"-₹{outflow:,.0f}" if outflow > 0 else "-"
+                bal_str = f"₹{running_balance:,.0f}"
 
-            table_rows.append([
-                Paragraph(str(idx), cell_normal),
-                Paragraph(date_str, cell_normal),
-                Paragraph(type_label, cell_bold),
-                Paragraph(party_or_cat, cell_normal),
-                Paragraph(t.get('payment_mode') or 'UPI', cell_normal),
-                Paragraph(notes, cell_normal),
-                Paragraph(inflow_str, cell_green if inflow > 0 else cell_normal),
-                Paragraph(outflow_str, cell_red if outflow > 0 else cell_normal),
-                Paragraph(bal_str, cell_bold_right if running_balance >= 0 else cell_red),
-            ])
+                table_rows.append([
+                    Paragraph(str(idx), cell_normal),
+                    Paragraph(date_str, cell_normal),
+                    Paragraph(type_label, cell_bold),
+                    Paragraph(party_or_cat, cell_normal),
+                    Paragraph(t.get('payment_mode') or 'UPI', cell_normal),
+                    Paragraph(notes, cell_normal),
+                    Paragraph(inflow_str, cell_green if inflow > 0 else cell_normal),
+                    Paragraph(outflow_str, cell_red if outflow > 0 else cell_normal),
+                    Paragraph(bal_str, cell_bold_right if running_balance >= 0 else cell_red),
+                ])
 
         tx_table = Table(
             table_rows,

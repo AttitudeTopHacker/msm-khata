@@ -33,6 +33,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   String _selectedType = 'ALL'; // ALL, GIVEN, TAKEN, EXPENSE, INCOME
   String _selectedTime = 'ALL'; // ALL, THIS_MONTH, THIS_YEAR
   String _selectedStatus = 'ALL'; // ALL, PENDING, SETTLED
+  String _sortOrder = 'REVERSE_SERIAL'; // REVERSE_SERIAL (Naya se Purana) or SERIAL (Purana se Naya)
 
   @override
   void initState() {
@@ -95,13 +96,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
     ConnectivityService.checkNow();
     try {
       final list = await SyncService.syncTransactions(
-        limit: _pageSize,
+        limit: 100,
         offset: 0,
-        replaceCache: true,
+        replaceCache: false,
       );
       if (mounted) {
         setState(() {
-          _hasMore = list.length >= _pageSize;
+          _hasMore = list.length >= 100;
           _allTransactions = List.from(SyncService.cachedTransactions);
           _applyFilters();
           _transactionsFuture = Future.value(_allTransactions);
@@ -142,7 +143,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final currentYear = DateFormat('yyyy').format(now);
 
     setState(() {
-      _filteredTransactions = _allTransactions.where((t) {
+      final filtered = _allTransactions.where((t) {
         // 1. Type Filter
         if (_selectedType != 'ALL' && t.type != _selectedType) {
           return false;
@@ -186,26 +187,44 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
         return true;
       }).toList();
+
+      // Sort by Date Order: Serial (Purana se Naya) vs Reverse Serial (Naya se Purana)
+      filtered.sort((a, b) {
+        final da = a.transactionDate ?? '';
+        final db = b.transactionDate ?? '';
+        final cmp = _sortOrder == 'SERIAL' ? da.compareTo(db) : db.compareTo(da);
+        if (cmp != 0) return cmp;
+        final ca = a.createdAt ?? '';
+        final cb = b.createdAt ?? '';
+        return _sortOrder == 'SERIAL' ? ca.compareTo(cb) : cb.compareTo(ca);
+      });
+
+      _filteredTransactions = filtered;
     });
   }
 
   String _formatDate(String? raw) {
     if (raw == null || raw.isEmpty) return '';
     try {
-      final dt = DateTime.parse(raw).toLocal();
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-      final txDate = DateTime(dt.year, dt.month, dt.day);
-      if (txDate == today) {
-        return 'Today, ${DateFormat('hh:mm a').format(dt)}';
-      } else if (txDate == today.subtract(const Duration(days: 1))) {
-        return 'Yesterday, ${DateFormat('hh:mm a').format(dt)}';
-      } else {
-        return DateFormat('dd MMM yyyy').format(dt);
+      final clean = raw.split('T')[0].split(' ')[0];
+      final parts = clean.split('-');
+      if (parts.length == 3) {
+        final y = int.parse(parts[0]);
+        final m = int.parse(parts[1]);
+        final d = int.parse(parts[2]);
+        final dt = DateTime(y, m, d);
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        if (dt == today) {
+          return 'Today';
+        } else if (dt == today.subtract(const Duration(days: 1))) {
+          return 'Yesterday';
+        } else {
+          return DateFormat('dd MMM yyyy').format(dt);
+        }
       }
-    } catch (_) {
-      return raw.length >= 10 ? raw.substring(0, 10) : raw;
-    }
+    } catch (_) {}
+    return raw.length >= 10 ? raw.substring(0, 10) : raw;
   }
 
   @override
@@ -356,6 +375,22 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         _applyFilters();
                       },
                     ),
+                    const SizedBox(width: 8),
+
+                    // Order / Sequence Selector (Serial vs Reverse Serial)
+                    _buildFilterDropdown(
+                      label: _sortOrder == 'SERIAL' ? 'Order: Serial (1,2,3..)' : 'Order: Reverse (Newest..)',
+                      icon: _sortOrder == 'SERIAL' ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+                      items: const [
+                        {'val': 'REVERSE_SERIAL', 'title': 'Reverse Serial (Naya se Purana)'},
+                        {'val': 'SERIAL', 'title': 'Serial Order (Purana se Naya)'},
+                      ],
+                      selectedValue: _sortOrder,
+                      onSelect: (val) {
+                        _sortOrder = val;
+                        _applyFilters();
+                      },
+                    ),
                   ],
                 ),
               ),
@@ -381,6 +416,39 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontWeight: FontWeight.w600),
                         ),
                         const SizedBox(width: 8),
+                        InkWell(
+                          onTap: () {
+                            setState(() {
+                              _sortOrder = _sortOrder == 'SERIAL' ? 'REVERSE_SERIAL' : 'SERIAL';
+                              _applyFilters();
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0F172A),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: const Color(0xFF4F46E5).withValues(alpha: 0.5)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  _sortOrder == 'SERIAL' ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+                                  size: 13,
+                                  color: const Color(0xFF818CF8),
+                                ),
+                                const SizedBox(width: 3),
+                                Text(
+                                  _sortOrder == 'SERIAL' ? 'Serial' : 'Reverse',
+                                  style: const TextStyle(color: Color(0xFF818CF8), fontSize: 11, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
                         InkWell(
                           onTap: _isSyncing ? null : _loadTransactions,
                           borderRadius: BorderRadius.circular(10),

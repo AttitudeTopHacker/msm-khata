@@ -256,16 +256,34 @@ class ApiService {
         final List<dynamic> list = jsonDecode(res.body);
         final fetched = list.map((item) => Category.fromJson(item)).toList();
         if (fetched.isNotEmpty) {
-          return fetched;
+          final seen = <String>{};
+          final deduped = <Category>[];
+          for (final c in fetched) {
+            final key = c.name.trim().toLowerCase();
+            if (!seen.contains(key)) {
+              seen.add(key);
+              deduped.add(c);
+            }
+          }
+          return deduped;
         }
       }
     } catch (_) {
       // Return defaults on error
     }
-    if (type != null) {
-      return defaultCategories.where((c) => c.type == type || c.type == 'BOTH').toList();
+    final fallback = (type != null)
+        ? defaultCategories.where((c) => c.type == type || c.type == 'BOTH').toList()
+        : defaultCategories;
+    final seen = <String>{};
+    final deduped = <Category>[];
+    for (final c in fallback) {
+      final key = c.name.trim().toLowerCase();
+      if (!seen.contains(key)) {
+        seen.add(key);
+        deduped.add(c);
+      }
     }
-    return defaultCategories;
+    return deduped;
   }
 
   // 8. Create Category (Tagged with current user)
@@ -346,10 +364,10 @@ class ApiService {
   }
 
   // 11. Python Professional Reports (PDF with Charts & Excel .xlsx)
-  static String getPdfReportUrl({String? accountId, String? accountName}) {
+  static String getPdfReportUrl({String? accountId, String? accountName, String mode = 'full'}) {
     final aid = accountId ?? AccountService.activeAccountNotifier.value.id;
     final aname = accountName ?? AccountService.activeAccountNotifier.value.name;
-    return '$_base/reports/pdf?account_id=$aid&account_name=${Uri.encodeComponent(aname)}';
+    return '$_base/reports/pdf?account_id=$aid&account_name=${Uri.encodeComponent(aname)}&mode=$mode';
   }
 
   static String getExcelReportUrl({String? accountId, String? accountName}) {
@@ -358,8 +376,8 @@ class ApiService {
     return '$_base/reports/excel?account_id=$aid&account_name=${Uri.encodeComponent(aname)}';
   }
 
-  static Future<Uint8List> fetchPdfReport({String? accountId, String? accountName}) async {
-    final url = getPdfReportUrl(accountId: accountId, accountName: accountName);
+  static Future<Uint8List> fetchPdfReport({String? accountId, String? accountName, String mode = 'full'}) async {
+    final url = getPdfReportUrl(accountId: accountId, accountName: accountName, mode: mode);
     final res = await http.get(Uri.parse(url));
     if (res.statusCode == 200) {
       return res.bodyBytes;

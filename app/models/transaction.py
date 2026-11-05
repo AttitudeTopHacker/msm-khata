@@ -12,7 +12,7 @@ class TransactionBase(BaseModel):
     due_date: Optional[str] = Field(None, description="Due date for settlement (YYYY-MM-DD)")
     is_settled: bool = Field(False, description="Whether this loan/transaction is settled")
     notes: Optional[str] = Field(None, description="Remarks or details")
-    transaction_date: Optional[str] = Field(None, description="Date of transaction (ISO format)")
+    transaction_date: Optional[str] = Field(None, description="Date of transaction (YYYY-MM-DD)")
     account_id: Optional[str] = Field("main", description="Account / Book ID (e.g. main, book_2)")
     account_name: Optional[str] = Field("Main Account", description="Account / Book Name")
 

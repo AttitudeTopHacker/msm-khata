@@ -51,7 +51,19 @@ def get_categories(
             res = client.table("categories").select("*").order("name").execute().data or []
         except Exception:
             pass
-    return res
+
+    # Deduplicate categories by normalized name (case-insensitive) to prevent duplicates in UI
+    seen_names = set()
+    deduped = []
+    for cat in res:
+        name_key = (cat.get("name") or "").strip().lower()
+        if not name_key:
+            continue
+        if name_key not in seen_names:
+            seen_names.add(name_key)
+            deduped.append(cat)
+
+    return deduped
 
 @router.post("", response_model=CategoryResponse, status_code=status.HTTP_201_CREATED)
 def create_category(payload: CategoryCreate):

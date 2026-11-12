@@ -36,6 +36,7 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   late Future<DashboardStats> _statsFuture;
   late Future<List<TransactionItem>> _transactionsFuture;
   bool _isSyncing = false;
@@ -143,6 +144,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final currency = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
 
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: const Color(0xFF0F172A),
       drawer: AppSideDrawer(onRefresh: _refreshData),
       drawerEnableOpenDragGesture: true,
@@ -195,11 +197,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
         actions: [
-          // Export & Cloud Backup Button
-          IconButton(
-            tooltip: 'Export Statement & Cloud Backup',
-            icon: const Icon(Icons.cloud_sync_rounded, color: Color(0xFF38BDF8), size: 22),
-            onPressed: () => ExportBackupModal.show(context),
+          // More Tools & Sub-Menu Drawer Button
+          Tooltip(
+            message: 'More Tools & Navigation',
+            child: InkWell(
+              onTap: () => _scaffoldKey.currentState?.openDrawer(),
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E293B).withValues(alpha: 0.7),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFF334155), width: 1),
+                ),
+                child: const Icon(
+                  Icons.widgets_outlined,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+            ),
           ),
           Material(
             color: Colors.transparent,

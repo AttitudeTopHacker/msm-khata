@@ -26,8 +26,6 @@ class AppSideDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currency = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
-
     return ValueListenableBuilder<AppAccentTheme>(
       valueListenable: ThemeService.accentNotifier,
       builder: (context, accent, _) {
@@ -63,7 +61,7 @@ class AppSideDrawer extends StatelessWidget {
                   child: Column(
                     children: [
                       // 1. Header Profile & Book Snapshot
-                      _buildDrawerHeader(context, accent, currency),
+                      _buildDrawerHeader(context, accent),
 
                       const Divider(color: Color(0xFF1E293B), height: 1, thickness: 1),
 
@@ -231,7 +229,7 @@ class AppSideDrawer extends StatelessWidget {
   }
 
   /// Top Profile and Active Ledger Snapshot Header
-  Widget _buildDrawerHeader(BuildContext context, AppAccentTheme accent, NumberFormat currency) {
+  Widget _buildDrawerHeader(BuildContext context, AppAccentTheme accent) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       decoration: BoxDecoration(
@@ -310,76 +308,68 @@ class AppSideDrawer extends StatelessWidget {
 
           const SizedBox(height: 12),
 
-          // Active Book Card with Balance
+          // Active Book Card
           ValueListenableBuilder<AccountBook>(
             valueListenable: AccountService.activeAccountNotifier,
             builder: (context, activeAccount, _) {
-              return ValueListenableBuilder<bool>(
-                valueListenable: ThemeService.hideBalanceNotifier,
-                builder: (context, isHidden, _) {
-                  final rawAmount = currency.format(activeAccount.balance);
-                  final displayAmount = isHidden ? '₹ ••••••' : rawAmount;
-
-                  return InkWell(
-                    onTap: () {
-                      Navigator.pop(context);
-                      AccountSwitcherModal.show(context, onAccountChanged: onRefresh);
-                    },
-                    borderRadius: BorderRadius.circular(14),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B).withValues(alpha: 0.8),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: accent.light.withValues(alpha: 0.35), width: 1),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.book_rounded, color: accent.light, size: 16),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  activeAccount.name,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                Text(
-                                  displayAmount,
-                                  style: TextStyle(
-                                    color: accent.light,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: accent.primary.withValues(alpha: 0.25),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Row(
-                              children: [
-                                Text('Switch', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                                Icon(Icons.chevron_right_rounded, color: Colors.white, size: 14),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
+              return InkWell(
+                onTap: () {
+                  Navigator.pop(context);
+                  AccountSwitcherModal.show(context, onAccountChanged: onRefresh);
                 },
+                borderRadius: BorderRadius.circular(14),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B).withValues(alpha: 0.8),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: accent.light.withValues(alpha: 0.35), width: 1),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.book_rounded, color: accent.light, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              activeAccount.name,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              activeAccount.isDefault ? 'Default Account (Primary)' : 'Isolated Khata Book',
+                              style: TextStyle(
+                                color: accent.light,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: accent.primary.withValues(alpha: 0.25),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Row(
+                          children: [
+                            Text('Switch', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                            Icon(Icons.chevron_right_rounded, color: Colors.white, size: 14),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               );
             },
           ),

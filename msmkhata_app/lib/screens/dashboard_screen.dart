@@ -10,6 +10,7 @@ import '../widgets/net_position_card.dart';
 import '../widgets/master_passbook_card.dart';
 import '../widgets/account_switcher_modal.dart';
 import '../widgets/adaptive_refresh_indicator.dart';
+import '../widgets/app_side_drawer.dart';
 import '../widgets/shimmer_loading.dart';
 import '../widgets/sync_status_badge.dart';
 import 'add_transaction_screen.dart';
@@ -23,6 +24,7 @@ import '../widgets/transaction_detail_sheet.dart';
 import '../services/connectivity_service.dart';
 import '../services/sync_service.dart';
 import '../services/budget_service.dart';
+import '../services/theme_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   final ValueChanged<int>? onNavigateToTab;
@@ -142,15 +144,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
+      drawer: AppSideDrawer(onRefresh: _refreshData),
+      drawerEnableOpenDragGesture: true,
+      drawerEdgeDragWidth: MediaQuery.of(context).size.width * 0.35,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'MsmKhata',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.white),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Tooltip(
+                  message: _isSyncing ? 'Syncing...' : 'Click to refresh data',
+                  child: InkWell(
+                    onTap: _isSyncing ? null : _refreshData,
+                    borderRadius: BorderRadius.circular(6),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+                      child: Text(
+                        'MsmKhata',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SyncStatusBadge(
+                  isSyncing: _isSyncing,
+                  onSync: _refreshData,
+                ),
+              ],
             ),
             Row(
               children: const [
@@ -173,11 +200,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             icon: const Icon(Icons.cloud_sync_rounded, color: Color(0xFF38BDF8), size: 22),
             onPressed: () => ExportBackupModal.show(context),
           ),
-          SyncStatusBadge(
-            isSyncing: _isSyncing,
-            onSync: _refreshData,
-          ),
-          const SizedBox(width: 8),
           Material(
             color: Colors.transparent,
             child: Tooltip(

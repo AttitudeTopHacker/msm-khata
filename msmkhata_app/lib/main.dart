@@ -14,7 +14,10 @@ import 'services/budget_service.dart';
 import 'services/connectivity_service.dart';
 import 'services/grocery_service.dart';
 import 'services/policy_service.dart';
+import 'services/security_service.dart';
 import 'services/sync_service.dart';
+import 'services/theme_service.dart';
+import 'widgets/app_lock_screen.dart';
 import 'widgets/offline_banner.dart';
 
 final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
@@ -38,6 +41,8 @@ void main(List<String> args) async {
   await AccountService.initialize();
   await PolicyService.initialize();
   await GroceryService.initialize();
+  await ThemeService.initialize();
+  await SecurityService.initialize();
 
   // Handle initial command-line deep link argument on Desktop (Linux / Windows)
   if (args.isNotEmpty) {
@@ -122,11 +127,13 @@ class MsmKhataApp extends StatelessWidget {
         useMaterial3: true,
       ),
       builder: (context, child) {
-        return Column(
-          children: [
-            const OfflineNoticeBar(),
-            Expanded(child: child ?? const SizedBox.shrink()),
-          ],
+        return AppLockScreen(
+          child: Column(
+            children: [
+              const OfflineNoticeBar(),
+              Expanded(child: child ?? const SizedBox.shrink()),
+            ],
+          ),
         );
       },
       home: const SplashScreen(),

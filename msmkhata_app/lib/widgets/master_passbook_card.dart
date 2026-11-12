@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../models/account.dart';
 import '../models/stats.dart';
 import '../services/budget_service.dart';
+import '../services/theme_service.dart';
 
 /// Master Passbook & Real Account Balance Card for MsmKhata.
 ///
@@ -26,30 +27,33 @@ class MasterPassbookCard extends StatelessWidget {
     final currency = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
     final isBalancePositive = stats.netAccountBalance >= 0;
 
-    return ValueListenableBuilder<bool>(
-      valueListenable: BudgetService.privateModeNotifier,
-      builder: (context, isPrivate, _) {
-        return Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF1E1B4B), Color(0xFF312E81), Color(0xFF1E293B)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: const Color(0xFF6366F1).withValues(alpha: 0.35),
-              width: 1.2,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF4F46E5).withValues(alpha: 0.3),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
+    return ValueListenableBuilder<AppAccentTheme>(
+      valueListenable: ThemeService.accentNotifier,
+      builder: (context, accent, _) {
+        return ValueListenableBuilder<bool>(
+          valueListenable: BudgetService.privateModeNotifier,
+          builder: (context, isPrivate, _) {
+            return Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [accent.cardBg, accent.primary.withValues(alpha: 0.35), const Color(0xFF0F172A)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: accent.light.withValues(alpha: 0.45),
+                  width: 1.3,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: accent.glow.withValues(alpha: 0.25),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
               ),
-            ],
-          ),
           padding: const EdgeInsets.all(22),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -241,6 +245,8 @@ class MasterPassbookCard extends StatelessWidget {
         );
       },
     );
+  },
+);
   }
 
   Widget _buildPassbookMetric({

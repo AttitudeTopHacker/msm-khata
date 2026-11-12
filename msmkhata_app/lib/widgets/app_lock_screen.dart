@@ -44,6 +44,11 @@ class _AppLockScreenState extends State<AppLockScreen> {
         _errorMessage = 'Galat PIN! Kripya sahi 4-digit PIN darj karein.';
         _enteredPin = '';
       });
+    } else {
+      setState(() {
+        _enteredPin = '';
+        _errorMessage = null;
+      });
     }
   }
 
@@ -250,3 +255,4 @@ class _AppLockScreenState extends State<AppLockScreen> {
     );
   }
 }
+

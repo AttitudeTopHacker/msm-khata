@@ -148,6 +148,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       drawerEnableOpenDragGesture: true,
       drawerEdgeDragWidth: MediaQuery.of(context).size.width * 0.35,
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: Column(

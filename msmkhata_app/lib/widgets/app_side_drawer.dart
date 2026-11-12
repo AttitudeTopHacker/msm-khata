@@ -2,9 +2,11 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/account.dart';
+import '../models/grocery_item.dart';
 import '../services/account_service.dart';
 import '../services/admin_service.dart';
 import '../services/auth_service.dart';
+import '../services/grocery_service.dart';
 import '../services/security_service.dart';
 import '../services/sync_service.dart';
 import '../services/theme_service.dart';
@@ -97,10 +99,30 @@ class AppSideDrawer extends StatelessWidget {
                               subtitle: 'Harvesting machine & fuel passbook',
                               onTap: () {
                                 Navigator.pop(context);
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(builder: (_) => const StoreLedgerScreen()),
-                                );
+                                GroceryStore? matching;
+                                for (final s in GroceryService.cachedStores) {
+                                  final cat = s.category.toLowerCase();
+                                  final name = s.storeName.toLowerCase();
+                                  if (cat.contains('crop') ||
+                                      cat.contains('diesel') ||
+                                      cat.contains('farm') ||
+                                      name.contains('crop') ||
+                                      name.contains('diesel')) {
+                                    matching = s;
+                                    break;
+                                  }
+                                }
+                                if (matching != null) {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(builder: (_) => StoreLedgerScreen(store: matching)),
+                                  );
+                                } else {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(builder: (_) => const GroceryDashboardScreen()),
+                                  );
+                                }
                               },
                             ),
                             _buildDrawerItem(
@@ -841,3 +863,4 @@ class AppSideDrawer extends StatelessWidget {
     );
   }
 }
+

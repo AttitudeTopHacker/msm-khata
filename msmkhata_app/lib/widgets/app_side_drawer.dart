@@ -111,9 +111,10 @@ class AppSideDrawer extends StatelessWidget {
                                   }
                                 }
                                 if (matching != null) {
+                                  final GroceryStore storeToOpen = matching;
                                   Navigator.push(
                                     context,
-                                    MaterialPageRoute(builder: (_) => StoreLedgerScreen(store: matching)),
+                                    MaterialPageRoute(builder: (_) => StoreLedgerScreen(store: storeToOpen)),
                                   );
                                 } else {
                                   Navigator.push(

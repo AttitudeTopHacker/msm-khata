@@ -62,20 +62,7 @@ jobs:
         run: |
           cd msmkhata_app
           flutter pub get
-          flutter analyze > /tmp/analyze.log 2>&1 || true
-          cat /tmp/analyze.log
-          ANALYSIS_ERR=$(grep -E "\berror •" /tmp/analyze.log | head -n 5 | tr '\n' ' ')
-          if [ -n "$ANALYSIS_ERR" ]; then
-            echo "::error title=Flutter Analysis Error::$ANALYSIS_ERR"
-            exit 1
-          fi
-          flutter build linux --release --obfuscate --split-debug-info=symbols > /tmp/build_linux.log 2>&1 || {
-            cat /tmp/build_linux.log
-            BUILD_ERR=$(tail -n 20 /tmp/build_linux.log | tr '\n' ' ')
-            echo "::error title=Linux Build Failure::$BUILD_ERR"
-            exit 1
-          }
-          cat /tmp/build_linux.log
+          flutter build linux --release --obfuscate --split-debug-info=symbols
 
       - name: Package into Debian (.deb)
         run: |

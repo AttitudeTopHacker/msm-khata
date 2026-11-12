@@ -322,7 +322,13 @@ jobs:
         run: |
           cd msmkhata_app
           flutter pub get
-          flutter build apk --release --obfuscate --split-debug-info=symbols
+          flutter build apk --release --obfuscate --split-debug-info=symbols > /tmp/build_android.log 2>&1 || {
+            cat /tmp/build_android.log
+            ERR=$(tail -n 25 /tmp/build_android.log | tr '\n' ' ')
+            echo "::error title=Android Build Error::$ERR"
+            exit 1
+          }
+          cat /tmp/build_android.log
 
       - name: Prepare APK Package
         run: |

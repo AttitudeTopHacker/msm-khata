@@ -14,6 +14,7 @@ import 'services/budget_service.dart';
 import 'services/connectivity_service.dart';
 import 'services/grocery_service.dart';
 import 'services/policy_service.dart';
+import 'services/routine_service.dart';
 import 'services/security_service.dart';
 import 'services/sync_service.dart';
 import 'services/theme_service.dart';
@@ -43,6 +44,7 @@ void main(List<String> args) async {
   await GroceryService.initialize();
   await ThemeService.initialize();
   await SecurityService.initialize();
+  await RoutineService.initialize();
 
   // Handle initial command-line deep link argument on Desktop (Linux / Windows)
   if (args.isNotEmpty) {

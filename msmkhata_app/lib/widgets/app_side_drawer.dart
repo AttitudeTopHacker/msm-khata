@@ -2,7 +2,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/account.dart';
-import '../models/grocery_item.dart';
 import '../services/account_service.dart';
 import '../services/admin_service.dart';
 import '../services/auth_service.dart';
@@ -12,8 +11,8 @@ import '../services/sync_service.dart';
 import '../services/theme_service.dart';
 import '../screens/admin_panel_screen.dart';
 import '../screens/auth_screen.dart';
+import '../screens/daily_routine_screen.dart';
 import '../screens/grocery_dashboard_screen.dart';
-import '../screens/store_ledger_screen.dart';
 import 'account_switcher_modal.dart';
 import 'export_backup_modal.dart';
 import 'msm_shimmer_text.dart';
@@ -91,37 +90,17 @@ class AppSideDrawer extends StatelessWidget {
                             _buildDrawerItem(
                               context: context,
                               accent: accent,
-                              icon: Icons.agriculture_rounded,
-                              iconColor: const Color(0xFFF59E0B),
-                              title: 'Crop & Diesel Tracker',
-                              subtitle: 'Harvesting machine & fuel passbook',
+                              icon: Icons.event_note_rounded,
+                              iconColor: const Color(0xFF38BDF8),
+                              title: 'Daily Routine & Work Diary',
+                              subtitle: 'Rozana kaam ka record, tareekh aur category',
+                              badge: 'NEW',
                               onTap: () {
                                 Navigator.pop(context);
-                                GroceryStore? matching;
-                                for (final s in GroceryService.cachedStores) {
-                                  final cat = s.category.toLowerCase();
-                                  final name = s.storeName.toLowerCase();
-                                  if (cat.contains('crop') ||
-                                      cat.contains('diesel') ||
-                                      cat.contains('farm') ||
-                                      name.contains('crop') ||
-                                      name.contains('diesel')) {
-                                    matching = s;
-                                    break;
-                                  }
-                                }
-                                if (matching != null) {
-                                  final GroceryStore storeToOpen = matching;
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(builder: (_) => StoreLedgerScreen(store: storeToOpen)),
-                                  );
-                                } else {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(builder: (_) => const GroceryDashboardScreen()),
-                                  );
-                                }
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => const DailyRoutineScreen()),
+                                );
                               },
                             ),
                             _buildDrawerItem(

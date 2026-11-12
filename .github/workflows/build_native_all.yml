@@ -62,7 +62,12 @@ jobs:
         run: |
           cd msmkhata_app
           flutter pub get
-          flutter build linux --release --obfuscate --split-debug-info=symbols
+          flutter analyze
+          flutter build linux --release --obfuscate --split-debug-info=symbols 2>&1 | tee /tmp/build_linux.log || {
+            ERR=$(tail -n 30 /tmp/build_linux.log | tr '\n' ' ')
+            echo "::error title=Linux Build Failure::$ERR"
+            exit 1
+          }
 
       - name: Package into Debian (.deb)
         run: |

@@ -652,7 +652,7 @@ class AppSideDrawer extends StatelessWidget {
                               icon: Icons.storefront_rounded,
                               iconColor: const Color(0xFF10B981),
                               title: store.storeName,
-                              subtitle: '${store.category} • Net Balance: ₹${store.netBalance}',
+                              subtitle: '${store.category} • Pending Balance: ₹${store.pendingBalance.toStringAsFixed(0)}',
                               badge: 'DUKAAN REPORT',
                               onTap: () {
                                 Navigator.pop(ctx);

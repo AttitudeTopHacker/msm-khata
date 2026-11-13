@@ -62,6 +62,7 @@ jobs:
         run: |
           cd msmkhata_app
           flutter pub get
+          flutter analyze --no-fatal-infos
           flutter build linux --release --obfuscate --split-debug-info=symbols --no-tree-shake-icons
 
       - name: Package into Debian (.deb)

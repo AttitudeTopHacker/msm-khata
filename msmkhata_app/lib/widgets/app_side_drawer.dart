@@ -161,8 +161,13 @@ class AppSideDrawer extends StatelessWidget {
                               subtitle: 'Select account, dukaan khata or routine diary',
                               badge: 'MULTI-KHATA',
                               onTap: () {
+                                final nav = Navigator.of(context, rootNavigator: true);
                                 Navigator.pop(context);
-                                _showAccountStatementPicker(context, accent);
+                                _showAccountStatementPicker(
+                                  context: nav.context,
+                                  navigator: nav,
+                                  accent: accent,
+                                );
                               },
                             ),
                             _buildDrawerItem(
@@ -173,8 +178,9 @@ class AppSideDrawer extends StatelessWidget {
                               title: 'Google Drive Cloud Backup',
                               subtitle: 'Automated statement PDF & Excel archival',
                               onTap: () {
+                                final nav = Navigator.of(context, rootNavigator: true);
                                 Navigator.pop(context);
-                                ExportBackupModal.show(context);
+                                ExportBackupModal.show(nav.context);
                               },
                             ),
                             _buildDrawerItem(
@@ -508,7 +514,11 @@ class AppSideDrawer extends StatelessWidget {
   }
 
   /// Statement Account Selection Modal (Personal books, Dukaan khatas, Work diary)
-  void _showAccountStatementPicker(BuildContext context, AppAccentTheme accent) {
+  void _showAccountStatementPicker({
+    required BuildContext context,
+    required NavigatorState navigator,
+    required AppAccentTheme accent,
+  }) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -612,8 +622,7 @@ class AppSideDrawer extends StatelessWidget {
                                 badge: 'A4 STATEMENT',
                                 onTap: () {
                                   Navigator.pop(ctx);
-                                  Navigator.push(
-                                    context,
+                                  navigator.push(
                                     MaterialPageRoute(builder: (_) => ExportStatementScreen(account: book)),
                                   );
                                 },

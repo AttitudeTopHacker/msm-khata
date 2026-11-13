@@ -3,10 +3,9 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
-import '../screens/export_statement_screen.dart';
 
-/// Modal bottom sheet providing options to export PDF statements
-/// and manage Google Drive cloud backups.
+/// Modal bottom sheet providing Google Drive cloud backup options
+/// and automated financial archival settings.
 class ExportBackupModal extends StatefulWidget {
   const ExportBackupModal({super.key});
 
@@ -410,7 +409,7 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: const [
                           Text(
-                            'Export & Cloud Backup',
+                            'Google Drive Cloud Backup',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 18,
@@ -419,7 +418,7 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
                           ),
                           SizedBox(height: 2),
                           Text(
-                            'Statements & Google Drive archival',
+                            'Automated cloud synchronization & archival',
                             style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
                           ),
                         ],
@@ -436,64 +435,7 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
 
               const SizedBox(height: 20),
 
-              // 1. PDF Statement Option
-              InkWell(
-                onTap: () {
-                  Navigator.of(context).pop();
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const ExportStatementScreen()),
-                  );
-                },
-                borderRadius: BorderRadius.circular(18),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: const Color(0xFF334155), width: 1),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF10B981).withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFF10B981), size: 26),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: const [
-                            Text(
-                              'Export PDF Statement',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                              ),
-                            ),
-                            SizedBox(height: 3),
-                            Text(
-                              'Generate official A4 ledger print sheet with filters, date ranges & QR signature',
-                              style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12, height: 1.3),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      const Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFF64748B), size: 14),
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // 2. Google Drive Cloud Backup Card
+              // Google Drive Cloud Backup Card
               Container(
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(

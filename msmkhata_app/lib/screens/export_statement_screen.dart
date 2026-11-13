@@ -220,9 +220,9 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text(
-          'Export & A4 Print Sheet',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+        title: Text(
+          'Export Statement • ${_effectiveAccount.name}',
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17),
         ),
       ),
       body: _isLoading
@@ -266,12 +266,12 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
                                     const SizedBox(width: 14),
                                     Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: const [
+                                      children: [
                                         Text(
-                                          'Financial Statement (A4)',
-                                          style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                                          'Financial Statement • ${_effectiveAccount.name}',
+                                          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                                         ),
-                                        MsmShimmerText(
+                                        const MsmShimmerText(
                                           text: 'ORG : msm.movin 2022',
                                           style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                                         ),
@@ -335,9 +335,9 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
                                       child: const Text('M', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
                                     ),
                                     const SizedBox(width: 8),
-                                    const Text(
-                                      'MSMKHATA STATEMENT',
-                                      style: TextStyle(color: Color(0xFF1E1B4B), fontWeight: FontWeight.w900, fontSize: 15),
+                                    Text(
+                                      'MSMKHATA STATEMENT (${_effectiveAccount.name.toUpperCase()})',
+                                      style: const TextStyle(color: Color(0xFF1E1B4B), fontWeight: FontWeight.w900, fontSize: 13),
                                     ),
                                   ],
                                 ),

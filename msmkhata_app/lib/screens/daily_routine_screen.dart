@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/routine_entry.dart';
+import '../services/routine_pdf_service.dart';
 import '../services/routine_service.dart';
 import '../services/theme_service.dart';
 
@@ -114,6 +115,32 @@ class _DailyRoutineScreenState extends State<DailyRoutineScreen> {
                   ],
                 ),
                 actions: [
+                  IconButton(
+                    icon: const Icon(Icons.picture_as_pdf_rounded, color: Colors.white70),
+                    tooltip: 'Daily Routine PDF Print Karein',
+                    onPressed: () {
+                      final filtered = _getFilteredEntries();
+                      String dateDesc = 'All Dates';
+                      if (_dateFilterMode == 'today') {
+                        dateDesc = 'Aaj • Today (${DateFormat('dd MMM').format(DateTime.now())})';
+                      } else if (_dateFilterMode == 'yesterday') {
+                        dateDesc = 'Kal • Yesterday';
+                      } else if (_dateFilterMode == 'custom' && _selectedDateFilter != null) {
+                        dateDesc = DateFormat('dd MMM yyyy').format(_selectedDateFilter!);
+                      }
+
+                      String catDesc = 'All Categories';
+                      if (_selectedCategoryFilter != 'all') {
+                        catDesc = RoutineService.getCategory(_selectedCategoryFilter).name;
+                      }
+
+                      RoutinePdfService.printRoutineStatement(
+                        entries: filtered,
+                        filterLabel: dateDesc,
+                        categoryLabel: catDesc,
+                      );
+                    },
+                  ),
                   IconButton(
                     icon: const Icon(Icons.category_rounded, color: Colors.white70),
                     tooltip: 'Categories Manage Karein',

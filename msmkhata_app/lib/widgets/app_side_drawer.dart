@@ -5,17 +5,22 @@ import '../models/account.dart';
 import '../services/account_service.dart';
 import '../services/admin_service.dart';
 import '../services/auth_service.dart';
+import '../services/grocery_pdf_service.dart';
 import '../services/grocery_service.dart';
+import '../services/routine_pdf_service.dart';
+import '../services/routine_service.dart';
 import '../services/security_service.dart';
 import '../services/sync_service.dart';
 import '../services/theme_service.dart';
 import '../screens/admin_panel_screen.dart';
 import '../screens/auth_screen.dart';
 import '../screens/daily_routine_screen.dart';
+import '../screens/export_statement_screen.dart';
 import '../screens/grocery_dashboard_screen.dart';
 import 'account_switcher_modal.dart';
 import 'export_backup_modal.dart';
 import 'msm_shimmer_text.dart';
+import 'theme_studio_modal.dart';
 
 /// Ultra-Modern Frosted Glass Side-Sliding Drawer / Sub-Menu Panel for MsmKhata
 class AppSideDrawer extends StatelessWidget {
@@ -120,8 +125,20 @@ class AppSideDrawer extends StatelessWidget {
 
                             // Section B: Custom Appearance & Theme Colors
                             _buildSectionLabel('CUSTOM THEME & BORDER ACCENTS', Icons.palette_outlined, accent),
-                            _buildColorPaletteCard(context, accent),
-                            const SizedBox(height: 8),
+                            _buildDrawerItem(
+                              context: context,
+                              accent: accent,
+                              icon: Icons.palette_rounded,
+                              iconColor: accent.light,
+                              title: 'Theme & Card Accents',
+                              subtitle: '${accent.name} (Active Theme)',
+                              badge: 'LIVE PREVIEW',
+                              onTap: () {
+                                Navigator.pop(context);
+                                ThemeStudioModal.show(context);
+                              },
+                            ),
+                            const SizedBox(height: 6),
                             _buildHideBalanceToggle(accent),
 
                             const SizedBox(height: 14),
@@ -133,7 +150,20 @@ class AppSideDrawer extends StatelessWidget {
                             const SizedBox(height: 14),
 
                             // Section D: Cloud Backup & Data Sync
-                            _buildSectionLabel('BACKUP & CLOUD STORAGE', Icons.cloud_outlined, accent),
+                            _buildSectionLabel('BACKUP & STATEMENTS', Icons.cloud_outlined, accent),
+                            _buildDrawerItem(
+                              context: context,
+                              accent: accent,
+                              icon: Icons.picture_as_pdf_rounded,
+                              iconColor: const Color(0xFFEF4444),
+                              title: 'Export PDF Statement',
+                              subtitle: 'Select account, dukaan khata or routine diary',
+                              badge: 'MULTI-KHATA',
+                              onTap: () {
+                                Navigator.pop(context);
+                                _showAccountStatementPicker(context, accent);
+                              },
+                            ),
                             _buildDrawerItem(
                               context: context,
                               accent: accent,
@@ -476,66 +506,296 @@ class AppSideDrawer extends StatelessWidget {
     );
   }
 
-  /// Color Swatch Palette for Cards and Borders
-  Widget _buildColorPaletteCard(BuildContext context, AppAccentTheme accent) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E293B).withValues(alpha: 0.7),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: accent.light.withValues(alpha: 0.3), width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Cards & Border Accent',
-                style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+  /// Statement Account Selection Modal (Personal books, Dukaan khatas, Work diary)
+  void _showAccountStatementPicker(BuildContext context, AppAccentTheme accent) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(ctx).size.height * 0.85,
               ),
-              Text(
-                accent.name,
-                style: TextStyle(color: accent.light, fontSize: 11, fontWeight: FontWeight.w600),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F172A).withValues(alpha: 0.96),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+                border: Border(
+                  top: BorderSide(color: accent.light.withValues(alpha: 0.4), width: 1.5),
+                  left: BorderSide(color: accent.light.withValues(alpha: 0.2), width: 1),
+                  right: BorderSide(color: accent.light.withValues(alpha: 0.2), width: 1),
+                ),
               ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: ThemeService.availableAccents.map((item) {
-              final isSelected = item.id == accent.id;
-              return GestureDetector(
-                onTap: () => ThemeService.setAccent(item.id),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: item.primary,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isSelected ? Colors.white : Colors.transparent,
-                      width: 2.2,
-                    ),
-                    boxShadow: [
-                      if (isSelected)
-                        BoxShadow(
-                          color: item.primary.withValues(alpha: 0.7),
-                          blurRadius: 12,
-                          spreadRadius: 2,
+              child: SafeArea(
+                top: false,
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Drag Handle
+                      Center(
+                        child: Container(
+                          width: 44,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF475569),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
                         ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Header
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 38,
+                                height: 38,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEF4444).withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.4), width: 1.2),
+                                ),
+                                child: const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFFEF4444), size: 20),
+                              ),
+                              const SizedBox(width: 12),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Export PDF Statement',
+                                    style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+                                  ),
+                                  Text(
+                                    'Kis account ya book ki statement print karni hai?',
+                                    style: TextStyle(color: accent.light, fontSize: 11),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close_rounded, color: Color(0xFF94A3B8)),
+                            onPressed: () => Navigator.pop(ctx),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 18),
+
+                      // Section 1: Personal Account Books
+                      _buildStatementGroupHeader('📘 PERSONAL ACCOUNTS & BOOKS', accent),
+                      const SizedBox(height: 6),
+                      ValueListenableBuilder<List<AccountBook>>(
+                        valueListenable: AccountService.accountsNotifier,
+                        builder: (c, books, _) {
+                          return Column(
+                            children: books.map((book) {
+                              return _buildStatementItemTile(
+                                context: ctx,
+                                accent: accent,
+                                icon: Icons.book_rounded,
+                                iconColor: accent.light,
+                                title: book.name,
+                                subtitle: book.isDefault ? 'Default Primary Account (Active)' : 'Isolated Khata Book',
+                                badge: 'A4 STATEMENT',
+                                onTap: () {
+                                  Navigator.pop(ctx);
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(builder: (_) => ExportStatementScreen(account: book)),
+                                  );
+                                },
+                              );
+                            }).toList(),
+                          );
+                        },
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Section 2: Grocery & Dukaan Khatas
+                      _buildStatementGroupHeader('🏪 GROCERY & DUKAAN KHATA', accent),
+                      const SizedBox(height: 6),
+                      if (GroceryService.cachedStores.isEmpty)
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1E293B).withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(Icons.storefront_outlined, color: Color(0xFF64748B), size: 16),
+                              SizedBox(width: 8),
+                              Text('Abhi koi dukaan khata registered nahi hai.', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                            ],
+                          ),
+                        )
+                      else
+                        Column(
+                          children: GroceryService.cachedStores.map((store) {
+                            return _buildStatementItemTile(
+                              context: ctx,
+                              accent: accent,
+                              icon: Icons.storefront_rounded,
+                              iconColor: const Color(0xFF10B981),
+                              title: store.storeName,
+                              subtitle: '${store.category} • Net Balance: ₹${store.netBalance}',
+                              badge: 'DUKAAN REPORT',
+                              onTap: () {
+                                Navigator.pop(ctx);
+                                final entries = GroceryService.cachedEntries.where((e) => e.storeId == store.id).toList();
+                                GroceryPdfService.printStoreStatement(store: store, entries: entries);
+                              },
+                            );
+                          }).toList(),
+                        ),
+
+                      const SizedBox(height: 16),
+
+                      // Section 3: Daily Routine & Work Diary
+                      _buildStatementGroupHeader('📅 DAILY ROUTINE & WORK DIARY', accent),
+                      const SizedBox(height: 6),
+                      _buildStatementItemTile(
+                        context: ctx,
+                        accent: accent,
+                        icon: Icons.event_note_rounded,
+                        iconColor: const Color(0xFF38BDF8),
+                        title: 'Daily Routine & Work Diary Statement',
+                        subtitle: 'Rozana kaam, categories, ghante aur kharche ka complete record',
+                        badge: 'WORK DIARY',
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          RoutinePdfService.printRoutineStatement(
+                            entries: RoutineService.cachedEntries,
+                            filterLabel: 'All Dates Logged',
+                            categoryLabel: 'All Categories',
+                          );
+                        },
+                      ),
                     ],
                   ),
-                  child: isSelected
-                      ? const Icon(Icons.check_rounded, color: Colors.white, size: 18)
-                      : null,
                 ),
-              );
-            }).toList(),
+              ),
+            ),
           ),
-        ],
+        );
+      },
+    );
+  }
+
+  Widget _buildStatementGroupHeader(String label, AppAccentTheme accent) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 4),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: accent.light,
+          fontSize: 10.5,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.6,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatementItemTile({
+    required BuildContext context,
+    required AppAccentTheme accent,
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required String badge,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B).withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF334155), width: 1),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: iconColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: iconColor.withValues(alpha: 0.35), width: 1),
+                  ),
+                  child: Icon(icon, color: iconColor, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              title,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: iconColor.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(5),
+                              border: Border.all(color: iconColor.withValues(alpha: 0.3), width: 0.8),
+                            ),
+                            child: Text(
+                              badge,
+                              style: TextStyle(color: iconColor, fontSize: 8.5, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        subtitle,
+                        style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 6),
+                const Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFF64748B), size: 13),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

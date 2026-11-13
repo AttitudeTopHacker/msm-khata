@@ -12,7 +12,9 @@ import '../widgets/msm_shimmer_text.dart';
 
 /// Interactive Export Statement & A4 PDF Print Screen
 class ExportStatementScreen extends StatefulWidget {
-  const ExportStatementScreen({super.key});
+  final AccountBook? account;
+
+  const ExportStatementScreen({super.key, this.account});
 
   @override
   State<ExportStatementScreen> createState() => _ExportStatementScreenState();
@@ -24,6 +26,8 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
   List<TransactionItem> _transactions = [];
   String? _activeAction; // 'full_pdf', 'full_print', 'fast_pdf', 'fast_print'
 
+  AccountBook get _effectiveAccount => widget.account ?? AccountService.activeAccountNotifier.value;
+
   @override
   void initState() {
     super.initState();
@@ -33,7 +37,7 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      final activeAccount = AccountService.activeAccountNotifier.value;
+      final activeAccount = _effectiveAccount;
       final s = await ApiService.getDashboardStats(accountId: activeAccount.id);
       final txs = await ApiService.getTransactions(accountId: activeAccount.id);
       if (mounted) {
@@ -58,7 +62,7 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
 
   Future<void> _handleDownloadPythonPdf({required String mode}) async {
     final actionKey = mode == 'full' ? 'full_pdf' : 'fast_pdf';
-    final activeAccount = AccountService.activeAccountNotifier.value;
+    final activeAccount = _effectiveAccount;
     setState(() => _activeAction = actionKey);
     try {
       final pdfBytes = await ApiService.fetchPdfReport(

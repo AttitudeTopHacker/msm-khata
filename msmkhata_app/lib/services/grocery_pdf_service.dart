@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -7,8 +8,8 @@ import 'auth_service.dart';
 import 'grocery_service.dart';
 
 class GroceryPdfService {
-  /// Generate and open standard A4 PDF Print / Save dialog for a specific store ledger
-  static Future<void> printStoreStatement({
+  /// Generate raw PDF bytes for a specific store ledger
+  static Future<Uint8List> generateStorePdfBytes({
     required GroceryStore store,
     required List<GroceryEntry> entries,
   }) async {
@@ -94,9 +95,18 @@ class GroceryPdfService {
       ),
     );
 
+    return doc.save();
+  }
+
+  /// Generate and open standard A4 PDF Print / Save dialog for a specific store ledger
+  static Future<void> printStoreStatement({
+    required GroceryStore store,
+    required List<GroceryEntry> entries,
+  }) async {
+    final pdfBytes = await generateStorePdfBytes(store: store, entries: entries);
     final cleanName = store.storeName.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
     await Printing.layoutPdf(
-      onLayout: (PdfPageFormat format) async => doc.save(),
+      onLayout: (PdfPageFormat format) async => pdfBytes,
       name: 'DukanKhata_${cleanName}_${DateFormat('yyyyMMdd').format(DateTime.now())}.pdf',
     );
   }

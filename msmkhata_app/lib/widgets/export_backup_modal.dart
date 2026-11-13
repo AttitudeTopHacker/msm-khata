@@ -1,11 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../models/account.dart';
+import '../models/grocery_item.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../services/account_service.dart';
+import '../services/grocery_service.dart';
+import '../services/routine_service.dart';
+import '../services/grocery_pdf_service.dart';
+import '../services/routine_pdf_service.dart';
+import '../services/google_drive_service.dart';
 
-/// Modal bottom sheet providing Google Drive cloud backup options
-/// and automated financial archival settings.
+/// Modal bottom sheet providing Google Drive cloud backup options,
+/// automated financial archival settings, and per-account backup toggles.
 class ExportBackupModal extends StatefulWidget {
   const ExportBackupModal({super.key});
 
@@ -27,7 +35,9 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
   String _backupFrequency = 'Daily';
   String _lastBackupTime = 'Never';
   bool _isBackingUp = false;
+  String? _backupStatusMessage;
   bool _hasGoogleAuth = false;
+  Set<String> _selectedAccountKeys = {};
 
   @override
   void initState() {
@@ -39,12 +49,34 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
     try {
       final token = await AuthService.getGoogleAccessToken();
       final prefs = await SharedPreferences.getInstance();
+
+      final books = AccountService.accountsNotifier.value;
+      final stores = GroceryService.cachedStores;
+
+      final savedKeys = prefs.getStringList('gdrive_backup_selected_keys');
+      final Set<String> activeKeys;
+
+      if (savedKeys != null) {
+        activeKeys = savedKeys.toSet();
+      } else {
+        // First launch: select all accounts by default
+        activeKeys = <String>{};
+        for (final b in books) {
+          activeKeys.add('account_${b.id}');
+        }
+        for (final s in stores) {
+          activeKeys.add('grocery_${s.id}');
+        }
+        activeKeys.add('daily_routine');
+      }
+
       if (mounted) {
         setState(() {
           _hasGoogleAuth = token != null && token.isNotEmpty;
           _autoDriveBackup = prefs.getBool('gdrive_auto_backup') ?? true;
           _backupFrequency = prefs.getString('gdrive_backup_frequency') ?? 'Daily';
           _lastBackupTime = prefs.getString('gdrive_last_backup_time') ?? 'Never';
+          _selectedAccountKeys = activeKeys;
         });
       }
     } catch (_) {}
@@ -56,6 +88,7 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
       await prefs.setBool('gdrive_auto_backup', _autoDriveBackup);
       await prefs.setString('gdrive_backup_frequency', _backupFrequency);
       await prefs.setString('gdrive_last_backup_time', _lastBackupTime);
+      await prefs.setStringList('gdrive_backup_selected_keys', _selectedAccountKeys.toList());
     } catch (_) {}
   }
 
@@ -231,17 +264,127 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
       return;
     }
 
-    setState(() => _isBackingUp = true);
-    try {
-      final res = await ApiService.uploadBackupToGoogleDrive(
-        googleAccessToken: token,
-        userId: AuthService.currentUserId,
-        includeExcel: false,
-        includePdf: true,
+    if (_selectedAccountKeys.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Kripya backup ke liye kam se kam 1 account chunein.'),
+          backgroundColor: Color(0xFFEF4444),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
+      return;
+    }
 
-      final uploaded = res['uploaded_files'] as List<dynamic>? ?? [];
-      final fileName = uploaded.isNotEmpty ? uploaded[0]['filename'] ?? 'Statement.pdf' : 'Statement.pdf';
+    setState(() {
+      _isBackingUp = true;
+      _backupStatusMessage = 'Preparing backup upload...';
+    });
+
+    final uploadedFiles = <Map<String, String>>[];
+    final failedItems = <String>[];
+
+    try {
+      final books = AccountService.accountsNotifier.value;
+      final stores = GroceryService.cachedStores;
+      final totalToUpload = _selectedAccountKeys.length;
+      int currentIdx = 0;
+
+      // 1. Personal Accounts & Books
+      for (final book in books) {
+        final key = 'account_${book.id}';
+        if (_selectedAccountKeys.contains(key)) {
+          currentIdx++;
+          if (mounted) {
+            setState(() {
+              _backupStatusMessage = 'Uploading ($currentIdx/$totalToUpload): ${book.name}...';
+            });
+          }
+          try {
+            final res = await ApiService.uploadBackupToGoogleDrive(
+              googleAccessToken: token,
+              userId: AuthService.currentUserId,
+              accountId: book.id,
+              accountName: book.name,
+              includeExcel: false,
+              includePdf: true,
+            );
+            final uploaded = res['uploaded_files'] as List<dynamic>? ?? [];
+            final fileName = uploaded.isNotEmpty ? uploaded[0]['filename'] ?? '${book.name}.pdf' : '${book.name}.pdf';
+            uploadedFiles.add({
+              'title': book.name,
+              'filename': fileName,
+              'type': 'Personal Book',
+            });
+          } catch (e) {
+            debugPrint('Personal book backup error for ${book.name}: $e');
+            failedItems.add(book.name);
+          }
+        }
+      }
+
+      // 2. Grocery & Dukaan Khatas
+      for (final store in stores) {
+        final key = 'grocery_${store.id}';
+        if (_selectedAccountKeys.contains(key)) {
+          currentIdx++;
+          if (mounted) {
+            setState(() {
+              _backupStatusMessage = 'Uploading ($currentIdx/$totalToUpload): ${store.storeName}...';
+            });
+          }
+          try {
+            final entries = GroceryService.cachedEntriesByStore[store.id] ?? <GroceryEntry>[];
+            final pdfBytes = await GroceryPdfService.generateStorePdfBytes(store: store, entries: entries);
+            final cleanName = store.storeName.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+            final dateStr = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+            final fileName = 'msmkhata_dukaan_${cleanName}_$dateStr.pdf';
+
+            await GoogleDriveDirectService.uploadPdfBytes(
+              accessToken: token,
+              bytes: pdfBytes,
+              fileName: fileName,
+            );
+            uploadedFiles.add({
+              'title': store.storeName,
+              'filename': fileName,
+              'type': 'Dukaan Khata',
+            });
+          } catch (e) {
+            debugPrint('Grocery store backup error for ${store.storeName}: $e');
+            failedItems.add(store.storeName);
+          }
+        }
+      }
+
+      // 3. Daily Routine & Work Diary
+      if (_selectedAccountKeys.contains('daily_routine')) {
+        currentIdx++;
+        if (mounted) {
+          setState(() {
+            _backupStatusMessage = 'Uploading ($currentIdx/$totalToUpload): Daily Routine Diary...';
+          });
+        }
+        try {
+          final entries = RoutineService.cachedEntries;
+          final pdfBytes = await RoutinePdfService.generateRoutinePdfBytes(entries: entries);
+          final dateStr = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+          final fileName = 'msmkhata_daily_routine_$dateStr.pdf';
+
+          await GoogleDriveDirectService.uploadPdfBytes(
+            accessToken: token,
+            bytes: pdfBytes,
+            fileName: fileName,
+          );
+          uploadedFiles.add({
+            'title': 'Daily Routine & Work Diary',
+            'filename': fileName,
+            'type': 'Work Diary',
+          });
+        } catch (e) {
+          debugPrint('Daily routine backup error: $e');
+          failedItems.add('Daily Routine Diary');
+        }
+      }
 
       final nowStr = DateFormat('Today, hh:mm a').format(DateTime.now());
       if (mounted) {
@@ -257,43 +400,93 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
           builder: (ctx) => AlertDialog(
             backgroundColor: const Color(0xFF1E293B),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-            title: const Row(
+            title: Row(
               children: [
-                Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 24),
-                SizedBox(width: 10),
-                Text('Backup Uploaded!', style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
+                Icon(
+                  failedItems.isEmpty ? Icons.check_circle_rounded : Icons.info_outline_rounded,
+                  color: failedItems.isEmpty ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                  size: 24,
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  failedItems.isEmpty ? 'All Backups Uploaded!' : 'Backup Notice',
+                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                ),
               ],
             ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Aapka official statement PDF "$fileName" safely Google Drive ke "MsmKhata Backups" folder me upload ho gaya hai.',
-                  style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 13, height: 1.4),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0F172A),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFF334155)),
-                  ),
-                  child: Row(
-                    children: const [
-                      Icon(Icons.folder_open_rounded, color: Color(0xFF38BDF8), size: 18),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Destination: Google Drive > MsmKhata Backups',
-                          style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5),
-                        ),
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 340, maxWidth: 420),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${uploadedFiles.length} official statement PDFs safely Google Drive ke "MsmKhata Backups" folder me upload ho gaye:',
+                      style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 12.5, height: 1.4),
+                    ),
+                    const SizedBox(height: 12),
+                    ...uploadedFiles.map((f) => Container(
+                          margin: const EdgeInsets.only(bottom: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0F172A),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFF334155)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFF10B981), size: 16),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      f['title'] ?? '',
+                                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                                    ),
+                                    Text(
+                                      f['filename'] ?? '',
+                                      style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 10),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        )),
+                    if (failedItems.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'Failed to upload: ${failedItems.join(", ")}',
+                        style: const TextStyle(color: Color(0xFFEF4444), fontSize: 11),
                       ),
                     ],
-                  ),
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0F172A),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFF334155)),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.folder_open_rounded, color: Color(0xFF38BDF8), size: 18),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Destination: Google Drive > MsmKhata Backups',
+                              style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
             actions: [
               TextButton(
@@ -352,12 +545,120 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
         );
       }
     } finally {
-      if (mounted) setState(() => _isBackingUp = false);
+      if (mounted) {
+        setState(() {
+          _isBackingUp = false;
+          _backupStatusMessage = null;
+        });
+      }
     }
+  }
+
+  Widget _buildToggleSectionHeader(String label) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 4, left: 2),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Color(0xFF818CF8),
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.6,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAccountToggleTile({
+    required String key,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color iconColor,
+  }) {
+    final isSelected = _selectedAccountKeys.contains(key);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: isSelected ? const Color(0xFF0F172A) : const Color(0xFF0F172A).withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isSelected ? iconColor.withValues(alpha: 0.45) : const Color(0xFF334155).withValues(alpha: 0.4),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: iconColor, size: 16),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  subtitle,
+                  style: const TextStyle(color: Color(0xFF64748B), fontSize: 10.5),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          Transform.scale(
+            scale: 0.8,
+            child: Switch(
+              value: isSelected,
+              activeColor: iconColor,
+              onChanged: _isBackingUp
+                  ? null
+                  : (val) {
+                      setState(() {
+                        if (val) {
+                          _selectedAccountKeys.add(key);
+                        } else {
+                          _selectedAccountKeys.remove(key);
+                        }
+                      });
+                      _saveBackupSettings();
+                    },
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final books = AccountService.accountsNotifier.value;
+    final stores = GroceryService.cachedStores;
+
+    final allAccountKeys = <String>{
+      ...books.map((b) => 'account_${b.id}'),
+      ...stores.map((s) => 'grocery_${s.id}'),
+      'daily_routine',
+    };
+    final totalAccountsCount = allAccountKeys.length;
+
     return Container(
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.88,
@@ -590,6 +891,93 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
                       ),
                     ],
 
+                    // Accounts Selection for Backup (Multi-Account Toggles)
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0F172A).withValues(alpha: 0.85),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFF334155), width: 1),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.checklist_rtl_rounded, color: Color(0xFF818CF8), size: 17),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Accounts to Backup (${_selectedAccountKeys.length}/$totalAccountsCount)',
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                                  ),
+                                ],
+                              ),
+                              TextButton(
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                onPressed: _isBackingUp
+                                    ? null
+                                    : () {
+                                        setState(() {
+                                          if (_selectedAccountKeys.length == totalAccountsCount) {
+                                            _selectedAccountKeys.clear();
+                                          } else {
+                                            _selectedAccountKeys = allAccountKeys.toSet();
+                                          }
+                                        });
+                                        _saveBackupSettings();
+                                      },
+                                child: Text(
+                                  _selectedAccountKeys.length == totalAccountsCount ? 'Deselect All' : 'Select All',
+                                  style: const TextStyle(color: Color(0xFF818CF8), fontSize: 11, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+
+                          // Personal Accounts Group
+                          _buildToggleSectionHeader('📘 PERSONAL ACCOUNTS & BOOKS'),
+                          ...books.map((b) => _buildAccountToggleTile(
+                                key: 'account_${b.id}',
+                                title: b.name,
+                                subtitle: b.isDefault ? 'Default Primary Account' : 'Isolated Khata Book',
+                                icon: Icons.book_rounded,
+                                iconColor: const Color(0xFF6366F1),
+                              )),
+
+                          // Grocery Khatas Group
+                          if (stores.isNotEmpty) ...[
+                            _buildToggleSectionHeader('🏪 GROCERY & DUKAAN KHATA'),
+                            ...stores.map((s) => _buildAccountToggleTile(
+                                  key: 'grocery_${s.id}',
+                                  title: s.storeName,
+                                  subtitle: '${s.category} • Balance: ₹${s.pendingBalance.toStringAsFixed(0)}',
+                                  icon: Icons.storefront_rounded,
+                                  iconColor: const Color(0xFF10B981),
+                                )),
+                          ],
+
+                          // Daily Routine Group
+                          _buildToggleSectionHeader('📅 DAILY ROUTINE & WORK DIARY'),
+                          _buildAccountToggleTile(
+                            key: 'daily_routine',
+                            title: 'Daily Routine & Work Diary',
+                            subtitle: 'Rozana kaam, categories, ghante aur kharche ka log',
+                            icon: Icons.event_note_rounded,
+                            iconColor: const Color(0xFF38BDF8),
+                          ),
+                        ],
+                      ),
+                    ),
+
                     const SizedBox(height: 14),
 
                     // Last backup status & folder info
@@ -615,7 +1003,7 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
 
                     const SizedBox(height: 16),
 
-                    // Manual Backup Button
+                    // Backup Action Button
                     SizedBox(
                       width: double.infinity,
                       height: 44,
@@ -625,11 +1013,18 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
-                            side: const BorderSide(color: Color(0xFF4285F4), width: 1),
+                            side: BorderSide(
+                              color: _selectedAccountKeys.isEmpty ? const Color(0xFF475569) : const Color(0xFF4285F4),
+                              width: 1,
+                            ),
                           ),
                           elevation: 0,
                         ),
-                        onPressed: _isBackingUp ? null : (_hasGoogleAuth ? _performDriveBackup : _connectGoogleDrive),
+                        onPressed: _isBackingUp
+                            ? null
+                            : (_hasGoogleAuth
+                                ? (_selectedAccountKeys.isEmpty ? null : _performDriveBackup)
+                                : _connectGoogleDrive),
                         icon: _isBackingUp
                             ? const SizedBox(
                                 width: 18,
@@ -639,9 +1034,19 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
                             : const Icon(Icons.cloud_upload_outlined, color: Color(0xFF4285F4), size: 18),
                         label: Text(
                           _isBackingUp
-                              ? 'Uploading PDF Statement to Drive...'
-                              : (_hasGoogleAuth ? 'Backup PDF to Google Drive' : 'Connect Google Drive to Backup'),
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                              ? (_backupStatusMessage ?? 'Uploading to Google Drive...')
+                              : (!_hasGoogleAuth
+                                  ? 'Connect Google Drive to Backup'
+                                  : (_selectedAccountKeys.isEmpty
+                                      ? 'Select at least 1 account to backup'
+                                      : 'Backup ${_selectedAccountKeys.length} ${_selectedAccountKeys.length == 1 ? 'Account' : 'Accounts'} to Drive')),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: _selectedAccountKeys.isEmpty && _hasGoogleAuth && !_isBackingUp
+                                ? const Color(0xFF64748B)
+                                : Colors.white,
+                          ),
                         ),
                       ),
                     ),

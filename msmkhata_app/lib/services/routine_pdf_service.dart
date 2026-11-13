@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -7,8 +8,8 @@ import 'auth_service.dart';
 
 /// Professional A4 PDF Generator and Print Service for Daily Routine & Work Diary
 class RoutinePdfService {
-  /// Generate and open standard A4 PDF Print / Save dialog for Daily Routine entries
-  static Future<void> printRoutineStatement({
+  /// Generate raw PDF bytes for Daily Routine entries
+  static Future<Uint8List> generateRoutinePdfBytes({
     required List<RoutineEntry> entries,
     String filterLabel = 'All Dates',
     String categoryLabel = 'All Categories',
@@ -118,9 +119,23 @@ class RoutinePdfService {
       ),
     );
 
+    return doc.save();
+  }
+
+  /// Generate and open standard A4 PDF Print / Save dialog for Daily Routine entries
+  static Future<void> printRoutineStatement({
+    required List<RoutineEntry> entries,
+    String filterLabel = 'All Dates',
+    String categoryLabel = 'All Categories',
+  }) async {
+    final pdfBytes = await generateRoutinePdfBytes(
+      entries: entries,
+      filterLabel: filterLabel,
+      categoryLabel: categoryLabel,
+    );
     final cleanDate = DateFormat('yyyyMMdd').format(DateTime.now());
     await Printing.layoutPdf(
-      onLayout: (format) async => doc.save(),
+      onLayout: (format) async => pdfBytes,
       name: 'MsmKhata_DailyRoutine_${cleanDate}.pdf',
     );
   }

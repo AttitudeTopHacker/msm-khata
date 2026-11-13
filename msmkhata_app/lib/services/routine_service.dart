@@ -14,35 +14,35 @@ class RoutineService {
     RoutineCategory(
       id: 'agriculture',
       name: 'Agriculture & Kheti',
-      iconCode: Icons.agriculture_rounded.codePoint,
+      iconKey: 'agriculture',
       colorHex: '#10B981',
       isCustom: false,
     ),
     RoutineCategory(
       id: 'trip',
       name: 'Trip & Travel',
-      iconCode: Icons.directions_car_rounded.codePoint,
+      iconKey: 'trip',
       colorHex: '#38BDF8',
       isCustom: false,
     ),
     RoutineCategory(
       id: 'market',
       name: 'Market & Shopping',
-      iconCode: Icons.shopping_bag_rounded.codePoint,
+      iconKey: 'market',
       colorHex: '#F59E0B',
       isCustom: false,
     ),
     RoutineCategory(
       id: 'office',
       name: 'Office & Business',
-      iconCode: Icons.work_rounded.codePoint,
+      iconKey: 'office',
       colorHex: '#8B5CF6',
       isCustom: false,
     ),
     RoutineCategory(
       id: 'personal',
       name: 'Personal & Home',
-      iconCode: Icons.home_rounded.codePoint,
+      iconKey: 'personal',
       colorHex: '#EC4899',
       isCustom: false,
     ),
@@ -162,14 +162,14 @@ class RoutineService {
   /// Add a user-created custom category
   static Future<RoutineCategory> addCustomCategory({
     required String name,
-    required int iconCode,
+    required String iconKey,
     required String colorHex,
   }) async {
     final id = 'custom_${DateTime.now().millisecondsSinceEpoch}';
     final newCategory = RoutineCategory(
       id: id,
       name: name.trim(),
-      iconCode: iconCode,
+      iconKey: iconKey,
       colorHex: colorHex,
       isCustom: true,
     );
@@ -192,9 +192,10 @@ class RoutineService {
       orElse: () => RoutineCategory(
         id: id,
         name: 'General',
-        iconCode: Icons.task_alt_rounded.codePoint,
+        iconKey: 'general',
         colorHex: '#818CF8',
       ),
     );
   }
 }
+

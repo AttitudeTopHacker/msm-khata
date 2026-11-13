@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 class RoutineCategory {
   final String id;
   final String name;
+  final String iconKey;
   final int iconCode;
   final String colorHex;
   final bool isCustom;
@@ -11,12 +12,45 @@ class RoutineCategory {
   const RoutineCategory({
     required this.id,
     required this.name,
-    required this.iconCode,
+    this.iconKey = 'general',
+    this.iconCode = 0xe068,
     required this.colorHex,
     this.isCustom = false,
   });
 
-  IconData get iconData => IconData(iconCode, fontFamily: 'MaterialIcons');
+  /// Compile-time constant icon lookup for tree-shaking safety
+  static const Map<String, IconData> iconMap = {
+    'agriculture': Icons.agriculture_rounded,
+    'trip': Icons.directions_car_rounded,
+    'car': Icons.directions_car_rounded,
+    'market': Icons.shopping_bag_rounded,
+    'shopping': Icons.shopping_bag_rounded,
+    'office': Icons.work_rounded,
+    'work': Icons.work_rounded,
+    'personal': Icons.home_rounded,
+    'home': Icons.home_rounded,
+    'fitness': Icons.fitness_center_rounded,
+    'school': Icons.school_rounded,
+    'construction': Icons.construction_rounded,
+    'medical': Icons.medical_services_rounded,
+    'restaurant': Icons.restaurant_rounded,
+    'flight': Icons.flight_takeoff_rounded,
+    'build': Icons.build_rounded,
+    'computer': Icons.computer_rounded,
+    'handshake': Icons.handshake_rounded,
+    'payments': Icons.payments_rounded,
+    'general': Icons.task_alt_rounded,
+  };
+
+  IconData get iconData {
+    if (iconMap.containsKey(iconKey)) {
+      return iconMap[iconKey]!;
+    }
+    if (iconMap.containsKey(id)) {
+      return iconMap[id]!;
+    }
+    return Icons.task_alt_rounded;
+  }
 
   Color get color {
     try {
@@ -31,7 +65,8 @@ class RoutineCategory {
     return RoutineCategory(
       id: json['id']?.toString() ?? '',
       name: json['name']?.toString() ?? 'General',
-      iconCode: json['icon_code'] is int ? json['icon_code'] : 0xe068, // Default assignment icon
+      iconKey: json['icon_key']?.toString() ?? json['id']?.toString() ?? 'general',
+      iconCode: json['icon_code'] is int ? json['icon_code'] : 0xe068,
       colorHex: json['color_hex']?.toString() ?? '#10B981',
       isCustom: json['is_custom'] == true,
     );
@@ -41,6 +76,7 @@ class RoutineCategory {
     return {
       'id': id,
       'name': name,
+      'icon_key': iconKey,
       'icon_code': iconCode,
       'color_hex': colorHex,
       'is_custom': isCustom,
@@ -138,3 +174,4 @@ class RoutineEntry {
     );
   }
 }
+

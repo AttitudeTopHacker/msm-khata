@@ -30,22 +30,22 @@ class _DailyRoutineScreenState extends State<DailyRoutineScreen> {
     Color(0xFFF97316), // Orange
   ];
 
-  final List<IconData> _paletteIcons = const [
-    Icons.agriculture_rounded,
-    Icons.directions_car_rounded,
-    Icons.shopping_bag_rounded,
-    Icons.work_rounded,
-    Icons.home_rounded,
-    Icons.fitness_center_rounded,
-    Icons.school_rounded,
-    Icons.construction_rounded,
-    Icons.medical_services_rounded,
-    Icons.restaurant_rounded,
-    Icons.flight_takeoff_rounded,
-    Icons.build_rounded,
-    Icons.computer_rounded,
-    Icons.handshake_rounded,
-    Icons.payments_rounded,
+  final List<Map<String, dynamic>> _paletteIcons = const [
+    {'key': 'agriculture', 'icon': Icons.agriculture_rounded},
+    {'key': 'car', 'icon': Icons.directions_car_rounded},
+    {'key': 'shopping', 'icon': Icons.shopping_bag_rounded},
+    {'key': 'work', 'icon': Icons.work_rounded},
+    {'key': 'home', 'icon': Icons.home_rounded},
+    {'key': 'fitness', 'icon': Icons.fitness_center_rounded},
+    {'key': 'school', 'icon': Icons.school_rounded},
+    {'key': 'construction', 'icon': Icons.construction_rounded},
+    {'key': 'medical', 'icon': Icons.medical_services_rounded},
+    {'key': 'restaurant', 'icon': Icons.restaurant_rounded},
+    {'key': 'flight', 'icon': Icons.flight_takeoff_rounded},
+    {'key': 'build', 'icon': Icons.build_rounded},
+    {'key': 'computer', 'icon': Icons.computer_rounded},
+    {'key': 'handshake', 'icon': Icons.handshake_rounded},
+    {'key': 'payments', 'icon': Icons.payments_rounded},
   ];
 
   @override
@@ -1109,7 +1109,7 @@ class _DailyRoutineScreenState extends State<DailyRoutineScreen> {
   void _showAddCategoryDialog(BuildContext context, AppAccentTheme accent, {ValueChanged<RoutineCategory>? onAdded}) {
     final nameController = TextEditingController();
     Color selectedColor = _paletteColors.first;
-    IconData selectedIcon = _paletteIcons.first;
+    String selectedIconKey = _paletteIcons.first['key'] as String;
 
     showDialog(
       context: context,
@@ -1175,10 +1175,12 @@ class _DailyRoutineScreenState extends State<DailyRoutineScreen> {
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: _paletteIcons.map((ic) {
-                    final isSel = ic.codePoint == selectedIcon.codePoint;
+                  children: _paletteIcons.map((item) {
+                    final key = item['key'] as String;
+                    final icon = item['icon'] as IconData;
+                    final isSel = key == selectedIconKey;
                     return GestureDetector(
-                      onTap: () => setDialogState(() => selectedIcon = ic),
+                      onTap: () => setDialogState(() => selectedIconKey = key),
                       child: Container(
                         width: 32,
                         height: 32,
@@ -1187,7 +1189,7 @@ class _DailyRoutineScreenState extends State<DailyRoutineScreen> {
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(color: isSel ? selectedColor : const Color(0xFF334155)),
                         ),
-                        child: Icon(ic, size: 18, color: isSel ? selectedColor : const Color(0xFF94A3B8)),
+                        child: Icon(icon, size: 18, color: isSel ? selectedColor : const Color(0xFF94A3B8)),
                       ),
                     );
                   }).toList(),
@@ -1209,7 +1211,7 @@ class _DailyRoutineScreenState extends State<DailyRoutineScreen> {
                 final colorHex = '#${selectedColor.value.toRadixString(16).substring(2)}';
                 final newCat = await RoutineService.addCustomCategory(
                   name: name,
-                  iconCode: selectedIcon.codePoint,
+                  iconKey: selectedIconKey,
                   colorHex: colorHex,
                 );
 
@@ -1313,3 +1315,4 @@ class _DailyRoutineScreenState extends State<DailyRoutineScreen> {
     );
   }
 }
+

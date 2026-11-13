@@ -62,7 +62,7 @@ jobs:
         run: |
           cd msmkhata_app
           flutter pub get
-          flutter build linux --release --obfuscate --split-debug-info=symbols
+          flutter build linux --release --obfuscate --split-debug-info=symbols --no-tree-shake-icons
 
       - name: Package into Debian (.deb)
         run: |
@@ -239,7 +239,7 @@ jobs:
         run: |
           cd msmkhata_app
           flutter pub get
-          flutter build windows --release --obfuscate --split-debug-info=symbols
+          flutter build windows --release --obfuscate --split-debug-info=symbols --no-tree-shake-icons
 
       - name: Package Windows Release ZIP & Executable
         shell: pwsh
@@ -322,7 +322,7 @@ jobs:
         run: |
           cd msmkhata_app
           flutter pub get
-          flutter build apk --release --obfuscate --split-debug-info=symbols --android-skip-build-dependency-validation
+          flutter build apk --release --obfuscate --split-debug-info=symbols --android-skip-build-dependency-validation --no-tree-shake-icons
 
       - name: Prepare APK Package
         run: |

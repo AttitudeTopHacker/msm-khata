@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/account.dart';
+import '../models/grocery_item.dart';
 import '../services/account_service.dart';
 import '../services/admin_service.dart';
 import '../services/auth_service.dart';
@@ -655,7 +656,7 @@ class AppSideDrawer extends StatelessWidget {
                               badge: 'DUKAAN REPORT',
                               onTap: () {
                                 Navigator.pop(ctx);
-                                final entries = GroceryService.cachedEntries.where((e) => e.storeId == store.id).toList();
+                                final entries = GroceryService.cachedEntriesByStore[store.id] ?? <GroceryEntry>[];
                                 GroceryPdfService.printStoreStatement(store: store, entries: entries);
                               },
                             );

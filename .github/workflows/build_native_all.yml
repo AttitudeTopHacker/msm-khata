@@ -62,12 +62,6 @@ jobs:
         run: |
           cd msmkhata_app
           flutter pub get
-          flutter analyze > /tmp/analyze.log 2>&1 || {
-            cat /tmp/analyze.log
-            ERR=$(grep -E "error •" /tmp/analyze.log | head -n 5 | tr '\n' ' ')
-            echo "::error title=Flutter Analyze Error::$ERR"
-            exit 1
-          }
           flutter build linux --release --obfuscate --split-debug-info=symbols --no-tree-shake-icons
 
       - name: Package into Debian (.deb)

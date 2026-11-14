@@ -23,6 +23,7 @@ class RoutineService {
   static const String _kPendingRoutineEntries = 'msm_cache_pending_routine_entries';
   static const String _kPendingRoutineDeletes = 'msm_cache_pending_routine_deletes';
   static const String _kPendingRoutineCategories = 'msm_cache_pending_routine_categories';
+  static const String _kPendingRoutineCategoryDeletes = 'msm_cache_pending_routine_category_deletes';
 
   /// 5 Default Inbuilt Categories
   static final List<RoutineCategory> defaultCategories = [
@@ -336,7 +337,7 @@ class RoutineService {
     return newCategory;
   }
 
-  /// Delete a custom category
+  /// Delete a custom category (Works 100% Offline with Auto-Sync)
   static Future<void> deleteCustomCategory(String id) async {
     allCategories.removeWhere((c) => c.id == id && c.isCustom);
     await _persistCustomCategories();
@@ -344,7 +345,11 @@ class RoutineService {
     if (ConnectivityService().isOnline.value) {
       try {
         await _client.from('routine_categories').delete().eq('id', id);
-      } catch (_) {}
+      } catch (_) {
+        await _queuePendingCategoryDelete(id);
+      }
+    } else {
+      await _queuePendingCategoryDelete(id);
     }
   }
 
@@ -391,6 +396,17 @@ class RoutineService {
     } catch (_) {}
   }
 
+  static Future<void> _queuePendingCategoryDelete(String id) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = prefs.getStringList(_kPendingRoutineCategoryDeletes) ?? [];
+      if (!list.contains(id)) {
+        list.add(id);
+        await prefs.setStringList(_kPendingRoutineCategoryDeletes, list);
+      }
+    } catch (_) {}
+  }
+
   /// Flush pending changes to Supabase when internet connectivity is available
   static Future<void> syncPending() async {
     if (!ConnectivityService().isOnline.value) return;
@@ -398,6 +414,20 @@ class RoutineService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final currentUid = AuthService.currentUserId;
+
+      // 0. Flush pending category deletes FIRST
+      final pendingCatDeletes = prefs.getStringList(_kPendingRoutineCategoryDeletes) ?? [];
+      if (pendingCatDeletes.isNotEmpty) {
+        final List<String> remaining = [];
+        for (final id in pendingCatDeletes) {
+          try {
+            await _client.from('routine_categories').delete().eq('id', id);
+          } catch (e) {
+            remaining.add(id);
+          }
+        }
+        await prefs.setStringList(_kPendingRoutineCategoryDeletes, remaining);
+      }
 
       // 1. Flush pending categories
       final pendingCats = prefs.getStringList(_kPendingRoutineCategories) ?? [];
@@ -429,7 +459,7 @@ class RoutineService {
         await prefs.setStringList(_kPendingRoutineEntries, remaining);
       }
 
-      // 3. Flush pending deletes
+      // 3. Flush pending entry deletes
       final pendingDeletes = prefs.getStringList(_kPendingRoutineDeletes) ?? [];
       if (pendingDeletes.isNotEmpty) {
         final List<String> remaining = [];
@@ -461,6 +491,7 @@ class RoutineService {
       await prefs.remove(_kPendingRoutineEntries);
       await prefs.remove(_kPendingRoutineDeletes);
       await prefs.remove(_kPendingRoutineCategories);
+      await prefs.remove(_kPendingRoutineCategoryDeletes);
     } catch (_) {}
   }
 }

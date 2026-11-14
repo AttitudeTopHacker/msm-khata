@@ -169,7 +169,7 @@ class AppSideDrawer extends StatelessWidget {
                               onTap: () {
                                 final nav = Navigator.of(context, rootNavigator: true);
                                 Navigator.pop(context);
-                                _showAccountStatementPicker(
+                                showAccountStatementPicker(
                                   context: nav.context,
                                   navigator: nav,
                                   accent: accent,
@@ -520,7 +520,7 @@ class AppSideDrawer extends StatelessWidget {
   }
 
   /// Statement Account Selection Modal (Personal books, Dukaan khatas, Work diary)
-  void _showAccountStatementPicker({
+  static void showAccountStatementPicker({
     required BuildContext context,
     required NavigatorState navigator,
     required AppAccentTheme accent,
@@ -958,7 +958,7 @@ class AppSideDrawer extends StatelessWidget {
                       minimumSize: Size.zero,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
-                    onPressed: () => _showPinSetupDialog(context, accent),
+                    onPressed: () => showPinSetupDialog(context, accent),
                     child: Text(
                       isPinEnabled ? 'Change' : 'Set PIN',
                       style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
@@ -967,56 +967,73 @@ class AppSideDrawer extends StatelessWidget {
                 ],
               ),
 
-              const SizedBox(height: 8),
-
-              // Biometric Unlock Switch
-              ValueListenableBuilder<bool>(
-                valueListenable: SecurityService.isBiometricEnabledNotifier,
-                builder: (context, isBioEnabled, _) {
-                  return Row(
-                    children: [
-                      Container(
-                        width: 34,
-                        height: 34,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF10B981).withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(10),
+              // Biometric Unlock Switch (Only shown on Mobile: Android / iOS)
+              if (!kIsWeb &&
+                  (defaultTargetPlatform == TargetPlatform.android ||
+                      defaultTargetPlatform == TargetPlatform.iOS)) ...[
+                const SizedBox(height: 8),
+                ValueListenableBuilder<bool>(
+                  valueListenable: SecurityService.isBiometricEnabledNotifier,
+                  builder: (context, isBioEnabled, _) {
+                    return Row(
+                      children: [
+                        Container(
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.fingerprint_rounded, color: Color(0xFF10B981), size: 20),
                         ),
-                        child: const Icon(Icons.fingerprint_rounded, color: Color(0xFF10B981), size: 20),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: const [
-                            Text('Biometric Unlock', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-                            Text('Fingerprint / Face ID unlock', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 10)),
-                          ],
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: const [
+                              Text('Biometric Unlock', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                              Text('Fingerprint / Face ID unlock', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 10)),
+                            ],
+                          ),
                         ),
-                      ),
-                      Switch(
-                        value: isBioEnabled,
-                        activeColor: const Color(0xFF10B981),
-                        activeTrackColor: const Color(0xFF10B981).withValues(alpha: 0.4),
-                        onChanged: (val) {
-                          if (val && !SecurityService.hasPin) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Kripya pehle 4-digit MPIN set karein, fir Biometric enable karein.'),
-                                backgroundColor: Color(0xFFEF4444),
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                            _showPinSetupDialog(context, accent);
-                            return;
-                          }
-                          SecurityService.toggleBiometric(val);
-                        },
-                      ),
-                    ],
-                  );
-                },
-              ),
+                        Switch(
+                          value: isBioEnabled,
+                          activeColor: const Color(0xFF10B981),
+                          activeTrackColor: const Color(0xFF10B981).withValues(alpha: 0.4),
+                          onChanged: (val) async {
+                            if (val && !SecurityService.hasPin) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Kripya pehle 4-digit MPIN set karein, fir Biometric enable karein.'),
+                                  backgroundColor: Color(0xFFEF4444),
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                              showPinSetupDialog(context, accent);
+                              return;
+                            }
+                            if (val) {
+                              final canAuth = await SecurityService.isBiometricHardwareAvailable();
+                              if (!canAuth) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Phone me koi registered Fingerprint nahi mila. Kripya phone settings me fingerprint enroll karein.'),
+                                      backgroundColor: Color(0xFFEF4444),
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                }
+                              }
+                            }
+                            SecurityService.toggleBiometric(val);
+                          },
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ],
             ],
           ),
         );
@@ -1025,7 +1042,7 @@ class AppSideDrawer extends StatelessWidget {
   }
 
   /// Simple 4-Digit MPIN Setup / Change Dialog
-  void _showPinSetupDialog(BuildContext context, AppAccentTheme accent) {
+  static void showPinSetupDialog(BuildContext context, AppAccentTheme accent) {
     final pinController = TextEditingController();
     final confirmController = TextEditingController();
 
@@ -1088,6 +1105,22 @@ class AppSideDrawer extends StatelessWidget {
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8))),
           ),
+          if (SecurityService.hasPin)
+            TextButton(
+              onPressed: () async {
+                await SecurityService.removePin();
+                if (ctx.mounted) Navigator.pop(ctx);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('App MPIN lock successfully remove/disable ho gaya.'),
+                      backgroundColor: Color(0xFF64748B),
+                    ),
+                  );
+                }
+              },
+              child: const Text('Remove Lock', style: TextStyle(color: Color(0xFFEF4444), fontWeight: FontWeight.bold)),
+            ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: accent.primary),
             onPressed: () async {
@@ -1136,7 +1169,7 @@ class AppSideDrawer extends StatelessWidget {
                 style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
               ),
               Text(
-                'v1.0.14 • Created by Mohd Salman',
+                'v1.0.16 • Created by Mohd Salman',
                 style: TextStyle(color: Color(0xFF64748B), fontSize: 9.5),
               ),
             ],

@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/stats.dart';
 import '../models/transaction.dart';
 import '../models/person.dart';
+import '../models/category.dart';
 import 'api_service.dart';
 import 'auth_service.dart';
 import 'account_service.dart';
@@ -31,6 +32,7 @@ class SyncService {
   static const String _kPendingTransactions = 'msm_cache_pending_transactions';
   static const String _kPendingTransactionUpdates = 'msm_cache_pending_tx_updates';
   static const String _kPendingTransactionDeletes = 'msm_cache_pending_tx_deletes';
+  static const String _kPendingCategories = 'msm_cache_pending_categories';
 
   // In-memory state cache
   static DashboardStats? cachedStats;
@@ -136,6 +138,7 @@ class SyncService {
       await syncPending();
 
       await Future.wait([
+        AccountService.syncAccounts(),
         syncStats(),
         syncPersons(),
         syncTransactions(limit: 100, offset: 0, replaceCache: forceFull),
@@ -472,6 +475,16 @@ class SyncService {
     } catch (_) {}
   }
 
+  /// Queue a user-created category when offline
+  static Future<void> queuePendingCategory(Category category) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = prefs.getStringList(_kPendingCategories) ?? [];
+      list.add(jsonEncode(category.toJson()));
+      await prefs.setStringList(_kPendingCategories, list);
+    } catch (_) {}
+  }
+
   /// Flush pending offline changes to Supabase when internet connectivity is re-established
   static Future<void> syncPending() async {
     if (!ConnectivityService().isOnline.value) return;
@@ -479,6 +492,29 @@ class SyncService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final currentUid = AuthService.currentUserId;
+
+      // 0. Flush pending custom categories
+      final pendingCategories = prefs.getStringList(_kPendingCategories) ?? [];
+      if (pendingCategories.isNotEmpty) {
+        final List<String> remaining = [];
+        for (final itemStr in pendingCategories) {
+          try {
+            final Map<String, dynamic> map = jsonDecode(itemStr);
+            final cat = Category.fromJson(map);
+            await _client.from('categories').upsert({
+              'id': cat.id,
+              if (currentUid != null) 'user_id': currentUid,
+              'name': cat.name,
+              'type': cat.type,
+              'color': cat.color,
+              'created_at': DateTime.now().toIso8601String(),
+            });
+          } catch (e) {
+            remaining.add(itemStr);
+          }
+        }
+        await prefs.setStringList(_kPendingCategories, remaining);
+      }
 
       // 1. Flush pending creates
       final pendingCreates = prefs.getStringList(_kPendingTransactions) ?? [];
@@ -677,6 +713,7 @@ class SyncService {
       await prefs.remove(_kPendingTransactions);
       await prefs.remove(_kPendingTransactionUpdates);
       await prefs.remove(_kPendingTransactionDeletes);
+      await prefs.remove(_kPendingCategories);
     } catch (e) {
       debugPrint('Error clearing sync cache: $e');
     }

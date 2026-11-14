@@ -93,6 +93,7 @@ class AuthService {
           await _saveLoginState(p);
 
           // User session detected: initialize and load fresh cloud data
+          AccountService.syncAccounts();
           SyncService.syncAll(forceFull: true);
           GroceryService.fetchStores();
           RoutineService.fetchEntries();

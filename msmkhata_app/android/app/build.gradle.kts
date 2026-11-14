@@ -53,6 +53,10 @@ android {
     }
 }
 
+dependencies {
+    implementation("androidx.biometric:biometric:1.1.0")
+}
+
 kotlin {
     compilerOptions {
         jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17

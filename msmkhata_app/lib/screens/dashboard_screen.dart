@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/account.dart';
 import '../models/stats.dart';
 import '../models/transaction.dart';
@@ -11,6 +13,7 @@ import '../widgets/master_passbook_card.dart';
 import '../widgets/account_switcher_modal.dart';
 import '../widgets/adaptive_refresh_indicator.dart';
 import '../widgets/app_side_drawer.dart';
+import '../widgets/app_desktop_sidebar.dart';
 import '../widgets/shimmer_loading.dart';
 import '../widgets/sync_status_badge.dart';
 import 'add_transaction_screen.dart';
@@ -40,13 +43,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
   late Future<DashboardStats> _statsFuture;
   late Future<List<TransactionItem>> _transactionsFuture;
   bool _isSyncing = false;
+  bool _isDesktopSidebarCollapsed = false;
+
+  bool get _isDesktopPlatform {
+    if (kIsWeb) return false;
+    return defaultTargetPlatform == TargetPlatform.linux ||
+        defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.macOS;
+  }
 
   @override
   void initState() {
     super.initState();
     AccountService.activeAccountNotifier.addListener(_onAccountChanged);
     SyncService.dataVersion.addListener(_onDataVersionChanged);
+    _loadSidebarPref();
     _refreshData();
+  }
+
+  Future<void> _loadSidebarPref() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final val = p.getBool('msm_desktop_sidebar_collapsed') ?? false;
+      if (mounted) setState(() => _isDesktopSidebarCollapsed = val);
+    } catch (_) {}
   }
 
   @override
@@ -142,135 +162,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final currency = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
+    final isWideDesktop = _isDesktopPlatform && MediaQuery.of(context).size.width >= 850;
 
-    return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: const Color(0xFF0F172A),
-      drawer: AppSideDrawer(onRefresh: _refreshData),
-      drawerEnableOpenDragGesture: true,
-      drawerEdgeDragWidth: MediaQuery.of(context).size.width * 0.35,
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Tooltip(
-                  message: _isSyncing ? 'Syncing...' : 'Click to refresh data',
-                  child: InkWell(
-                    onTap: _isSyncing ? null : _refreshData,
-                    borderRadius: BorderRadius.circular(6),
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 2, vertical: 2),
-                      child: Text(
-                        'MsmKhata',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.white),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                SyncStatusBadge(
-                  isSyncing: _isSyncing,
-                  onSync: _refreshData,
-                ),
-              ],
-            ),
-            Row(
-              children: const [
-                MsmShimmerText(
-                  text: 'ORG : msm.movin 2022',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  ' • Cloud Ledger',
-                  style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
-                ),
-              ],
-            ),
-          ],
+    final dashboardScrollContent = AdaptiveRefreshIndicator(
+      color: const Color(0xFF818CF8),
+      backgroundColor: const Color(0xFF1E293B),
+      strokeWidth: 2.5,
+      onRefresh: _refreshData,
+      child: SingleChildScrollView(
+        physics: AdaptiveRefreshIndicator.scrollPhysics(),
+        padding: EdgeInsets.symmetric(
+          horizontal: isWideDesktop ? 22 : 18,
+          vertical: 12,
         ),
-        actions: [
-          // More Tools & Sub-Menu Drawer Button
-          Tooltip(
-            message: 'More Tools & Navigation',
-            child: InkWell(
-              onTap: () => _scaffoldKey.currentState?.openDrawer(),
-              borderRadius: BorderRadius.circular(10),
-              child: Container(
-                padding: const EdgeInsets.all(6),
-                margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B).withValues(alpha: 0.7),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFF334155), width: 1),
-                ),
-                child: const Icon(
-                  Icons.widgets_outlined,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
-            ),
-          ),
-          Material(
-            color: Colors.transparent,
-            child: Tooltip(
-              message: AuthService.isAuthenticated ? 'Profile & Account Settings' : 'Sign In',
-              child: InkWell(
-                onTap: () async {
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const AuthScreen()),
-                  );
-                  if (mounted) setState(() {});
-                },
-                borderRadius: BorderRadius.circular(20),
-                child: Container(
-                  margin: const EdgeInsets.only(right: 14, left: 4),
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: AuthService.isAuthenticated ? const Color(0xFF10B981) : const Color(0xFF818CF8),
-                      width: 1.5,
-                    ),
-                  ),
-                  child: CircleAvatar(
-                    radius: 14,
-                    backgroundColor: const Color(0xFF1E293B),
-                    backgroundImage: AuthService.avatarUrl != null ? NetworkImage(AuthService.avatarUrl!) : null,
-                    child: AuthService.avatarUrl == null
-                        ? Icon(
-                            AuthService.isAuthenticated ? Icons.person : Icons.account_circle_outlined,
-                            size: 18,
-                            color: AuthService.isAuthenticated ? const Color(0xFF10B981) : const Color(0xFF818CF8),
-                          )
-                        : null,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-      body: AdaptiveRefreshIndicator(
-        color: const Color(0xFF818CF8),
-        backgroundColor: const Color(0xFF1E293B),
-        strokeWidth: 2.5,
-        onRefresh: _refreshData,
-        child: SingleChildScrollView(
-          physics: AdaptiveRefreshIndicator.scrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
                   // 0. Active Account / Book Selector Bar
                   ValueListenableBuilder<AccountBook>(
                     valueListenable: AccountService.activeAccountNotifier,
@@ -721,7 +628,159 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ],
               ),
         ),
+      );
+
+    return Scaffold(
+      key: _scaffoldKey,
+      backgroundColor: const Color(0xFF0F172A),
+      drawer: isWideDesktop ? null : AppSideDrawer(onRefresh: _refreshData),
+      drawerEnableOpenDragGesture: !isWideDesktop,
+      drawerEdgeDragWidth: MediaQuery.of(context).size.width * 0.35,
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Tooltip(
+                  message: _isSyncing ? 'Syncing...' : 'Click to refresh data',
+                  child: InkWell(
+                    onTap: _isSyncing ? null : _refreshData,
+                    borderRadius: BorderRadius.circular(6),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+                      child: Text(
+                        'MsmKhata',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SyncStatusBadge(
+                  isSyncing: _isSyncing,
+                  onSync: _refreshData,
+                ),
+              ],
+            ),
+            Row(
+              children: const [
+                MsmShimmerText(
+                  text: 'ORG : msm.movin 2022',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  ' • Cloud Ledger',
+                  style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          // More Tools Drawer / Desktop Sidebar Toggle Button
+          Tooltip(
+            message: isWideDesktop
+                ? (_isDesktopSidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar')
+                : 'More Tools & Navigation',
+            child: InkWell(
+              onTap: () {
+                if (isWideDesktop) {
+                  setState(() => _isDesktopSidebarCollapsed = !_isDesktopSidebarCollapsed);
+                  SharedPreferences.getInstance().then((p) =>
+                      p.setBool('msm_desktop_sidebar_collapsed', _isDesktopSidebarCollapsed));
+                } else {
+                  _scaffoldKey.currentState?.openDrawer();
+                }
+              },
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E293B).withValues(alpha: 0.7),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isWideDesktop
+                        ? const Color(0xFF818CF8).withValues(alpha: 0.4)
+                        : const Color(0xFF334155),
+                    width: 1,
+                  ),
+                ),
+                child: Icon(
+                  isWideDesktop
+                      ? (_isDesktopSidebarCollapsed ? Icons.view_sidebar_outlined : Icons.view_sidebar_rounded)
+                      : Icons.widgets_outlined,
+                  color: isWideDesktop ? const Color(0xFF818CF8) : Colors.white,
+                  size: 20,
+                ),
+              ),
+            ),
+          ),
+          Material(
+            color: Colors.transparent,
+            child: Tooltip(
+              message: AuthService.isAuthenticated ? 'Profile & Account Settings' : 'Sign In',
+              child: InkWell(
+                onTap: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AuthScreen()),
+                  );
+                  if (mounted) setState(() {});
+                },
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  margin: const EdgeInsets.only(right: 14, left: 4),
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: AuthService.isAuthenticated ? const Color(0xFF10B981) : const Color(0xFF818CF8),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: CircleAvatar(
+                    radius: 14,
+                    backgroundColor: const Color(0xFF1E293B),
+                    backgroundImage: AuthService.avatarUrl != null ? NetworkImage(AuthService.avatarUrl!) : null,
+                    child: AuthService.avatarUrl == null
+                        ? Icon(
+                            AuthService.isAuthenticated ? Icons.person : Icons.account_circle_outlined,
+                            size: 18,
+                            color: AuthService.isAuthenticated ? const Color(0xFF10B981) : const Color(0xFF818CF8),
+                          )
+                        : null,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
+      body: isWideDesktop
+          ? Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AppDesktopSidebar(
+                  isCollapsed: _isDesktopSidebarCollapsed,
+                  onRefresh: _refreshData,
+                  onToggleCollapse: () {
+                    setState(() => _isDesktopSidebarCollapsed = !_isDesktopSidebarCollapsed);
+                    SharedPreferences.getInstance().then((p) =>
+                        p.setBool('msm_desktop_sidebar_collapsed', _isDesktopSidebarCollapsed));
+                  },
+                ),
+                Expanded(child: dashboardScrollContent),
+              ],
+            )
+          : dashboardScrollContent,
       floatingActionButton: FloatingActionButton(
         backgroundColor: const Color(0xFF4F46E5),
         elevation: 6,

@@ -354,13 +354,14 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                         return;
                       }
 
-                      // Offline/local fallback
+                      // Offline/local fallback with RFC 4122 v4 UUID & automatic cloud sync queue
                       final localCat = Category(
-                        id: 'local_${DateTime.now().millisecondsSinceEpoch}',
+                        id: SyncService.generateUuidV4(),
                         name: name,
                         type: _selectedType == 'INCOME' ? 'INCOME' : 'EXPENSE',
                         color: selectedHex,
                       );
+                      SyncService.queuePendingCategory(localCat);
                       if (mounted) {
                         setState(() {
                           _categories.removeWhere((c) => c.name.toLowerCase() == localCat.name.toLowerCase());

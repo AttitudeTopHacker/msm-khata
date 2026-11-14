@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto/crypto.dart';
 
@@ -9,6 +11,9 @@ class SecurityService {
   static const String _kPinEnabledKey = 'msm_sec_pin_enabled';
   static const String _kBiometricEnabledKey = 'msm_sec_biometric_enabled';
   static const String _kSalt = 'msm_khata_2026_salt_sec_';
+
+  static const MethodChannel _biometricChannel =
+      MethodChannel('com.msmmovin.msmkhata/biometric');
 
   static final ValueNotifier<bool> isPinEnabledNotifier = ValueNotifier<bool>(false);
   static final ValueNotifier<bool> isBiometricEnabledNotifier = ValueNotifier<bool>(false);
@@ -106,6 +111,51 @@ class SecurityService {
   static void lockApp() {
     if (isPinEnabled) {
       isAppLockedNotifier.value = true;
+    }
+  }
+
+  /// Check whether device hardware supports biometric (Fingerprint / Face)
+  static Future<bool> isBiometricHardwareAvailable() async {
+    if (kIsWeb) return false;
+    if (defaultTargetPlatform != TargetPlatform.android &&
+        defaultTargetPlatform != TargetPlatform.iOS) {
+      return false;
+    }
+    try {
+      final bool? available =
+          await _biometricChannel.invokeMethod<bool>('canAuthenticate');
+      return available ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Trigger native mobile biometric prompt (Fingerprint scan)
+  static Future<bool> authenticateWithBiometric({
+    String title = 'MsmKhata Unlock',
+    String subtitle = 'Fingerprint scan karein app unlock karne ke liye',
+  }) async {
+    if (kIsWeb) return false;
+    if (defaultTargetPlatform != TargetPlatform.android &&
+        defaultTargetPlatform != TargetPlatform.iOS) {
+      return false;
+    }
+    try {
+      final bool? success = await _biometricChannel.invokeMethod<bool>(
+        'authenticate',
+        {
+          'title': title,
+          'subtitle': subtitle,
+          'negativeButton': 'PIN Use Karein',
+        },
+      );
+      if (success == true) {
+        unlockApp();
+        return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
     }
   }
 }

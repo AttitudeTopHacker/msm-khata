@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
@@ -621,7 +622,7 @@ class AppSideDrawer extends StatelessWidget {
                               : books;
 
                           return Column(
-                            children: currentBooks.map((book) {
+                            children: currentBooks.map<Widget>((book) {
                               return _buildStatementItemTile(
                                 context: ctx,
                                 accent: accent,
@@ -668,7 +669,7 @@ class AppSideDrawer extends StatelessWidget {
                         )
                       else
                         Column(
-                          children: GroceryService.cachedStores.map((store) {
+                          children: GroceryService.cachedStores.map<Widget>((store) {
                             return _buildStatementItemTile(
                               context: ctx,
                               accent: accent,
@@ -761,7 +762,7 @@ class AppSideDrawer extends StatelessWidget {
     );
   }
 
-  Widget _buildStatementGroupHeader(String label, AppAccentTheme accent) {
+  static Widget _buildStatementGroupHeader(String label, AppAccentTheme accent) {
     return Padding(
       padding: const EdgeInsets.only(left: 4, bottom: 4),
       child: Text(
@@ -776,7 +777,7 @@ class AppSideDrawer extends StatelessWidget {
     );
   }
 
-  Widget _buildStatementItemTile({
+  static Widget _buildStatementItemTile({
     required BuildContext context,
     required AppAccentTheme accent,
     required IconData icon,

@@ -11,7 +11,7 @@ import '../services/theme_service.dart';
 import 'account_switcher_modal.dart';
 import 'app_side_drawer.dart';
 import 'export_backup_modal.dart';
-import 'shimmer_loading.dart';
+import 'msm_shimmer_text.dart';
 import 'theme_studio_modal.dart';
 
 /// Ultra-Modern Persistent Desktop Sidebar for MsmKhata.
@@ -308,8 +308,8 @@ class AppDesktopSidebar extends StatelessWidget {
                   const SizedBox(width: 10),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                      Text(
+                    children: [
+                      const Text(
                         'MsmKhata',
                         style: TextStyle(
                           color: Colors.white,
@@ -320,7 +320,7 @@ class AppDesktopSidebar extends StatelessWidget {
                       ),
                       MsmShimmerText(
                         text: 'ORG : msm.movin',
-                        style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold),
+                        style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),

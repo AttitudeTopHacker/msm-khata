@@ -516,31 +516,22 @@ class _AppLockScreenContentState extends State<AppLockScreenContent>
 
               const SizedBox(height: 12),
 
-              // Links Row: Subtle [Esc] indicator and 'Forgot MPIN?' (Coming Soon)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: const Color(0xFF334155), width: 1),
-                      ),
-                      child: const Text(
-                        'Esc',
-                        style: TextStyle(
-                          color: Color(0xFF94A3B8),
-                          fontSize: 10,
-                          fontFamily: 'monospace',
-                          fontWeight: FontWeight.bold,
+              // Action Link: 'Forgot MPIN?' (or 'Cancel' in setup mode)
+              Center(
+                child: widget.isSetupMode
+                    ? TextButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
-                      ),
-                    ),
-                    if (!widget.isSetupMode)
-                      TextButton(
+                        child: const Text(
+                          'Cancel Setup',
+                          style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                        ),
+                      )
+                    : TextButton(
                         onPressed: () {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
@@ -563,22 +554,7 @@ class _AppLockScreenContentState extends State<AppLockScreenContent>
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                      )
-                    else
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(false),
-                        style: TextButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        child: const Text(
-                          'Cancel',
-                          style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
-                        ),
                       ),
-                  ],
-                ),
               ),
 
               const SizedBox(height: 18),

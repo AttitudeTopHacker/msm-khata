@@ -87,12 +87,11 @@ class DesktopLoopbackAuth {
             // 1. Try URL parameters and hash fragment directly
             try {
               final uriParsed = Uri.parse(rawUrl.replaceFirst('#', '?'));
-              final extractedToken = uriParsed.queryParameters['provider_token'] ??
-                                     uriParsed.queryParameters['access_token'];
-              if (extractedToken != null && extractedToken.isNotEmpty) {
+              final providerToken = uriParsed.queryParameters['provider_token'];
+              if (providerToken != null && providerToken.isNotEmpty && !providerToken.startsWith('eyJ')) {
                 final prefs = await SharedPreferences.getInstance();
-                await prefs.setString('google_drive_access_token', extractedToken);
-                _completeAuth(extractedToken);
+                await prefs.setString('google_drive_access_token', providerToken);
+                _completeAuth(providerToken);
               }
             } catch (_) {}
 
@@ -101,7 +100,7 @@ class DesktopLoopbackAuth {
               final authRes = await Supabase.instance.client.auth.getSessionFromUrl(Uri.parse(rawUrl));
               final pToken = authRes.session?.providerToken ??
                              Supabase.instance.client.auth.currentSession?.providerToken;
-              if (pToken != null && pToken.isNotEmpty) {
+              if (pToken != null && pToken.isNotEmpty && !pToken.startsWith('eyJ')) {
                 final prefs = await SharedPreferences.getInstance();
                 await prefs.setString('google_drive_access_token', pToken);
                 _completeAuth(pToken);
@@ -132,18 +131,17 @@ class DesktopLoopbackAuth {
           uri.queryParameters.containsKey('provider_token')) {
         try {
           // Direct token check
-          final directToken = uri.queryParameters['provider_token'] ??
-                              uri.queryParameters['access_token'];
-          if (directToken != null && directToken.isNotEmpty) {
+          final directProviderToken = uri.queryParameters['provider_token'];
+          if (directProviderToken != null && directProviderToken.isNotEmpty && !directProviderToken.startsWith('eyJ')) {
             final prefs = await SharedPreferences.getInstance();
-            await prefs.setString('google_drive_access_token', directToken);
-            _completeAuth(directToken);
+            await prefs.setString('google_drive_access_token', directProviderToken);
+            _completeAuth(directProviderToken);
           }
 
           final authRes = await Supabase.instance.client.auth.getSessionFromUrl(uri);
           final pToken = authRes.session?.providerToken ??
                          Supabase.instance.client.auth.currentSession?.providerToken;
-          if (pToken != null && pToken.isNotEmpty) {
+          if (pToken != null && pToken.isNotEmpty && !pToken.startsWith('eyJ')) {
             final prefs = await SharedPreferences.getInstance();
             await prefs.setString('google_drive_access_token', pToken);
             _completeAuth(pToken);

@@ -282,8 +282,7 @@ class _TransactionDetailSheetState extends State<TransactionDetailSheet> {
 
     setState(() => _isLoading = true);
     try {
-      await ApiService.deleteTransaction(_item.id);
-      SyncService.onOptimisticTransactionDeleted(_item.id);
+      await SyncService.deleteTransaction(_item.id);
       if (mounted) {
         widget.onTransactionChanged?.call();
         Navigator.pop(context, true);

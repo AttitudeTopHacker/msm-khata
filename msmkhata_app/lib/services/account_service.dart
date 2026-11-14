@@ -142,6 +142,17 @@ class AccountService {
     return true;
   }
 
+  /// Reset to default primary account on sign out
+  static Future<void> resetToDefault() async {
+    accountsNotifier.value = [defaultAccount];
+    activeAccountNotifier.value = defaultAccount;
+    _initialized = false;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_kAccountsKey);
+    } catch (_) {}
+  }
+
   static Future<void> _persistAccounts(
     SharedPreferences prefs,
     List<AccountBook> list,

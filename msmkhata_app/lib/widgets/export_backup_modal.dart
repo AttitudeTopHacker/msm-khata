@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/account.dart';
 import '../models/grocery_item.dart';
+import '../models/stats.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/account_service.dart';
@@ -11,6 +12,9 @@ import '../services/routine_service.dart';
 import '../services/grocery_pdf_service.dart';
 import '../services/routine_pdf_service.dart';
 import '../services/google_drive_service.dart';
+import '../services/pdf_export_service.dart';
+import '../services/sync_service.dart';
+import 'unified_progress_modal.dart';
 
 /// Modal bottom sheet providing Google Drive cloud backup options,
 /// automated financial archival settings, and per-account backup toggles.
@@ -70,9 +74,17 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
         activeKeys.add('daily_routine');
       }
 
+      bool isTokenValid = false;
+      if (token != null && token.isNotEmpty && !token.startsWith('eyJ')) {
+        isTokenValid = await GoogleDriveDirectService.validateToken(token);
+        if (!isTokenValid) {
+          await AuthService.clearGoogleAccessToken();
+        }
+      }
+
       if (mounted) {
         setState(() {
-          _hasGoogleAuth = token != null && token.isNotEmpty;
+          _hasGoogleAuth = isTokenValid;
           _autoDriveBackup = prefs.getBool('gdrive_auto_backup') ?? true;
           _backupFrequency = prefs.getString('gdrive_backup_frequency') ?? 'Daily';
           _lastBackupTime = prefs.getString('gdrive_last_backup_time') ?? 'Never';
@@ -259,8 +271,21 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
   Future<void> _performDriveBackup() async {
     final token = await AuthService.getGoogleAccessToken();
 
-    if (token == null || token.isEmpty) {
-      _connectGoogleDrive();
+    if (token == null || token.isEmpty || token.startsWith('eyJ')) {
+      await AuthService.clearGoogleAccessToken();
+      if (mounted) setState(() => _hasGoogleAuth = false);
+      _showGoogleSignInPrompt();
+      return;
+    }
+
+    // Validate that the token is active and has Drive scope
+    final isTokenActive = await GoogleDriveDirectService.validateToken(token);
+    if (!isTokenActive) {
+      await AuthService.clearGoogleAccessToken();
+      if (mounted) {
+        setState(() => _hasGoogleAuth = false);
+        _showDrivePermissionRequiredDialog();
+      }
       return;
     }
 
@@ -282,108 +307,199 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
 
     final uploadedFiles = <Map<String, String>>[];
     final failedItems = <String>[];
+    bool authErrorOccurred = false;
+    String authErrorMessage = '';
 
     try {
-      final books = AccountService.accountsNotifier.value;
-      final stores = GroceryService.cachedStores;
-      final totalToUpload = _selectedAccountKeys.length;
-      int currentIdx = 0;
+      await UnifiedProgressModal.show(
+        context: context,
+        title: 'Google Drive Cloud Backup',
+        subtitle: '${_selectedAccountKeys.length} Accounts Selected',
+        icon: Icons.cloud_upload_rounded,
+        iconColor: const Color(0xFF4285F4),
+        task: (progress) async {
+          final books = AccountService.accountsNotifier.value;
+          final stores = GroceryService.cachedStores;
+          final totalToUpload = _selectedAccountKeys.length;
+          int currentIdx = 0;
 
-      // 1. Personal Accounts & Books
-      for (final book in books) {
-        final key = 'account_${book.id}';
-        if (_selectedAccountKeys.contains(key)) {
-          currentIdx++;
-          if (mounted) {
-            setState(() {
-              _backupStatusMessage = 'Uploading ($currentIdx/$totalToUpload): ${book.name}...';
-            });
+          // 1. Personal Accounts & Books
+          for (final book in books) {
+            if (authErrorOccurred) break;
+            final key = 'account_${book.id}';
+            if (_selectedAccountKeys.contains(key)) {
+              currentIdx++;
+              progress.update(
+                status: 'Uploading ($currentIdx/$totalToUpload): ${book.name}...',
+                progress: currentIdx / (totalToUpload + 0.5),
+              );
+              try {
+                var stats = SyncService.cachedStats;
+                var txs = SyncService.cachedTransactions
+                    .where((t) => t.accountId == book.id)
+                    .toList();
+                try {
+                  stats = await ApiService.getDashboardStats(accountId: book.id);
+                  final freshTxs = await ApiService.getTransactions(accountId: book.id, limit: 300);
+                  if (freshTxs.isNotEmpty) txs = freshTxs;
+                } catch (_) {}
+
+                final pdfBytes = await PdfExportService.generateA4PdfBytes(
+                  stats: stats ??
+                      DashboardStats(
+                        netAccountBalance: 0,
+                        totalMoneyIn: 0,
+                        totalMoneyOut: 0,
+                        totalReceivable: 0,
+                        totalPayable: 0,
+                        netLenDenPosition: 0,
+                        totalIncome: 0,
+                        totalExpense: 0,
+                        netSavings: 0,
+                        peopleToReceiveCount: 0,
+                        peopleToPayCount: 0,
+                        totalTransactionsCount: txs.length,
+                        categoryBreakdown: const [],
+                        topDebtors: const [],
+                        topCreditors: const [],
+                        monthlyTrends: const [],
+                      ),
+                  transactions: txs,
+                  isFastMode: false,
+                );
+
+                final cleanName = book.name.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+                final dateStr = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+                final fileName = 'msmkhata_personal_${cleanName}_$dateStr.pdf';
+
+                await GoogleDriveDirectService.uploadPdfBytes(
+                  accessToken: token,
+                  bytes: pdfBytes,
+                  fileName: fileName,
+                );
+
+                uploadedFiles.add({
+                  'title': book.name,
+                  'filename': fileName,
+                  'type': 'Personal Book',
+                });
+              } catch (e) {
+                final errStr = e.toString();
+                debugPrint('Personal book backup error for ${book.name}: $errStr');
+                if (errStr.contains('401') ||
+                    errStr.contains('403') ||
+                    errStr.contains('ACCESS_TOKEN') ||
+                    errStr.contains('Invalid Credentials') ||
+                    errStr.contains('PERMISSION_DENIED')) {
+                  authErrorOccurred = true;
+                  authErrorMessage = errStr;
+                  break;
+                }
+                failedItems.add(book.name);
+              }
+            }
           }
-          try {
-            final res = await ApiService.uploadBackupToGoogleDrive(
-              googleAccessToken: token,
-              userId: AuthService.currentUserId,
-              accountId: book.id,
-              accountName: book.name,
-              includeExcel: false,
-              includePdf: true,
+
+          // 2. Grocery & Dukaan Khatas
+          for (final store in stores) {
+            if (authErrorOccurred) break;
+            final key = 'grocery_${store.id}';
+            if (_selectedAccountKeys.contains(key)) {
+              currentIdx++;
+              progress.update(
+                status: 'Uploading ($currentIdx/$totalToUpload): ${store.storeName}...',
+                progress: currentIdx / (totalToUpload + 0.5),
+              );
+              try {
+                final entries = GroceryService.cachedEntriesByStore[store.id] ?? <GroceryEntry>[];
+                final pdfBytes = await GroceryPdfService.generateStorePdfBytes(store: store, entries: entries);
+                final cleanName = store.storeName.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+                final dateStr = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+                final fileName = 'msmkhata_dukaan_${cleanName}_$dateStr.pdf';
+
+                await GoogleDriveDirectService.uploadPdfBytes(
+                  accessToken: token,
+                  bytes: pdfBytes,
+                  fileName: fileName,
+                );
+                uploadedFiles.add({
+                  'title': store.storeName,
+                  'filename': fileName,
+                  'type': 'Dukaan Khata',
+                });
+              } catch (e) {
+                final errStr = e.toString();
+                debugPrint('Grocery store backup error for ${store.storeName}: $errStr');
+                if (errStr.contains('401') ||
+                    errStr.contains('403') ||
+                    errStr.contains('ACCESS_TOKEN') ||
+                    errStr.contains('Invalid Credentials') ||
+                    errStr.contains('PERMISSION_DENIED')) {
+                  authErrorOccurred = true;
+                  authErrorMessage = errStr;
+                  break;
+                }
+                failedItems.add(store.storeName);
+              }
+            }
+          }
+
+          // 3. Daily Routine & Work Diary
+          if (!authErrorOccurred && _selectedAccountKeys.contains('daily_routine')) {
+            currentIdx++;
+            progress.update(
+              status: 'Uploading ($currentIdx/$totalToUpload): Daily Routine Diary...',
+              progress: currentIdx / (totalToUpload + 0.5),
             );
-            final uploaded = res['uploaded_files'] as List<dynamic>? ?? [];
-            final fileName = uploaded.isNotEmpty ? uploaded[0]['filename'] ?? '${book.name}.pdf' : '${book.name}.pdf';
-            uploadedFiles.add({
-              'title': book.name,
-              'filename': fileName,
-              'type': 'Personal Book',
-            });
-          } catch (e) {
-            debugPrint('Personal book backup error for ${book.name}: $e');
-            failedItems.add(book.name);
-          }
-        }
-      }
+            try {
+              final entries = RoutineService.cachedEntries;
+              final pdfBytes = await RoutinePdfService.generateRoutinePdfBytes(entries: entries);
+              final dateStr = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+              final fileName = 'msmkhata_daily_routine_$dateStr.pdf';
 
-      // 2. Grocery & Dukaan Khatas
-      for (final store in stores) {
-        final key = 'grocery_${store.id}';
-        if (_selectedAccountKeys.contains(key)) {
-          currentIdx++;
-          if (mounted) {
-            setState(() {
-              _backupStatusMessage = 'Uploading ($currentIdx/$totalToUpload): ${store.storeName}...';
-            });
+              await GoogleDriveDirectService.uploadPdfBytes(
+                accessToken: token,
+                bytes: pdfBytes,
+                fileName: fileName,
+              );
+              uploadedFiles.add({
+                'title': 'Daily Routine & Work Diary',
+                'filename': fileName,
+                'type': 'Work Diary',
+              });
+            } catch (e) {
+              final errStr = e.toString();
+              debugPrint('Daily routine backup error: $errStr');
+              if (errStr.contains('401') ||
+                  errStr.contains('403') ||
+                  errStr.contains('ACCESS_TOKEN') ||
+                  errStr.contains('Invalid Credentials') ||
+                  errStr.contains('PERMISSION_DENIED')) {
+                authErrorOccurred = true;
+                authErrorMessage = errStr;
+              } else {
+                failedItems.add('Daily Routine Diary');
+              }
+            }
           }
-          try {
-            final entries = GroceryService.cachedEntriesByStore[store.id] ?? <GroceryEntry>[];
-            final pdfBytes = await GroceryPdfService.generateStorePdfBytes(store: store, entries: entries);
-            final cleanName = store.storeName.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
-            final dateStr = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
-            final fileName = 'msmkhata_dukaan_${cleanName}_$dateStr.pdf';
 
-            await GoogleDriveDirectService.uploadPdfBytes(
-              accessToken: token,
-              bytes: pdfBytes,
-              fileName: fileName,
+          if (!authErrorOccurred) {
+            progress.update(
+              status: 'All backups saved to Google Drive! ☁️',
+              progress: 1.0,
             );
-            uploadedFiles.add({
-              'title': store.storeName,
-              'filename': fileName,
-              'type': 'Dukaan Khata',
-            });
-          } catch (e) {
-            debugPrint('Grocery store backup error for ${store.storeName}: $e');
-            failedItems.add(store.storeName);
           }
-        }
-      }
+        },
+      );
 
-      // 3. Daily Routine & Work Diary
-      if (_selectedAccountKeys.contains('daily_routine')) {
-        currentIdx++;
+      // If authentication expired or permission was revoked mid-upload
+      if (authErrorOccurred) {
+        await AuthService.clearGoogleAccessToken();
         if (mounted) {
-          setState(() {
-            _backupStatusMessage = 'Uploading ($currentIdx/$totalToUpload): Daily Routine Diary...';
-          });
+          setState(() => _hasGoogleAuth = false);
+          _showDrivePermissionRequiredDialog();
         }
-        try {
-          final entries = RoutineService.cachedEntries;
-          final pdfBytes = await RoutinePdfService.generateRoutinePdfBytes(entries: entries);
-          final dateStr = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
-          final fileName = 'msmkhata_daily_routine_$dateStr.pdf';
-
-          await GoogleDriveDirectService.uploadPdfBytes(
-            accessToken: token,
-            bytes: pdfBytes,
-            fileName: fileName,
-          );
-          uploadedFiles.add({
-            'title': 'Daily Routine & Work Diary',
-            'filename': fileName,
-            'type': 'Work Diary',
-          });
-        } catch (e) {
-          debugPrint('Daily routine backup error: $e');
-          failedItems.add('Daily Routine Diary');
-        }
+        return;
       }
 
       final nowStr = DateFormat('Today, hh:mm a').format(DateTime.now());
@@ -500,8 +616,11 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
     } catch (e) {
       final errStr = e.toString();
       if (errStr.contains('ACCESS_TOKEN_SCOPE_INSUFFICIENT') ||
+          errStr.contains('ACCESS_TOKEN_EXPIRED') ||
           errStr.contains('insufficient authentication scopes') ||
           errStr.contains('PERMISSION_DENIED') ||
+          errStr.contains('Invalid Credentials') ||
+          errStr.contains('401') ||
           errStr.contains('403')) {
         await AuthService.clearGoogleAccessToken();
         if (mounted) {

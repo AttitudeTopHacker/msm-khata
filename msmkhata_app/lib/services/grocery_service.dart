@@ -522,4 +522,25 @@ class GroceryService {
     cachedEntriesByStore.clear();
     dataVersion.value++;
   }
+
+  /// Completely wipe local Grocery state on sign-out for clean user isolation
+  static Future<void> clearAllData() async {
+    cachedStores.clear();
+    cachedEntriesByStore.clear();
+    _initialized = false;
+    dataVersion.value++;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_kCachedStores);
+      await prefs.remove(_kPendingStores);
+      await prefs.remove(_kPendingEntries);
+      await prefs.remove(_kPendingDeletes);
+
+      final keys = prefs.getKeys().where((k) => k.startsWith(_kCachedEntriesPrefix)).toList();
+      for (final k in keys) {
+        await prefs.remove(k);
+      }
+    } catch (_) {}
+  }
 }

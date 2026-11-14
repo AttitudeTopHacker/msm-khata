@@ -104,6 +104,7 @@ class ApiService {
 
   // 5. Create Transaction (Tagged with current active account/book and user)
   static Future<TransactionItem> createTransaction({
+    String? id,
     required String type,
     required double amount,
     required String paymentMode,
@@ -124,6 +125,7 @@ class ApiService {
     final aname = accountName ?? activeBook.name;
 
     final payload = <String, dynamic>{
+      if (id != null) 'id': id,
       'type': type,
       'amount': amount,
       'payment_mode': paymentMode,

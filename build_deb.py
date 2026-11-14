@@ -22,7 +22,11 @@ def get_version() -> str:
 
 def run(cmd, cwd=ROOT):
     print(f"==> Running: {' '.join(cmd) if isinstance(cmd, list) else cmd}")
-    res = subprocess.run(cmd, cwd=cwd, shell=isinstance(cmd, str))
+    env = os.environ.copy()
+    flutter_bin = "/home/salman/flutter/bin"
+    if flutter_bin not in env.get("PATH", ""):
+        env["PATH"] = f"{flutter_bin}:{env.get('PATH', '')}"
+    res = subprocess.run(cmd, cwd=cwd, shell=isinstance(cmd, str), env=env)
     if res.returncode != 0:
         print(f"❌ Command failed with returncode {res.returncode}")
         sys.exit(res.returncode)
@@ -42,7 +46,7 @@ def main():
     # 1. Build Flutter Linux Release
     print("\n[1/4] Building Flutter Linux Release...")
     run(["flutter", "pub", "get"], cwd=APP_DIR)
-    run(["flutter", "build", "linux", "--release", "--obfuscate", "--split-debug-info=symbols"], cwd=APP_DIR)
+    run(["flutter", "build", "linux", "--release", "--no-tree-shake-icons", "--obfuscate", "--split-debug-info=symbols"], cwd=APP_DIR)
 
     bundle_src = APP_DIR / "build" / "linux" / "x64" / "release" / "bundle"
     if not bundle_src.exists():

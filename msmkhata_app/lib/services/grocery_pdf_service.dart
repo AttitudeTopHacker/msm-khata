@@ -111,8 +111,8 @@ class GroceryPdfService {
     );
   }
 
-  /// Generate and open standard A4 PDF Print / Save dialog for All Stores Summary
-  static Future<void> printAllStoresSummary({
+  /// Generate document bytes for All Stores Summary
+  static Future<Uint8List> generateAllStoresSummaryPdfBytes({
     required List<GroceryStore> stores,
     required GroceryOverviewStats stats,
   }) async {
@@ -211,8 +211,17 @@ class GroceryPdfService {
       ),
     );
 
+    return doc.save();
+  }
+
+  /// Generate and open standard A4 PDF Print / Save dialog for All Stores Summary
+  static Future<void> printAllStoresSummary({
+    required List<GroceryStore> stores,
+    required GroceryOverviewStats stats,
+  }) async {
+    final pdfBytes = await generateAllStoresSummaryPdfBytes(stores: stores, stats: stats);
     await Printing.layoutPdf(
-      onLayout: (PdfPageFormat format) async => doc.save(),
+      onLayout: (PdfPageFormat format) async => pdfBytes,
       name: 'DukanKhata_AllStores_${DateFormat('yyyyMMdd').format(DateTime.now())}.pdf',
     );
   }

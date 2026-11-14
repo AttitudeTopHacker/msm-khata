@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
@@ -7,8 +8,10 @@ import '../models/stats.dart';
 import '../models/transaction.dart';
 import '../services/api_service.dart';
 import '../services/account_service.dart';
+import '../services/sync_service.dart';
 import '../services/pdf_export_service.dart';
 import '../widgets/msm_shimmer_text.dart';
+import '../widgets/unified_progress_modal.dart';
 
 /// Interactive Export Statement & A4 PDF Print Screen
 class ExportStatementScreen extends StatefulWidget {
@@ -36,124 +39,117 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
+    final activeAccount = _effectiveAccount;
+
+    DashboardStats? s = SyncService.cachedStats;
+    List<TransactionItem> txs = SyncService.cachedTransactions
+        .where((t) => t.accountId == activeAccount.id)
+        .toList();
+
     try {
-      final activeAccount = _effectiveAccount;
-      final s = await ApiService.getDashboardStats(accountId: activeAccount.id);
-      final txs = await ApiService.getTransactions(accountId: activeAccount.id);
-      if (mounted) {
-        setState(() {
-          _stats = s;
-          _transactions = txs;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to load statement data: $e'),
-            backgroundColor: const Color(0xFFEF4444),
-          ),
-        );
-      }
+      final freshStats = await ApiService.getDashboardStats(accountId: activeAccount.id);
+      final freshTxs = await ApiService.getTransactions(accountId: activeAccount.id);
+      s = freshStats;
+      txs = freshTxs;
+    } catch (_) {
+      s ??= DashboardStats(
+        netAccountBalance: 0,
+        totalMoneyIn: 0,
+        totalMoneyOut: 0,
+        totalReceivable: 0,
+        totalPayable: 0,
+        netLenDenPosition: 0,
+        totalIncome: 0,
+        totalExpense: 0,
+        netSavings: 0,
+        peopleToReceiveCount: 0,
+        peopleToPayCount: 0,
+        totalTransactionsCount: txs.length,
+        categoryBreakdown: const [],
+        topDebtors: const [],
+        topCreditors: const [],
+        monthlyTrends: const [],
+      );
+    }
+
+    if (mounted) {
+      setState(() {
+        _stats = s;
+        _transactions = txs;
+        _isLoading = false;
+      });
     }
   }
 
   Future<void> _handleDownloadPythonPdf({required String mode}) async {
-    final actionKey = mode == 'full' ? 'full_pdf' : 'fast_pdf';
     final activeAccount = _effectiveAccount;
-    setState(() => _activeAction = actionKey);
-    try {
-      final pdfBytes = await ApiService.fetchPdfReport(
-        accountId: activeAccount.id,
-        accountName: activeAccount.name,
-        mode: mode,
-      );
-      await Printing.layoutPdf(
-        onLayout: (format) async => pdfBytes,
-        name: 'msmkhata_${mode}_${activeAccount.name}.pdf',
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 20),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    mode == 'full'
-                        ? 'Full Review Report with Analytics Charts generated successfully!'
-                        : 'Fast Report Statement ready for print / share!',
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: const Color(0xFF1E293B),
-            behavior: SnackBarBehavior.floating,
-          ),
+    final modeLabel = mode == 'full' ? 'Full Analytics Review Report' : 'Fast Summary Statement';
+
+    await UnifiedProgressModal.show(
+      context: context,
+      title: 'Exporting PDF Statement',
+      subtitle: activeAccount.name,
+      icon: Icons.picture_as_pdf_rounded,
+      iconColor: const Color(0xFF6366F1),
+      task: (progress) async {
+        progress.update(status: 'Requesting $modeLabel from cloud engine...');
+        Uint8List? pdfBytes;
+        try {
+          pdfBytes = await ApiService.fetchPdfReport(
+            accountId: activeAccount.id,
+            accountName: activeAccount.name,
+            mode: mode,
+          );
+        } catch (_) {
+          progress.update(status: 'Compiling local high-resolution statement...');
+          if (_stats != null) {
+            pdfBytes = await PdfExportService.generateA4PdfBytes(
+              stats: _stats!,
+              transactions: _transactions,
+              isFastMode: mode == 'fast',
+            );
+          } else {
+            rethrow;
+          }
+        }
+
+        progress.update(status: 'Launching Print & Save Preview...');
+        await Printing.layoutPdf(
+          onLayout: (format) async => pdfBytes!,
+          name: 'msmkhata_${mode}_${activeAccount.name}.pdf',
         );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error generating PDF report: $e'),
-            backgroundColor: const Color(0xFFEF4444),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _activeAction = null);
-    }
+      },
+    );
   }
 
   Future<void> _handlePrintPdf({required bool isFastMode}) async {
     if (_stats == null) return;
-    final actionKey = isFastMode ? 'fast_print' : 'full_print';
-    setState(() => _activeAction = actionKey);
-    try {
-      await PdfExportService.printOrSaveA4Statement(
-        stats: _stats!,
-        transactions: _transactions,
-        isFastMode: isFastMode,
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 20),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    isFastMode
-                        ? 'Fast Report layout ready for Print / Save!'
-                        : 'Full A4 Statement ready for Print / Save!',
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: const Color(0xFF1E293B),
-            behavior: SnackBarBehavior.floating,
-          ),
+    final activeAccount = _effectiveAccount;
+    final modeLabel = isFastMode ? 'Fast A4 Statement' : 'Full A4 Audit Report';
+
+    await UnifiedProgressModal.show(
+      context: context,
+      title: 'Exporting PDF Statement',
+      subtitle: activeAccount.name,
+      icon: Icons.picture_as_pdf_rounded,
+      iconColor: const Color(0xFF10B981),
+      task: (progress) async {
+        progress.update(status: 'Compiling ${activeAccount.name} transactions...');
+        progress.update(status: 'Formatting $modeLabel layout...');
+        final bytes = await PdfExportService.generateA4PdfBytes(
+          stats: _stats!,
+          transactions: _transactions,
+          isFastMode: isFastMode,
         );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error generating local PDF: $e'),
-            backgroundColor: const Color(0xFFEF4444),
-          ),
+
+        progress.update(status: 'Launching Print & Save Preview...');
+        final modePrefix = isFastMode ? 'Fast_Statement' : 'Full_Audit_Report';
+        await Printing.layoutPdf(
+          onLayout: (format) async => bytes,
+          name: 'MsmKhata_${modePrefix}_${DateFormat('yyyyMMdd').format(DateTime.now())}.pdf',
         );
-      }
-    } finally {
-      if (mounted) setState(() => _activeAction = null);
-    }
+      },
+    );
   }
 
   void _handleViewCsv() {

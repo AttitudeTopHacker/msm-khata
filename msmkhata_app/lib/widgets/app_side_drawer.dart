@@ -1,13 +1,18 @@
+import 'dart:typed_data';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:printing/printing.dart';
 import '../models/account.dart';
 import '../models/grocery_item.dart';
+import '../models/stats.dart';
 import '../services/account_service.dart';
 import '../services/admin_service.dart';
+import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/grocery_pdf_service.dart';
 import '../services/grocery_service.dart';
+import '../services/pdf_export_service.dart';
 import '../services/routine_pdf_service.dart';
 import '../services/routine_service.dart';
 import '../services/security_service.dart';
@@ -22,6 +27,7 @@ import 'account_switcher_modal.dart';
 import 'export_backup_modal.dart';
 import 'msm_shimmer_text.dart';
 import 'theme_studio_modal.dart';
+import 'unified_progress_modal.dart';
 
 /// Ultra-Modern Frosted Glass Side-Sliding Drawer / Sub-Menu Panel for MsmKhata
 class AppSideDrawer extends StatelessWidget {
@@ -610,20 +616,28 @@ class AppSideDrawer extends StatelessWidget {
                       ValueListenableBuilder<List<AccountBook>>(
                         valueListenable: AccountService.accountsNotifier,
                         builder: (c, books, _) {
+                          final currentBooks = books.isEmpty
+                              ? [AccountService.activeAccountNotifier.value]
+                              : books;
+
                           return Column(
-                            children: books.map((book) {
+                            children: currentBooks.map((book) {
                               return _buildStatementItemTile(
                                 context: ctx,
                                 accent: accent,
                                 icon: Icons.book_rounded,
                                 iconColor: accent.light,
                                 title: book.name,
-                                subtitle: book.isDefault ? 'Default Primary Account (Active)' : 'Isolated Khata Book',
-                                badge: 'A4 STATEMENT',
+                                subtitle: book.isDefault
+                                    ? 'Default Primary Account (Active) • Full Audit & Fast A4'
+                                    : 'Personal Isolated Khata Book • Full Audit & Fast A4',
+                                badge: 'A4 & AUDIT',
                                 onTap: () {
                                   Navigator.pop(ctx);
                                   navigator.push(
-                                    MaterialPageRoute(builder: (_) => ExportStatementScreen(account: book)),
+                                    MaterialPageRoute(
+                                      builder: (_) => ExportStatementScreen(account: book),
+                                    ),
                                   );
                                 },
                               );
@@ -665,8 +679,30 @@ class AppSideDrawer extends StatelessWidget {
                               badge: 'DUKAAN REPORT',
                               onTap: () {
                                 Navigator.pop(ctx);
-                                final entries = GroceryService.cachedEntriesByStore[store.id] ?? <GroceryEntry>[];
-                                GroceryPdfService.printStoreStatement(store: store, entries: entries);
+                                UnifiedProgressModal.show(
+                                  context: navigator.context,
+                                  title: 'Exporting PDF Statement',
+                                  subtitle: store.storeName,
+                                  icon: Icons.storefront_rounded,
+                                  iconColor: const Color(0xFF10B981),
+                                  task: (progress) async {
+                                    progress.update(status: 'Loading ${store.storeName} dukaan records...');
+                                    final entries = await GroceryService.fetchEntries(store.id);
+
+                                    progress.update(status: 'Formatting ledger layout...');
+                                    final bytes = await GroceryPdfService.generateStorePdfBytes(
+                                      store: store,
+                                      entries: entries,
+                                    );
+
+                                    progress.update(status: 'Launching Print & Save Preview...');
+                                    final cleanName = store.storeName.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+                                    await Printing.layoutPdf(
+                                      onLayout: (format) async => bytes,
+                                      name: 'DukanKhata_${cleanName}_${DateFormat('yyyyMMdd').format(DateTime.now())}.pdf',
+                                    );
+                                  },
+                                );
                               },
                             );
                           }).toList(),
@@ -687,10 +723,30 @@ class AppSideDrawer extends StatelessWidget {
                         badge: 'WORK DIARY',
                         onTap: () {
                           Navigator.pop(ctx);
-                          RoutinePdfService.printRoutineStatement(
-                            entries: RoutineService.cachedEntries,
-                            filterLabel: 'All Dates Logged',
-                            categoryLabel: 'All Categories',
+                          UnifiedProgressModal.show(
+                            context: navigator.context,
+                            title: 'Exporting PDF Statement',
+                            subtitle: 'Daily Routine & Work Diary',
+                            icon: Icons.event_note_rounded,
+                            iconColor: const Color(0xFF38BDF8),
+                            task: (progress) async {
+                              progress.update(status: 'Loading work diary logs...');
+                              final entries = await RoutineService.fetchEntries();
+
+                              progress.update(status: 'Formatting routine diary layout...');
+                              final bytes = await RoutinePdfService.generateRoutinePdfBytes(
+                                entries: entries,
+                                filterLabel: 'All Dates Logged',
+                                categoryLabel: 'All Categories',
+                              );
+
+                              progress.update(status: 'Launching Print & Save Preview...');
+                              final cleanDate = DateFormat('yyyyMMdd').format(DateTime.now());
+                              await Printing.layoutPdf(
+                                onLayout: (format) async => bytes,
+                                name: 'MsmKhata_DailyRoutine_${cleanDate}.pdf',
+                              );
+                            },
                           );
                         },
                       ),

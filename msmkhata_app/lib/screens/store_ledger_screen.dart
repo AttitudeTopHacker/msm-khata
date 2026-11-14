@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:printing/printing.dart';
 import '../models/grocery_item.dart';
 import '../services/grocery_pdf_service.dart';
 import '../services/grocery_service.dart';
 import '../widgets/sync_status_badge.dart';
+import '../widgets/unified_progress_modal.dart';
 
 class StoreLedgerScreen extends StatefulWidget {
   final GroceryStore store;
@@ -452,10 +454,32 @@ class _StoreLedgerScreenState extends State<StoreLedgerScreen> {
           IconButton(
             tooltip: 'Print / Save PDF Statement',
             icon: const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFF10B981), size: 22),
-            onPressed: () => GroceryPdfService.printStoreStatement(
-              store: _store,
-              entries: _entries,
-            ),
+            onPressed: () {
+              UnifiedProgressModal.show(
+                context: context,
+                title: 'Exporting PDF Statement',
+                subtitle: _store.storeName,
+                icon: Icons.storefront_rounded,
+                iconColor: const Color(0xFF10B981),
+                task: (progress) async {
+                  progress.update(status: 'Loading ${_store.storeName} dukaan records...');
+                  final entries = await GroceryService.fetchEntries(_store.id);
+
+                  progress.update(status: 'Formatting ledger layout...');
+                  final bytes = await GroceryPdfService.generateStorePdfBytes(
+                    store: _store,
+                    entries: entries.isNotEmpty ? entries : _entries,
+                  );
+
+                  progress.update(status: 'Launching Print & Save Preview...');
+                  final cleanName = _store.storeName.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+                  await Printing.layoutPdf(
+                    onLayout: (format) async => bytes,
+                    name: 'DukanKhata_${cleanName}_${DateFormat('yyyyMMdd').format(DateTime.now())}.pdf',
+                  );
+                },
+              );
+            },
           ),
           ValueListenableBuilder<bool>(
             valueListenable: GroceryService.isSyncing,
@@ -524,10 +548,32 @@ class _StoreLedgerScreenState extends State<StoreLedgerScreen> {
                         side: BorderSide(color: const Color(0xFF10B981).withOpacity(0.5), width: 1),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
-                      onPressed: () => GroceryPdfService.printStoreStatement(
-                        store: _store,
-                        entries: _entries,
-                      ),
+                      onPressed: () {
+                        UnifiedProgressModal.show(
+                          context: context,
+                          title: 'Exporting PDF Statement',
+                          subtitle: _store.storeName,
+                          icon: Icons.storefront_rounded,
+                          iconColor: const Color(0xFF10B981),
+                          task: (progress) async {
+                            progress.update(status: 'Loading ${_store.storeName} dukaan records...');
+                            final entries = await GroceryService.fetchEntries(_store.id);
+
+                            progress.update(status: 'Formatting ledger layout...');
+                            final bytes = await GroceryPdfService.generateStorePdfBytes(
+                              store: _store,
+                              entries: entries.isNotEmpty ? entries : _entries,
+                            );
+
+                            progress.update(status: 'Launching Print & Save Preview...');
+                            final cleanName = _store.storeName.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+                            await Printing.layoutPdf(
+                              onLayout: (format) async => bytes,
+                              name: 'DukanKhata_${cleanName}_${DateFormat('yyyyMMdd').format(DateTime.now())}.pdf',
+                            );
+                          },
+                        );
+                      },
                       icon: const Icon(Icons.picture_as_pdf_rounded, size: 17),
                       label: const Text('Print / Save PDF Statement', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                     ),

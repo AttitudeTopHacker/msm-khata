@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -8,8 +9,8 @@ import 'auth_service.dart';
 
 /// Professional A4 PDF & Print Statement Generation Service
 class PdfExportService {
-  /// Generate and open standard A4 PDF Print / Save dialog
-  static Future<void> printOrSaveA4Statement({
+  /// Generate A4 PDF Statement document bytes
+  static Future<Uint8List> generateA4PdfBytes({
     required DashboardStats stats,
     required List<TransactionItem> transactions,
     bool isFastMode = false,
@@ -120,10 +121,23 @@ class PdfExportService {
       ),
     );
 
-    // Trigger A4 Print / Save PDF Dialog
+    return doc.save();
+  }
+
+  /// Generate and open standard A4 PDF Print / Save dialog
+  static Future<void> printOrSaveA4Statement({
+    required DashboardStats stats,
+    required List<TransactionItem> transactions,
+    bool isFastMode = false,
+  }) async {
+    final bytes = await generateA4PdfBytes(
+      stats: stats,
+      transactions: transactions,
+      isFastMode: isFastMode,
+    );
     final modePrefix = isFastMode ? 'Fast_Statement' : 'Full_Audit_Report';
     await Printing.layoutPdf(
-      onLayout: (PdfPageFormat format) async => doc.save(),
+      onLayout: (PdfPageFormat format) async => bytes,
       name: 'MsmKhata_${modePrefix}_${DateFormat('yyyyMMdd').format(DateTime.now())}.pdf',
     );
   }

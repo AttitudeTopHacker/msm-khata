@@ -9,6 +9,23 @@ class GoogleDriveDirectService {
   static const String _driveFilesEndpoint = 'https://www.googleapis.com/drive/v3/files';
   static const String _uploadEndpoint = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
 
+  /// Checks whether Google Drive access token is valid and active.
+  static Future<bool> validateToken(String accessToken) async {
+    final clean = accessToken.trim();
+    if (clean.isEmpty || clean.startsWith('eyJ')) {
+      return false;
+    }
+    try {
+      final res = await http.get(
+        Uri.parse('$_driveFilesEndpoint?pageSize=1&fields=files(id)'),
+        headers: {'Authorization': 'Bearer $clean'},
+      );
+      return res.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Ensures the "MsmKhata Backups" folder exists in user's Google Drive and returns its ID.
   static Future<String?> getOrCreateBackupFolder(String accessToken) async {
     final headers = {'Authorization': 'Bearer $accessToken'};
@@ -97,6 +114,10 @@ class GoogleDriveDirectService {
       return Map<String, dynamic>.from(jsonDecode(res.body));
     }
 
+    if (res.statusCode == 401) {
+      throw Exception('ACCESS_TOKEN_EXPIRED (401): Google Drive session expired. Please re-authorize Google Drive.');
+    }
+
     if (res.statusCode == 403) {
       throw Exception('ACCESS_TOKEN_SCOPE_INSUFFICIENT (403): Google Drive permission denied. Please re-authorize Google Drive.');
     }
@@ -104,3 +125,4 @@ class GoogleDriveDirectService {
     throw Exception('Failed to upload "$fileName" to Google Drive (${res.statusCode}): ${res.body}');
   }
 }
+

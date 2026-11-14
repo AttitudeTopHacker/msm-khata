@@ -136,10 +136,12 @@ def create_transaction(payload: TransactionCreate):
         "account_id": payload.account_id or "main",
         "account_name": payload.account_name or "Main Account"
     }
+    if payload.id:
+        record["id"] = payload.id
     if payload.user_id:
         record["user_id"] = payload.user_id
         
-    res = client.table("transactions").insert(record).execute()
+    res = client.table("transactions").upsert(record).execute()
     if not res.data:
         raise HTTPException(status_code=400, detail="Failed to create transaction")
         

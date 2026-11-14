@@ -82,6 +82,18 @@ class RoutineCategory {
       'is_custom': isCustom,
     };
   }
+
+  Map<String, dynamic> toSupabaseJson(String? userId) {
+    return {
+      'id': id,
+      if (userId != null) 'user_id': userId,
+      'name': name,
+      'icon_key': iconKey,
+      'color_hex': colorHex,
+      'is_custom': isCustom,
+      'created_at': DateTime.now().toIso8601String(),
+    };
+  }
 }
 
 /// Single Logged Work / Routine Entry for a Day
@@ -113,15 +125,27 @@ class RoutineEntry {
   });
 
   factory RoutineEntry.fromJson(Map<String, dynamic> json) {
+    DateTime parsedDate = DateTime.now();
+    final rawDate = json['entry_date'] ?? json['date'];
+    if (rawDate != null) {
+      try {
+        final rawStr = rawDate.toString().split('T')[0].split(' ')[0];
+        final parts = rawStr.split('-');
+        if (parts.length == 3) {
+          parsedDate = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+        } else {
+          parsedDate = DateTime.tryParse(rawStr) ?? DateTime.now();
+        }
+      } catch (_) {}
+    }
+
     return RoutineEntry(
       id: json['id']?.toString() ?? '',
       title: json['title']?.toString() ?? '',
       categoryId: json['category_id']?.toString() ?? 'other',
       categoryName: json['category_name']?.toString() ?? 'General',
-      date: json['date'] != null
-          ? DateTime.tryParse(json['date'].toString()) ?? DateTime.now()
-          : DateTime.now(),
-      time: json['time']?.toString(),
+      date: parsedDate,
+      time: (json['entry_time'] ?? json['time'])?.toString(),
       notes: json['notes']?.toString(),
       hoursSpent: json['hours_spent'] != null ? double.tryParse(json['hours_spent'].toString()) : null,
       expense: json['expense'] != null ? double.tryParse(json['expense'].toString()) : null,
@@ -130,6 +154,23 @@ class RoutineEntry {
           ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
           : DateTime.now(),
     );
+  }
+
+  Map<String, dynamic> toSupabaseJson(String? userId) {
+    return {
+      'id': id,
+      if (userId != null) 'user_id': userId,
+      'title': title,
+      'category_id': categoryId,
+      'category_name': categoryName,
+      'entry_date': date.toIso8601String().split('T')[0],
+      'entry_time': time,
+      'notes': notes,
+      'hours_spent': hoursSpent,
+      'expense': expense,
+      'is_completed': isCompleted,
+      'created_at': createdAt.toIso8601String(),
+    };
   }
 
   Map<String, dynamic> toJson() {

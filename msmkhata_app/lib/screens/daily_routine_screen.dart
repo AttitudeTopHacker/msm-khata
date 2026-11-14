@@ -1,10 +1,12 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:printing/printing.dart';
 import '../models/routine_entry.dart';
 import '../services/routine_pdf_service.dart';
 import '../services/routine_service.dart';
 import '../services/theme_service.dart';
+import '../widgets/unified_progress_modal.dart';
 
 class DailyRoutineScreen extends StatefulWidget {
   const DailyRoutineScreen({super.key});
@@ -54,6 +56,12 @@ class _DailyRoutineScreenState extends State<DailyRoutineScreen> {
     super.initState();
     RoutineService.initialize().then((_) {
       if (mounted) setState(() {});
+      RoutineService.fetchEntries().then((_) {
+        if (mounted) setState(() {});
+      });
+      RoutineService.fetchCategories().then((_) {
+        if (mounted) setState(() {});
+      });
     });
   }
 
@@ -134,10 +142,30 @@ class _DailyRoutineScreenState extends State<DailyRoutineScreen> {
                         catDesc = RoutineService.getCategory(_selectedCategoryFilter).name;
                       }
 
-                      RoutinePdfService.printRoutineStatement(
-                        entries: filtered,
-                        filterLabel: dateDesc,
-                        categoryLabel: catDesc,
+                      UnifiedProgressModal.show(
+                        context: context,
+                        title: 'Exporting PDF Statement',
+                        subtitle: 'Daily Routine & Work Diary',
+                        icon: Icons.event_note_rounded,
+                        iconColor: const Color(0xFF38BDF8),
+                        task: (progress) async {
+                          progress.update(status: 'Loading work diary logs ($dateDesc)...');
+                          final entries = filtered.isNotEmpty ? filtered : await RoutineService.fetchEntries();
+
+                          progress.update(status: 'Formatting routine diary layout...');
+                          final bytes = await RoutinePdfService.generateRoutinePdfBytes(
+                            entries: entries,
+                            filterLabel: dateDesc,
+                            categoryLabel: catDesc,
+                          );
+
+                          progress.update(status: 'Launching Print & Save Preview...');
+                          final cleanDate = DateFormat('yyyyMMdd').format(DateTime.now());
+                          await Printing.layoutPdf(
+                            onLayout: (format) async => bytes,
+                            name: 'MsmKhata_DailyRoutine_${cleanDate}.pdf',
+                          );
+                        },
                       );
                     },
                   ),

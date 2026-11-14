@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:printing/printing.dart';
 import '../models/grocery_item.dart';
 import '../services/grocery_pdf_service.dart';
 import '../services/grocery_service.dart';
 import '../widgets/sync_status_badge.dart';
+import '../widgets/unified_progress_modal.dart';
 import 'store_ledger_screen.dart';
 
 class GroceryDashboardScreen extends StatefulWidget {
@@ -301,10 +303,27 @@ class _GroceryDashboardScreenState extends State<GroceryDashboardScreen> {
             IconButton(
               tooltip: 'Print / Export All Stores PDF',
               icon: const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFF10B981), size: 22),
-              onPressed: () => GroceryPdfService.printAllStoresSummary(
-                stores: _stores,
-                stats: stats,
-              ),
+              onPressed: () {
+                UnifiedProgressModal.show(
+                  context: context,
+                  title: 'Exporting PDF Statement',
+                  subtitle: 'All Stores Summary',
+                  icon: Icons.storefront_rounded,
+                  iconColor: const Color(0xFF10B981),
+                  task: (progress) async {
+                    progress.update(status: 'Analyzing store accounts...');
+                    final bytes = await GroceryPdfService.generateAllStoresSummaryPdfBytes(
+                      stores: _stores,
+                      stats: stats,
+                    );
+                    progress.update(status: 'Launching Print & Save Preview...');
+                    await Printing.layoutPdf(
+                      onLayout: (format) async => bytes,
+                      name: 'DukanKhata_AllStores_${DateFormat('yyyyMMdd').format(DateTime.now())}.pdf',
+                    );
+                  },
+                );
+              },
             ),
           ValueListenableBuilder<bool>(
             valueListenable: GroceryService.isSyncing,
@@ -359,10 +378,27 @@ class _GroceryDashboardScreenState extends State<GroceryDashboardScreen> {
                             side: BorderSide(color: const Color(0xFF10B981).withOpacity(0.5), width: 1),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
-                          onPressed: () => GroceryPdfService.printAllStoresSummary(
-                            stores: _stores,
-                            stats: stats,
-                          ),
+                          onPressed: () {
+                            UnifiedProgressModal.show(
+                              context: context,
+                              title: 'Exporting PDF Statement',
+                              subtitle: 'All Stores Summary',
+                              icon: Icons.storefront_rounded,
+                              iconColor: const Color(0xFF10B981),
+                              task: (progress) async {
+                                progress.update(status: 'Analyzing store accounts...');
+                                final bytes = await GroceryPdfService.generateAllStoresSummaryPdfBytes(
+                                  stores: _stores,
+                                  stats: stats,
+                                );
+                                progress.update(status: 'Launching Print & Save Preview...');
+                                await Printing.layoutPdf(
+                                  onLayout: (format) async => bytes,
+                                  name: 'DukanKhata_AllStores_${DateFormat('yyyyMMdd').format(DateTime.now())}.pdf',
+                                );
+                              },
+                            );
+                          },
                           icon: const Icon(Icons.picture_as_pdf_rounded, size: 17),
                           label: const Text('Print / Save All Stores Summary PDF', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                         ),

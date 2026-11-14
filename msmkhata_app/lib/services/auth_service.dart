@@ -7,6 +7,9 @@ import '../config/api_config.dart';
 
 import 'desktop_auth_service.dart';
 import 'sync_service.dart';
+import 'grocery_service.dart';
+import 'routine_service.dart';
+import 'account_service.dart';
 
 class AuthService {
   static SupabaseClient get _client => Supabase.instance.client;
@@ -66,6 +69,15 @@ class AuthService {
             await p.remove(_kCachedUserEmailKey);
             await p.remove(_kCachedUserNameKey);
             await p.remove(_kCachedAvatarUrlKey);
+            await clearGoogleAccessToken();
+          } catch (_) {}
+
+          // Master Purge on signedOut event
+          try {
+            await SyncService.clearCache();
+            await GroceryService.clearAllData();
+            await RoutineService.clearAllData();
+            await AccountService.resetToDefault();
           } catch (_) {}
         } else if (s != null) {
           isPersistentLoggedIn = true;
@@ -79,6 +91,12 @@ class AuthService {
           }
           final p = await SharedPreferences.getInstance();
           await _saveLoginState(p);
+
+          // User session detected: initialize and load fresh cloud data
+          SyncService.syncAll(forceFull: true);
+          GroceryService.fetchStores();
+          RoutineService.fetchEntries();
+          RoutineService.fetchCategories();
         }
       });
 
@@ -210,9 +228,17 @@ class AuthService {
   static Future<String?> getGoogleAccessToken() async {
     final prefs = await SharedPreferences.getInstance();
     final savedToken = prefs.getString('google_drive_access_token');
-    if (savedToken != null && savedToken.isNotEmpty) return savedToken;
+    if (savedToken != null && savedToken.isNotEmpty) {
+      if (savedToken.startsWith('eyJ')) {
+        await prefs.remove('google_drive_access_token');
+      } else {
+        return savedToken;
+      }
+    }
     final token = currentSession?.providerToken;
-    if (token != null && token.isNotEmpty) return token;
+    if (token != null && token.isNotEmpty && !token.startsWith('eyJ')) {
+      return token;
+    }
     return null;
   }
 
@@ -397,13 +423,15 @@ class AuthService {
     }
   }
 
-  /// Sign out
+  /// Sign out & Master Data Purge (Guarantee 100% clean multi-user isolation)
   static Future<void> signOut() async {
     isPersistentLoggedIn = false;
     cachedUserId = null;
     cachedUserEmail = null;
     cachedDisplayName = null;
     cachedAvatarUrl = null;
+
+    // 1. Clear SharedPreferences Auth keys & cached tokens
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_kIsLoggedInKey);
@@ -411,7 +439,38 @@ class AuthService {
       await prefs.remove(_kCachedUserEmailKey);
       await prefs.remove(_kCachedUserNameKey);
       await prefs.remove(_kCachedAvatarUrlKey);
+      await clearGoogleAccessToken();
     } catch (_) {}
+
+    // 2. Wipe Main Ledger Transactions, Stats, Persons & Pending Queues
+    try {
+      await SyncService.clearCache();
+    } catch (e) {
+      debugPrint('SyncService wipe error: $e');
+    }
+
+    // 3. Wipe Grocery Dukaan Khata Memory & Disk State
+    try {
+      await GroceryService.clearAllData();
+    } catch (e) {
+      debugPrint('GroceryService wipe error: $e');
+    }
+
+    // 4. Wipe Daily Routine Work Diary Memory & Disk State
+    try {
+      await RoutineService.clearAllData();
+    } catch (e) {
+      debugPrint('RoutineService wipe error: $e');
+    }
+
+    // 5. Reset Custom Account Books to Default Primary Book
+    try {
+      await AccountService.resetToDefault();
+    } catch (e) {
+      debugPrint('AccountService reset error: $e');
+    }
+
+    // 6. Supabase Session Termination
     try {
       await _client.auth.signOut();
     } catch (e) {

@@ -1054,7 +1054,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
         final notesText = _notesController.text.trim();
         final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
-        final updatedTx = await ApiService.updateTransaction(
+        await SyncService.updateTransactionItem(
           id: widget.existingTransaction!.id,
           type: _selectedType,
           amount: amount,
@@ -1069,8 +1069,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           clearNotes: notesText.isEmpty,
           transactionDate: dateStr,
         );
-
-        SyncService.onOptimisticTransactionUpdated(updatedTx);
       } else {
         String? catId = !isLenDen ? _selectedCategory?.id : null;
         if (catId != null && (catId.startsWith('c') || catId.startsWith('local_'))) {
@@ -1078,7 +1076,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         }
 
         final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
-        final newTx = await ApiService.createTransaction(
+        await SyncService.recordTransaction(
           type: _selectedType,
           amount: amount,
           paymentMode: _paymentMode,
@@ -1089,8 +1087,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           notes: _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null,
           transactionDate: dateStr,
         );
-
-        SyncService.onOptimisticTransactionCreated(newTx);
       }
 
       if (mounted) {

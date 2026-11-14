@@ -17,6 +17,7 @@ class TransactionBase(BaseModel):
     account_name: Optional[str] = Field("Main Account", description="Account / Book Name")
 
 class TransactionCreate(TransactionBase):
+    id: Optional[str] = Field(None, description="Client-generated RFC 4122 v4 UUID for offline idempotency")
     user_id: Optional[str] = None
     person_id: Optional[str] = None
     person_name: Optional[str] = Field(None, description="If provided, auto-creates or links person on-the-fly")

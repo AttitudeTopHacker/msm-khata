@@ -21,15 +21,6 @@ class _AuthScreenState extends State<AuthScreen> {
   String? _errorMessage;
   StreamSubscription<AuthState>? _authSub;
 
-  // In-App Email / Password Direct Auth
-  int _authTabIndex = 0; // 0 = Google / Social, 1 = Email & Password
-  bool _isSignUpMode = false;
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _fullNameController = TextEditingController();
-  bool _obscurePassword = true;
-  bool _isEmailLoading = false;
-
   late final bool _wasInitiallyAuthenticated;
 
   @override
@@ -52,9 +43,6 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   void dispose() {
     _authSub?.cancel();
-    _emailController.dispose();
-    _passwordController.dispose();
-    _fullNameController.dispose();
     super.dispose();
   }
 
@@ -114,54 +102,6 @@ class _AuthScreenState extends State<AuthScreen> {
     } finally {
       if (mounted) {
         setState(() => _loadingProvider = null);
-      }
-    }
-  }
-
-  void _handleEmailAuth() async {
-    final email = _emailController.text.trim();
-    final pass = _passwordController.text;
-
-    if (email.isEmpty || pass.isEmpty) {
-      setState(() => _errorMessage = 'Please enter both email address and password.');
-      return;
-    }
-
-    setState(() {
-      _isEmailLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      if (_isSignUpMode) {
-        final res = await AuthService.signUpWithEmailPassword(
-          email: email,
-          password: pass,
-          fullName: _fullNameController.text.trim(),
-        );
-        if (mounted) {
-          if (res.session == null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Account created! Please check your email inbox to confirm registration.'),
-                backgroundColor: Color(0xFF10B981),
-              ),
-            );
-          }
-        }
-      } else {
-        await AuthService.signInWithEmailPassword(
-          email: email,
-          password: pass,
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _errorMessage = _formatErrorMessage(e.toString()));
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isEmailLoading = false);
       }
     }
   }
@@ -719,87 +659,7 @@ class _AuthScreenState extends State<AuthScreen> {
             textAlign: TextAlign.center,
             style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, height: 1.4),
           ),
-          const SizedBox(height: 22),
-
-          // Auth Mode Segment Switcher
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: const Color(0xFF0F172A),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFF334155), width: 1),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: InkWell(
-                    onTap: () => setState(() => _authTabIndex = 0),
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 9),
-                      decoration: BoxDecoration(
-                        color: _authTabIndex == 0 ? const Color(0xFF4F46E5) : Colors.transparent,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.bolt_rounded,
-                            size: 16,
-                            color: _authTabIndex == 0 ? Colors.white : const Color(0xFF94A3B8),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'One-Tap Social',
-                            style: TextStyle(
-                              color: _authTabIndex == 0 ? Colors.white : const Color(0xFF94A3B8),
-                              fontWeight: _authTabIndex == 0 ? FontWeight.bold : FontWeight.w500,
-                              fontSize: 12.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: InkWell(
-                    onTap: () => setState(() => _authTabIndex = 1),
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 9),
-                      decoration: BoxDecoration(
-                        color: _authTabIndex == 1 ? const Color(0xFF4F46E5) : Colors.transparent,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.email_outlined,
-                            size: 15,
-                            color: _authTabIndex == 1 ? Colors.white : const Color(0xFF94A3B8),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Email & Pass (In-App)',
-                            style: TextStyle(
-                              color: _authTabIndex == 1 ? Colors.white : const Color(0xFF94A3B8),
-                              fontWeight: _authTabIndex == 1 ? FontWeight.bold : FontWeight.w500,
-                              fontSize: 12.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 20),
+          const SizedBox(height: 26),
 
           // Error Message Banner (if any)
           if (_errorMessage != null) ...[
@@ -827,9 +687,7 @@ class _AuthScreenState extends State<AuthScreen> {
             const SizedBox(height: 18),
           ],
 
-          // TAB 0: One-Tap Social (Google Native / GitHub)
-          if (_authTabIndex == 0) ...[
-            // 1. Continue with Google Button
+          // 1. Continue with Google Button
             SizedBox(
               height: 52,
               child: ElevatedButton(
@@ -951,98 +809,6 @@ class _AuthScreenState extends State<AuthScreen> {
                 ),
               ),
             ],
-          ] else ...[
-            // TAB 1: 100% Native In-App Email & Password
-            if (_isSignUpMode) ...[
-              TextField(
-                controller: _fullNameController,
-                style: const TextStyle(color: Colors.white, fontSize: 14),
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.person_outline_rounded, color: Color(0xFF818CF8), size: 18),
-                  hintText: 'Full Name',
-                  hintStyle: const TextStyle(color: Color(0xFF64748B), fontSize: 13),
-                  filled: true,
-                  fillColor: const Color(0xFF0F172A),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF334155))),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF334155))),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF818CF8), width: 1.5)),
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
-            TextField(
-              controller: _emailController,
-              keyboardType: TextInputType.emailAddress,
-              style: const TextStyle(color: Colors.white, fontSize: 14),
-              decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.email_outlined, color: Color(0xFF818CF8), size: 18),
-                hintText: 'Email address (e.g. user@gmail.com)',
-                hintStyle: const TextStyle(color: Color(0xFF64748B), fontSize: 13),
-                filled: true,
-                fillColor: const Color(0xFF0F172A),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF334155))),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF334155))),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF818CF8), width: 1.5)),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _passwordController,
-              obscureText: _obscurePassword,
-              style: const TextStyle(color: Colors.white, fontSize: 14),
-              decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.lock_outline_rounded, color: Color(0xFF818CF8), size: 18),
-                suffixIcon: IconButton(
-                  icon: Icon(_obscurePassword ? Icons.visibility_off_rounded : Icons.visibility_rounded, color: const Color(0xFF64748B), size: 18),
-                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                ),
-                hintText: 'Password (min 6 characters)',
-                hintStyle: const TextStyle(color: Color(0xFF64748B), fontSize: 13),
-                filled: true,
-                fillColor: const Color(0xFF0F172A),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF334155))),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF334155))),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF818CF8), width: 1.5)),
-              ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              height: 48,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF4F46E5),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  elevation: 0,
-                ),
-                onPressed: _isEmailLoading ? null : _handleEmailAuth,
-                child: _isEmailLoading
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : Text(
-                        _isSignUpMode ? 'Create Account (In-App)' : 'Sign In with Email',
-                        style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold),
-                      ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Center(
-              child: TextButton(
-                onPressed: () => setState(() {
-                  _isSignUpMode = !_isSignUpMode;
-                  _errorMessage = null;
-                }),
-                child: Text(
-                  _isSignUpMode
-                      ? 'Already have an account? Sign In'
-                      : "Don't have an account? Create one now",
-                  style: const TextStyle(color: Color(0xFF818CF8), fontSize: 12.5, fontWeight: FontWeight.w600),
-                ),
-              ),
-            ),
-          ],
 
           const SizedBox(height: 24),
 

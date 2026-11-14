@@ -1050,12 +1050,15 @@ class _AppLockScreenContentState extends State<AppLockScreenContent>
     );
   }
 
-  /// User Profile Chip
+  /// User Profile Chip with actual User Picture support
   Widget _buildUserProfileChip(String profileName, String avatarLetter, AppAccentTheme accent) {
+    final avatarUrl = AuthService.avatarUrl;
+    final bool hasAvatar = avatarUrl != null && avatarUrl.trim().isNotEmpty;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A).withValues(alpha: 0.8),
+        color: const Color(0xFF0F172A).withValues(alpha: 0.85),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: const Color(0xFF1E293B), width: 1),
       ),
@@ -1063,26 +1066,34 @@ class _AppLockScreenContentState extends State<AppLockScreenContent>
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 18,
-            height: 18,
+            width: 20,
+            height: 20,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [accent.primary, const Color(0xFF38BDF8)],
+              border: Border.all(
+                color: accent.primary.withValues(alpha: 0.6),
+                width: 1,
               ),
             ),
-            child: Center(
-              child: Text(
-                avatarLetter,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+            child: ClipOval(
+              child: hasAvatar
+                  ? Image.network(
+                      avatarUrl,
+                      width: 20,
+                      height: 20,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return _buildFallbackAvatar(avatarLetter, accent);
+                      },
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return _buildFallbackAvatar(avatarLetter, accent);
+                      },
+                    )
+                  : _buildFallbackAvatar(avatarLetter, accent),
             ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 7),
           Text(
             profileName,
             style: const TextStyle(
@@ -1101,6 +1112,29 @@ class _AppLockScreenContentState extends State<AppLockScreenContent>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFallbackAvatar(String avatarLetter, AppAccentTheme accent) {
+    return Container(
+      width: 20,
+      height: 20,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          colors: [accent.primary, const Color(0xFF38BDF8)],
+        ),
+      ),
+      child: Center(
+        child: Text(
+          avatarLetter,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
     );
   }

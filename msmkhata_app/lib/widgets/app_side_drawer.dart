@@ -1,23 +1,16 @@
-import 'dart:typed_data';
 import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 import '../models/account.dart';
-import '../models/grocery_item.dart';
-import '../models/stats.dart';
 import '../services/account_service.dart';
-import '../services/admin_service.dart';
-import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/grocery_pdf_service.dart';
 import '../services/grocery_service.dart';
-import '../services/pdf_export_service.dart';
 import '../services/routine_pdf_service.dart';
 import '../services/routine_service.dart';
 import '../services/security_service.dart';
-import '../services/sync_service.dart';
 import '../services/theme_service.dart';
 import '../screens/admin_panel_screen.dart';
 import '../screens/auth_screen.dart';
@@ -25,6 +18,7 @@ import '../screens/daily_routine_screen.dart';
 import '../screens/export_statement_screen.dart';
 import '../screens/grocery_dashboard_screen.dart';
 import 'account_switcher_modal.dart';
+import 'app_lock_screen.dart';
 import 'export_backup_modal.dart';
 import 'msm_shimmer_text.dart';
 import 'theme_studio_modal.dart';
@@ -1042,114 +1036,9 @@ class AppSideDrawer extends StatelessWidget {
     );
   }
 
-  /// Simple 4-Digit MPIN Setup / Change Dialog
+  /// Unified 2-Step 4-Digit MPIN Setup Screen
   static void showPinSetupDialog(BuildContext context, AppAccentTheme accent) {
-    final pinController = TextEditingController();
-    final confirmController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-        title: Row(
-          children: [
-            Icon(Icons.lock_outline_rounded, color: accent.light, size: 22),
-            const SizedBox(width: 10),
-            const Text('Setup 4-Digit MPIN', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'App ko private aur safe rakhne ke liye 4-digit ka MPIN darj karein:',
-              style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: pinController,
-              keyboardType: TextInputType.number,
-              maxLength: 4,
-              obscureText: true,
-              style: const TextStyle(color: Colors.white, fontSize: 18, letterSpacing: 8, fontWeight: FontWeight.bold),
-              decoration: InputDecoration(
-                hintText: 'PIN',
-                hintStyle: const TextStyle(color: Color(0xFF64748B), letterSpacing: 2),
-                counterText: '',
-                filled: true,
-                fillColor: const Color(0xFF0F172A),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: accent.light)),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: confirmController,
-              keyboardType: TextInputType.number,
-              maxLength: 4,
-              obscureText: true,
-              style: const TextStyle(color: Colors.white, fontSize: 18, letterSpacing: 8, fontWeight: FontWeight.bold),
-              decoration: InputDecoration(
-                hintText: 'Confirm PIN',
-                hintStyle: const TextStyle(color: Color(0xFF64748B), letterSpacing: 2),
-                counterText: '',
-                filled: true,
-                fillColor: const Color(0xFF0F172A),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: accent.light)),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8))),
-          ),
-          if (SecurityService.hasPin)
-            TextButton(
-              onPressed: () async {
-                await SecurityService.removePin();
-                if (ctx.mounted) Navigator.pop(ctx);
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('App MPIN lock successfully remove/disable ho gaya.'),
-                      backgroundColor: Color(0xFF64748B),
-                    ),
-                  );
-                }
-              },
-              child: const Text('Remove Lock', style: TextStyle(color: Color(0xFFEF4444), fontWeight: FontWeight.bold)),
-            ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: accent.primary),
-            onPressed: () async {
-              final pin = pinController.text.trim();
-              final confirm = confirmController.text.trim();
-              if (pin.length != 4) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('PIN 4-digit ka hona chahiye.'), backgroundColor: Color(0xFFEF4444)),
-                );
-                return;
-              }
-              if (pin != confirm) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('PIN match nahi hua.'), backgroundColor: Color(0xFFEF4444)),
-                );
-                return;
-              }
-              await SecurityService.setPin(pin);
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('MPIN successfully set ho gaya!'), backgroundColor: Color(0xFF10B981)),
-              );
-            },
-            child: const Text('Save PIN', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-          ),
-        ],
-      ),
-    );
+    AppLockScreen.showSetup(context);
   }
 
   /// Drawer Footer Info & Logout
@@ -1170,7 +1059,7 @@ class AppSideDrawer extends StatelessWidget {
                 style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
               ),
               Text(
-                'v1.0.16 • Created by Mohd Salman',
+                'v1.0.17 • Created by Mohd Salman',
                 style: TextStyle(color: Color(0xFF64748B), fontSize: 9.5),
               ),
             ],

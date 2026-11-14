@@ -46,22 +46,32 @@ class AppDesktopSidebar extends StatelessWidget {
           width: width,
           decoration: BoxDecoration(
             color: const Color(0xFF0F172A).withValues(alpha: 0.96),
-            border: Border(
-              right: BorderSide(
-                color: accent.light.withValues(alpha: 0.25),
-                width: 1.2,
-              ),
-            ),
+            borderRadius: const BorderRadius.horizontal(right: Radius.circular(28)),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.35),
                 blurRadius: 18,
                 offset: const Offset(4, 0),
               ),
+              BoxShadow(
+                color: accent.glow.withValues(alpha: 0.08),
+                blurRadius: 30,
+                spreadRadius: 2,
+              ),
             ],
           ),
-          child: SafeArea(
-            child: Column(
+          child: ClipRRect(
+            borderRadius: const BorderRadius.horizontal(right: Radius.circular(28)),
+            child: CustomPaint(
+              foregroundPainter: _SidebarRightBorderPainter(
+                color: accent.light.withValues(alpha: 0.35),
+                strokeWidth: 1.5,
+                radius: 28.0,
+              ),
+              child: SafeArea(
+                top: false,
+                bottom: false,
+                child: Column(
               children: [
                 // 1. Sidebar Header (Brand / Book / Collapse Button)
                 _buildSidebarHeader(context, accent),
@@ -246,9 +256,11 @@ class AppDesktopSidebar extends StatelessWidget {
               ],
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
+    },
+  );
   }
 
   /// Top Sidebar Brand & Book Header
@@ -706,4 +718,57 @@ class AppDesktopSidebar extends StatelessWidget {
     );
   }
 }
+
+/// Paints a sleek border strictly on the right edge, curving smoothly around
+/// the top-right and bottom-right rounded corners.
+/// Top, bottom, and left edges remain completely borderless.
+class _SidebarRightBorderPainter extends CustomPainter {
+  final Color color;
+  final double strokeWidth;
+  final double radius;
+
+  const _SidebarRightBorderPainter({
+    required this.color,
+    required this.strokeWidth,
+    required this.radius,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final half = strokeWidth / 2;
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = strokeWidth
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    final path = Path();
+    // Start at top edge where the top-right corner radius begins
+    path.moveTo(size.width - radius, half);
+    // Smooth arc around the top-right corner
+    path.arcToPoint(
+      Offset(size.width - half, radius),
+      radius: Radius.circular(radius),
+      clockwise: true,
+    );
+    // Vertical line along the right edge
+    path.lineTo(size.width - half, size.height - radius);
+    // Smooth arc around the bottom-right corner
+    path.arcToPoint(
+      Offset(size.width - radius, size.height - half),
+      radius: Radius.circular(radius),
+      clockwise: true,
+    );
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(_SidebarRightBorderPainter oldDelegate) {
+    return oldDelegate.color != color ||
+        oldDelegate.strokeWidth != strokeWidth ||
+        oldDelegate.radius != radius;
+  }
+}
+
 

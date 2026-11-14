@@ -2,7 +2,6 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../models/account.dart';
 import '../models/stats.dart';
 import '../models/transaction.dart';
@@ -205,8 +204,6 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final currency = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
-
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
@@ -224,7 +221,10 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF818CF8)))
           : SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              padding: EdgeInsets.symmetric(
+                horizontal: MediaQuery.of(context).size.width < 450 ? 12 : 20,
+                vertical: 16,
+              ),
               child: Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 680),
@@ -233,66 +233,78 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
                     children: [
                       // Header Card
                       Container(
-                        padding: const EdgeInsets.all(22),
+                        padding: const EdgeInsets.all(18),
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
                             colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
-                          borderRadius: BorderRadius.circular(22),
-                          border: Border.all(color: const Color(0xFF4F46E5).withOpacity(0.4)),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: const Color(0xFF4F46E5).withValues(alpha: 0.4)),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(10),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF4F46E5).withOpacity(0.2),
-                                        borderRadius: BorderRadius.circular(12),
+                                Expanded(
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(10),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF4F46E5).withValues(alpha: 0.2),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: const Icon(Icons.print_rounded, color: Color(0xFF818CF8), size: 22),
                                       ),
-                                      child: const Icon(Icons.print_rounded, color: Color(0xFF818CF8), size: 24),
-                                    ),
-                                    const SizedBox(width: 14),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Financial Statement • ${_effectiveAccount.name}',
-                                          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Financial Statement • ${_effectiveAccount.name}',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            const SizedBox(height: 2),
+                                            const MsmShimmerText(
+                                              text: 'ORG : msm.movin 2022',
+                                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                            ),
+                                          ],
                                         ),
-                                        const MsmShimmerText(
-                                          text: 'ORG : msm.movin 2022',
-                                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
+                                const SizedBox(width: 8),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF10B981).withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(12),
+                                    color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(10),
                                     border: Border.all(color: const Color(0xFF10B981), width: 0.8),
                                   ),
                                   child: const Text(
                                     'A4 Ready',
-                                    style: TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold),
+                                    style: TextStyle(color: Color(0xFF10B981), fontSize: 10.5, fontWeight: FontWeight.bold),
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 14),
                             const Text(
                               'Generate a certified, clean A4 statement document containing executive financial summary, Mandi trade breakdown, and detailed transaction entries suitable for printing, archiving, or PDF export.',
-                              style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, height: 1.4),
+                              style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12, height: 1.4),
                             ),
                           ],
                         ),
@@ -300,17 +312,21 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
 
                       const SizedBox(height: 20),
 
-                      // A4 Sheet Preview Mock Card
+                      // A4 Sheet Preview Mock Card (Dark Glassmorphic Theme with k / L / M Format)
                       Container(
-                        padding: const EdgeInsets.all(24),
+                        padding: const EdgeInsets.all(18),
                         decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
+                          color: const Color(0xFF1E293B),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: const Color(0xFF334155),
+                            width: 1.2,
+                          ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.4),
-                              blurRadius: 20,
-                              offset: const Offset(0, 8),
+                              color: Colors.black.withValues(alpha: 0.35),
+                              blurRadius: 18,
+                              offset: const Offset(0, 6),
                             ),
                           ],
                         ),
@@ -318,61 +334,104 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(6),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF312E81),
-                                        borderRadius: BorderRadius.circular(6),
+                                Expanded(
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          gradient: const LinearGradient(
+                                            colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
+                                          ),
+                                          borderRadius: BorderRadius.circular(7),
+                                        ),
+                                        child: const Text('M', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12)),
                                       ),
-                                      child: const Text('M', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'MSMKHATA STATEMENT (${_effectiveAccount.name.toUpperCase()})',
-                                      style: const TextStyle(color: Color(0xFF1E1B4B), fontWeight: FontWeight.w900, fontSize: 13),
-                                    ),
-                                  ],
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'MSMKHATA STATEMENT (${_effectiveAccount.name.toUpperCase()})',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12.5,
+                                            letterSpacing: 0.2,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                                Text(
-                                  DateFormat('dd MMM yyyy').format(DateTime.now()),
-                                  style: const TextStyle(color: Color(0xFF64748B), fontSize: 11),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF0F172A),
+                                    borderRadius: BorderRadius.circular(7),
+                                    border: Border.all(color: const Color(0xFF334155), width: 0.8),
+                                  ),
+                                  child: Text(
+                                    DateFormat('dd MMM yyyy').format(DateTime.now()),
+                                    style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 10.5, fontWeight: FontWeight.w500),
+                                  ),
                                 ),
                               ],
                             ),
-                            const Divider(color: Color(0xFFE2E8F0), height: 24, thickness: 1),
+                            const Divider(color: Color(0xFF334155), height: 22, thickness: 1),
 
-                            // KPI Grid
+                            // KPI Grid (Dark Inset Container)
                             Container(
-                              padding: const EdgeInsets.all(12),
+                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFF8FAFC),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: const Color(0xFFCBD5E1), width: 0.8),
+                                color: const Color(0xFF0F172A),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFF334155), width: 0.8),
                               ),
                               child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceAround,
                                 children: [
-                                  _buildPreviewStat('Total Lent', currency.format(_stats?.totalReceivable ?? 0), const Color(0xFF047857)),
-                                  _buildPreviewStat('Total Borrowed', currency.format(_stats?.totalPayable ?? 0), const Color(0xFFB91C1C)),
-                                  _buildPreviewStat('Total Income', currency.format(_stats?.totalIncome ?? 0), const Color(0xFF1D4ED8)),
-                                  _buildPreviewStat('Net Position', currency.format(_stats?.netLenDenPosition ?? 0), const Color(0xFF4338CA)),
+                                  Expanded(
+                                    child: _buildPreviewStat('Total Lent', _formatKlmAmount(_stats?.totalReceivable ?? 0), const Color(0xFF34D399)),
+                                  ),
+                                  Expanded(
+                                    child: _buildPreviewStat('Total Borrowed', _formatKlmAmount(_stats?.totalPayable ?? 0), const Color(0xFFF87171)),
+                                  ),
+                                  Expanded(
+                                    child: _buildPreviewStat('Total Income', _formatKlmAmount(_stats?.totalIncome ?? 0), const Color(0xFF38BDF8)),
+                                  ),
+                                  Expanded(
+                                    child: _buildPreviewStat(
+                                      'Net Position',
+                                      _formatKlmAmount(_stats?.netLenDenPosition ?? 0),
+                                      (_stats?.netLenDenPosition ?? 0) >= 0 ? const Color(0xFF34D399) : const Color(0xFFFB7185),
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
 
-                            const SizedBox(height: 16),
-                            Text(
-                              'Statement Data: ${_transactions.length} Transactions Recorded',
-                              style: const TextStyle(color: Color(0xFF475569), fontWeight: FontWeight.bold, fontSize: 12),
+                            const SizedBox(height: 14),
+                            Row(
+                              children: [
+                                const Icon(Icons.receipt_long_rounded, color: Color(0xFF818CF8), size: 15),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    'Statement Data: ${_transactions.length} Transactions Recorded',
+                                    style: const TextStyle(color: Color(0xFFCBD5E1), fontWeight: FontWeight.w600, fontSize: 11.5),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 8),
-                            Text(
+                            const SizedBox(height: 5),
+                            const Text(
                               'Standard Paper Size: ISO 216 A4 (210 × 297 mm) • Margins: 28pt • Font: Inter Vector Typography',
-                              style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 10.5),
+                              style: TextStyle(color: Color(0xFF64748B), fontSize: 10),
                             ),
                           ],
                         ),
@@ -394,42 +453,51 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF4F46E5).withValues(alpha: 0.2),
-                                        borderRadius: BorderRadius.circular(10),
+                                Expanded(
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF4F46E5).withValues(alpha: 0.2),
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        child: const Icon(Icons.analytics_rounded, color: Color(0xFF818CF8), size: 22),
                                       ),
-                                      child: const Icon(Icons.analytics_rounded, color: Color(0xFF818CF8), size: 22),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: const [
-                                        Text(
-                                          'Full Review Report',
-                                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: const [
+                                            const Text(
+                                              'Full Review Report',
+                                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            const Text(
+                                              'Complete Financial & Analytics Audit',
+                                              style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
                                         ),
-                                        Text(
-                                          'Complete Financial & Analytics Audit',
-                                          style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
+                                const SizedBox(width: 8),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFF4F46E5).withValues(alpha: 0.2),
                                     borderRadius: BorderRadius.circular(8),
                                     border: Border.all(color: const Color(0xFF818CF8), width: 0.8),
                                   ),
-                                  child: const Text('AUDIT DOSSIER', style: TextStyle(color: Color(0xFFA5B4FC), fontSize: 10, fontWeight: FontWeight.bold)),
+                                  child: const Text('AUDIT DOSSIER', style: TextStyle(color: Color(0xFFA5B4FC), fontSize: 9.5, fontWeight: FontWeight.bold)),
                                 ),
                               ],
                             ),
@@ -448,7 +516,7 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
                                       backgroundColor: const Color(0xFF4F46E5),
                                       foregroundColor: Colors.white,
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
                                     ),
                                     onPressed: _activeAction != null ? null : () => _handleDownloadPythonPdf(mode: 'full'),
                                     icon: _activeAction == 'full_pdf'
@@ -457,10 +525,13 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
                                             height: 18,
                                             child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                                           )
-                                        : const Icon(Icons.picture_as_pdf_rounded, size: 20),
-                                    label: Text(
-                                      _activeAction == 'full_pdf' ? 'Generating Audit...' : 'Full Review PDF (With Charts)',
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                        : const Icon(Icons.picture_as_pdf_rounded, size: 18),
+                                    label: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(
+                                        _activeAction == 'full_pdf' ? 'Generating Audit...' : 'Full Review PDF (With Charts)',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -471,7 +542,7 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
                                     style: OutlinedButton.styleFrom(
                                       side: const BorderSide(color: Color(0xFF475569)),
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
                                     ),
                                     onPressed: _activeAction != null ? null : () => _handlePrintPdf(isFastMode: false),
                                     icon: _activeAction == 'full_print'
@@ -481,9 +552,12 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
                                             child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF818CF8)),
                                           )
                                         : const Icon(Icons.print_rounded, size: 18, color: Color(0xFF818CF8)),
-                                    label: Text(
-                                      _activeAction == 'full_print' ? 'Preparing...' : 'Full Print',
-                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                    label: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(
+                                        _activeAction == 'full_print' ? 'Preparing...' : 'Full Print',
+                                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -509,42 +583,51 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF10B981).withValues(alpha: 0.2),
-                                        borderRadius: BorderRadius.circular(10),
+                                Expanded(
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        child: const Icon(Icons.bolt_rounded, color: Color(0xFF10B981), size: 22),
                                       ),
-                                      child: const Icon(Icons.bolt_rounded, color: Color(0xFF10B981), size: 22),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: const [
-                                        Text(
-                                          'Fast Report',
-                                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: const [
+                                            const Text(
+                                              'Fast Report',
+                                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            const Text(
+                                              'Quick 1-2 Page Statement',
+                                              style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
                                         ),
-                                        Text(
-                                          'Quick 1-2 Page Statement',
-                                          style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
+                                const SizedBox(width: 8),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFF10B981).withValues(alpha: 0.2),
                                     borderRadius: BorderRadius.circular(8),
                                     border: Border.all(color: const Color(0xFF10B981), width: 0.8),
                                   ),
-                                  child: const Text('INSTANT SHARE', style: TextStyle(color: Color(0xFF6EE7B7), fontSize: 10, fontWeight: FontWeight.bold)),
+                                  child: const Text('INSTANT SHARE', style: TextStyle(color: Color(0xFF6EE7B7), fontSize: 9.5, fontWeight: FontWeight.bold)),
                                 ),
                               ],
                             ),
@@ -563,7 +646,7 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
                                       backgroundColor: const Color(0xFF047857),
                                       foregroundColor: Colors.white,
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
                                     ),
                                     onPressed: _activeAction != null ? null : () => _handleDownloadPythonPdf(mode: 'fast'),
                                     icon: _activeAction == 'fast_pdf'
@@ -572,10 +655,13 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
                                             height: 18,
                                             child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                                           )
-                                        : const Icon(Icons.flash_on_rounded, size: 20),
-                                    label: Text(
-                                      _activeAction == 'fast_pdf' ? 'Generating Fast...' : 'Fast Report PDF',
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                        : const Icon(Icons.flash_on_rounded, size: 18),
+                                    label: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(
+                                        _activeAction == 'fast_pdf' ? 'Generating Fast...' : 'Fast Report PDF',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -586,7 +672,7 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
                                     style: OutlinedButton.styleFrom(
                                       side: const BorderSide(color: Color(0xFF475569)),
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
                                     ),
                                     onPressed: _activeAction != null ? null : () => _handlePrintPdf(isFastMode: true),
                                     icon: _activeAction == 'fast_print'
@@ -596,9 +682,12 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
                                             child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF10B981)),
                                           )
                                         : const Icon(Icons.print_rounded, size: 18, color: Color(0xFF10B981)),
-                                    label: Text(
-                                      _activeAction == 'fast_print' ? 'Preparing...' : 'Quick Print',
-                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                    label: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(
+                                        _activeAction == 'fast_print' ? 'Preparing...' : 'Quick Print',
+                                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -632,12 +721,60 @@ class _ExportStatementScreenState extends State<ExportStatementScreen> {
     );
   }
 
+  String _formatKlmAmount(num amount) {
+    final isNegative = amount < 0;
+    final absVal = amount.abs().toDouble();
+    final sign = isNegative ? '-' : '';
+
+    if (absVal >= 1000000) {
+      // 10 Lakhs / Million+ -> M
+      final val = absVal / 1000000.0;
+      final formatted = val.toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), '');
+      return '$sign₹${formatted}M';
+    } else if (absVal >= 100000) {
+      // 1 Lakh to 9.99 Lakhs -> L
+      final val = absVal / 100000.0;
+      final formatted = val.toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), '');
+      return '$sign₹${formatted}L';
+    } else if (absVal >= 1000) {
+      // 1K to 99.9K -> k
+      final val = absVal / 1000.0;
+      final formatted = val.toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), '');
+      return '$sign₹${formatted}k';
+    } else {
+      return '$sign₹${absVal.toStringAsFixed(0)}';
+    }
+  }
+
   Widget _buildPreviewStat(String label, String value, Color color) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label, style: const TextStyle(color: Color(0xFF64748B), fontSize: 9.5)),
-        const SizedBox(height: 2),
-        Text(value, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold)),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Color(0xFF94A3B8),
+            fontSize: 9.5,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 3),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            value,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: color,
+              fontSize: 12.5,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ),
       ],
     );
   }

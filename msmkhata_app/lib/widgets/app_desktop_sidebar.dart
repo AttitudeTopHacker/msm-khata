@@ -275,13 +275,27 @@ class AppDesktopSidebar extends StatelessWidget {
             onTap: onToggleCollapse,
             borderRadius: BorderRadius.circular(10),
             child: Container(
-              padding: const EdgeInsets.all(7),
+              width: 36,
+              height: 36,
               decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: accent.light.withValues(alpha: 0.3)),
+                border: Border.all(color: accent.light.withValues(alpha: 0.4), width: 1.2),
+                boxShadow: [
+                  BoxShadow(
+                    color: accent.glow.withValues(alpha: 0.25),
+                    blurRadius: 8,
+                  ),
+                ],
               ),
-              child: Icon(Icons.keyboard_double_arrow_right_rounded, color: accent.light, size: 20),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(9),
+                child: Image.asset(
+                  'assets/icon.png',
+                  width: 36,
+                  height: 36,
+                  fit: BoxFit.cover,
+                ),
+              ),
             ),
           ),
         ),
@@ -302,18 +316,22 @@ class AppDesktopSidebar extends StatelessWidget {
                     width: 32,
                     height: 32,
                     decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: accent.primary.withValues(alpha: 0.2),
-                      border: Border.all(color: accent.light, width: 1.5),
-                    ),
-                    child: Center(
-                      child: Text(
-                        'MK',
-                        style: TextStyle(
-                          color: accent.light,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 12,
+                      borderRadius: BorderRadius.circular(9),
+                      border: Border.all(color: accent.light.withValues(alpha: 0.5), width: 1.2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: accent.glow.withValues(alpha: 0.25),
+                          blurRadius: 8,
                         ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.asset(
+                        'assets/icon.png',
+                        width: 32,
+                        height: 32,
+                        fit: BoxFit.cover,
                       ),
                     ),
                   ),

@@ -578,7 +578,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                   ? 'Borrowed'
                                   : isIncome
                                       ? 'Income'
-                                      : (item.categoryName?.isNotEmpty == true ? item.categoryName! : 'Expense');
+                                      : 'Expense';
+
+                          final badgeColor = isGiven
+                              ? const Color(0xFF10B981)
+                              : isTaken
+                                  ? const Color(0xFFEF4444)
+                                  : isIncome
+                                      ? const Color(0xFF38BDF8)
+                                      : const Color(0xFFF59E0B);
 
                           return InkWell(
                             onTap: () async {
@@ -604,7 +612,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                   Container(
                                     padding: const EdgeInsets.all(10),
                                     decoration: BoxDecoration(
-                                      color: color.withOpacity(0.15),
+                                      color: color.withValues(alpha: 0.15),
                                       shape: BoxShape.circle,
                                     ),
                                     child: Icon(
@@ -633,13 +641,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                             Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                               decoration: BoxDecoration(
-                                                color: color.withOpacity(0.15),
+                                                color: badgeColor.withValues(alpha: 0.15),
                                                 borderRadius: BorderRadius.circular(6),
                                               ),
                                               child: Text(
                                                 typeBadge,
                                                 style: TextStyle(
-                                                  color: color,
+                                                  color: badgeColor,
                                                   fontSize: 10,
                                                   fontWeight: FontWeight.bold,
                                                 ),

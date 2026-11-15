@@ -63,10 +63,14 @@ def main():
     deb_bin = deb_root / "usr" / "bin"
     deb_apps = deb_root / "usr" / "share" / "applications"
     deb_pixmaps = deb_root / "usr" / "share" / "pixmaps"
-    deb_icons_scalable = deb_root / "usr" / "share" / "icons" / "hicolor" / "scalable" / "apps"
-    deb_icons_256 = deb_root / "usr" / "share" / "icons" / "hicolor" / "256x256" / "apps"
+    icon_sizes = [16, 24, 32, 48, 64, 128, 256, 512]
+    icon_dirs = {}
+    for size in icon_sizes:
+        d = deb_root / "usr" / "share" / "icons" / "hicolor" / f"{size}x{size}" / "apps"
+        d.mkdir(parents=True, exist_ok=True)
+        icon_dirs[size] = d
 
-    for d in [deb_debian, deb_opt, deb_bin, deb_apps, deb_pixmaps, deb_icons_scalable, deb_icons_256]:
+    for d in [deb_debian, deb_opt, deb_bin, deb_apps, deb_pixmaps]:
         d.mkdir(parents=True, exist_ok=True)
 
     # Copy bundle
@@ -100,17 +104,25 @@ MimeType=x-scheme-handler/io.supabase.msmkhata;
 """)
     os.chmod(desktop, 0o644)
 
-    # Icons
-    icon_svg = ROOT / "assets" / "icon.svg"
-    icon_png = ROOT / "assets" / "icon.png"
-    if icon_svg.exists():
-        shutil.copy(icon_svg, deb_icons_scalable / "msmkhata.svg")
-        shutil.copy(icon_svg, deb_icons_scalable / "com.msmmovin.msmkhata_app.svg")
-    if icon_png.exists():
-        shutil.copy(icon_png, deb_pixmaps / "msmkhata.png")
-        shutil.copy(icon_png, deb_pixmaps / "com.msmmovin.msmkhata_app.png")
-        shutil.copy(icon_png, deb_icons_256 / "msmkhata.png")
-        shutil.copy(icon_png, deb_icons_256 / "com.msmmovin.msmkhata_app.png")
+    # Process and install official App Logo across all system resolutions
+    icon_png_src = APP_DIR / "assets" / "icon.png"
+    if icon_png_src.exists():
+        shutil.copy(icon_png_src, deb_pixmaps / "msmkhata.png")
+        shutil.copy(icon_png_src, deb_pixmaps / "com.msmmovin.msmkhata_app.png")
+        try:
+            from PIL import Image
+            src_img = Image.open(icon_png_src)
+            for size in icon_sizes:
+                resized = src_img.resize((size, size), Image.Resampling.LANCZOS)
+                target_dir = icon_dirs[size]
+                resized.save(target_dir / "msmkhata.png")
+                resized.save(target_dir / "com.msmmovin.msmkhata_app.png")
+            print("   Installed official emerald app logo across all resolutions (16px - 512px).")
+        except Exception as e:
+            print(f"   Warning: PIL resize error ({e}), copying raw PNG...")
+            for size in icon_sizes:
+                shutil.copy(icon_png_src, icon_dirs[size] / "msmkhata.png")
+                shutil.copy(icon_png_src, icon_dirs[size] / "com.msmmovin.msmkhata_app.png")
 
     # 3. Create hooks (postinst, prerm, postrm) & control
     print("\n[3/4] Creating Debian control and lifecycle hooks...")
@@ -125,10 +137,12 @@ exit 0
 """)
     os.chmod(prerm, 0o755)
 
-    # postinst
+    # postinst (Purges old legacy scalable SVG so OS immediately loads the official emerald logo)
     postinst = deb_debian / "postinst"
     postinst.write_text("""#!/bin/sh
 set -e
+rm -f /usr/share/icons/hicolor/scalable/apps/msmkhata.svg 2>/dev/null || true
+rm -f /usr/share/icons/hicolor/scalable/apps/com.msmmovin.msmkhata_app.svg 2>/dev/null || true
 if command -v gtk-update-icon-cache >/dev/null 2>&1; then
   gtk-update-icon-cache -f -t /usr/share/icons/hicolor 2>/dev/null || true
 fi

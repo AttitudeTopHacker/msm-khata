@@ -96,10 +96,10 @@ static void my_application_activate(GApplication* application) {
 
   // Set hardware and window manager minimum dimensions to prevent window shrink below usable UI layout
   GdkGeometry geometry = {};
-  geometry.min_width = 380;
+  geometry.min_width = 390;
   geometry.min_height = 600;
   gtk_window_set_geometry_hints(window, nullptr, &geometry, GDK_HINT_MIN_SIZE);
-  gtk_widget_set_size_request(GTK_WIDGET(window), 380, 600);
+  gtk_widget_set_size_request(GTK_WIDGET(window), 390, 600);
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(

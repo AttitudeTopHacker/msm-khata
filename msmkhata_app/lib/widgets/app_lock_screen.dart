@@ -681,12 +681,14 @@ class _AppLockScreenContentState extends State<AppLockScreenContent>
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       child: Column(
         children: [
-          // Balanced Top Breathing Room (Keeps logo comfortably away from top notch)
-          Spacer(flex: widget.isSetupMode ? 2 : 3),
+          // Balanced Top Breathing Room (Pushes content comfortably down away from top bar/notch)
+          Spacer(flex: widget.isSetupMode ? 3 : 5),
 
-          // Top Section: Icon + Title + Bubble Dots
+          // Top Section: Icon + Profile Chip + Title + Subtitle + Bubble Dots
           _buildMsmKhataLockBadge(accent),
           const SizedBox(height: 12),
+          _buildUserProfileChip(profileName, avatarLetter, accent),
+          const SizedBox(height: 14),
           Text(
             titleText,
             style: const TextStyle(
@@ -708,18 +710,18 @@ class _AppLockScreenContentState extends State<AppLockScreenContent>
           _buildErrorBanner(),
 
           // Balanced Space between Header & Keypad
-          const Spacer(flex: 3),
+          const Spacer(flex: 2),
 
-          // Middle Section: Tactile Circular Numeric Keypad (Cohesive Grid)
+          // Middle Section: Tactile Circular Numeric Keypad (Cohesive Grid with 20px row gap)
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               _buildKeypadRow(['1', '2', '3'], accent),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               _buildKeypadRow(['4', '5', '6'], accent),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               _buildKeypadRow(['7', '8', '9'], accent),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               _buildBottomKeypadRow(accent),
             ],
           ),
@@ -727,9 +729,7 @@ class _AppLockScreenContentState extends State<AppLockScreenContent>
           // Balanced Space between Keypad & Footer
           const Spacer(flex: 3),
 
-          // Bottom Section (Below Keypad): Profile + Shimmer Text
-          _buildUserProfileChip(profileName, avatarLetter, accent),
-          const SizedBox(height: 6),
+          // Bottom Section (Below Keypad): Shimmer Text
           const MsmShimmerText(
             text: 'ORG : msm.movin 2022',
             style: TextStyle(
@@ -738,7 +738,7 @@ class _AppLockScreenContentState extends State<AppLockScreenContent>
               letterSpacing: 1.5,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
         ],
       ),
     );
@@ -926,21 +926,21 @@ class _AppLockScreenContentState extends State<AppLockScreenContent>
     );
   }
 
-  /// Keypad Row (3 buttons centered with recommended 20px gap)
+  /// Keypad Row (3 buttons centered with 25px gap)
   Widget _buildKeypadRow(List<String> digits, AppAccentTheme accent) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         _buildKeypadButton(digits[0], accent),
-        const SizedBox(width: 20),
+        const SizedBox(width: 25),
         _buildKeypadButton(digits[1], accent),
-        const SizedBox(width: 20),
+        const SizedBox(width: 25),
         _buildKeypadButton(digits[2], accent),
       ],
     );
   }
 
-  /// Bottom Row: [Biometric/Reset] | [0] | [Backspace] (Balanced 70x70 with 20px gap)
+  /// Bottom Row: [Biometric/Reset] | [0] | [Backspace] (Balanced 70x70 with 25px gap)
   Widget _buildBottomKeypadRow(AppAccentTheme accent) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -1011,11 +1011,11 @@ class _AppLockScreenContentState extends State<AppLockScreenContent>
                   : const SizedBox.shrink()),
         ),
 
-        const SizedBox(width: 20),
+        const SizedBox(width: 25),
 
         _buildKeypadButton('0', accent),
 
-        const SizedBox(width: 20),
+        const SizedBox(width: 25),
 
         SizedBox(
           width: 70,

@@ -680,73 +680,65 @@ class _AppLockScreenContentState extends State<AppLockScreenContent>
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Top Section: Icon + Title + Bubble Dots
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(height: widget.isSetupMode ? 28 : 16),
-              _buildMsmKhataLockBadge(accent),
-              const SizedBox(height: 14),
-              Text(
-                titleText,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.3,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                subtitleText,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
-              ),
-              const SizedBox(height: 16),
-              _buildBubbleDots(accent),
-              const SizedBox(height: 8),
-              _buildErrorBanner(),
-            ],
-          ),
+          // Balanced Top Breathing Room (Keeps logo comfortably away from top notch)
+          Spacer(flex: widget.isSetupMode ? 2 : 3),
 
-          // Middle Section: Tactile Circular Numeric Keypad
-          Container(
-            constraints: const BoxConstraints(maxWidth: 300),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildKeypadRow(['1', '2', '3'], accent),
-                const SizedBox(height: 12),
-                _buildKeypadRow(['4', '5', '6'], accent),
-                const SizedBox(height: 12),
-                _buildKeypadRow(['7', '8', '9'], accent),
-                const SizedBox(height: 12),
-                _buildBottomKeypadRow(accent),
-              ],
+          // Top Section: Icon + Title + Bubble Dots
+          _buildMsmKhataLockBadge(accent),
+          const SizedBox(height: 12),
+          Text(
+            titleText,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 19,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.3,
             ),
           ),
+          const SizedBox(height: 4),
+          Text(
+            subtitleText,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+          ),
+          const SizedBox(height: 16),
+          _buildBubbleDots(accent),
+          const SizedBox(height: 6),
+          _buildErrorBanner(),
 
-          // Bottom Section (Below Keypad): Profile + Shimmer Text
+          // Balanced Space between Header & Keypad
+          const Spacer(flex: 3),
+
+          // Middle Section: Tactile Circular Numeric Keypad (Cohesive Grid)
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const SizedBox(height: 8),
-              _buildUserProfileChip(profileName, avatarLetter, accent),
-              const SizedBox(height: 6),
-              const MsmShimmerText(
-                text: 'ORG : msm.movin 2022',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.5,
-                ),
-              ),
-              const SizedBox(height: 8),
+              _buildKeypadRow(['1', '2', '3'], accent),
+              const SizedBox(height: 16),
+              _buildKeypadRow(['4', '5', '6'], accent),
+              const SizedBox(height: 16),
+              _buildKeypadRow(['7', '8', '9'], accent),
+              const SizedBox(height: 16),
+              _buildBottomKeypadRow(accent),
             ],
           ),
+
+          // Balanced Space between Keypad & Footer
+          const Spacer(flex: 3),
+
+          // Bottom Section (Below Keypad): Profile + Shimmer Text
+          _buildUserProfileChip(profileName, avatarLetter, accent),
+          const SizedBox(height: 6),
+          const MsmShimmerText(
+            text: 'ORG : msm.movin 2022',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.5,
+            ),
+          ),
+          const SizedBox(height: 8),
         ],
       ),
     );
@@ -756,8 +748,8 @@ class _AppLockScreenContentState extends State<AppLockScreenContent>
   Widget _buildMsmKhataLockBadge(AppAccentTheme accent) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
-      width: 70,
-      height: 70,
+      width: 72,
+      height: 72,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         gradient: LinearGradient(
@@ -787,14 +779,25 @@ class _AppLockScreenContentState extends State<AppLockScreenContent>
         child: Stack(
           alignment: Alignment.center,
           children: [
-            // Brand Logo M
-            Text(
-              'M',
-              style: TextStyle(
-                color: _isError ? const Color(0xFFEF4444) : accent.light,
-                fontSize: 26,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1,
+            // Official App Logo
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.asset(
+                'assets/icon.png',
+                width: 67,
+                height: 67,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Center(
+                  child: Text(
+                    'MK',
+                    style: TextStyle(
+                      color: _isError ? const Color(0xFFEF4444) : accent.light,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
               ),
             ),
 
@@ -809,6 +812,13 @@ class _AppLockScreenContentState extends State<AppLockScreenContent>
                   shape: BoxShape.circle,
                   color: _isError ? const Color(0xFFEF4444) : accent.primary,
                   border: Border.all(color: const Color(0xFF0D1424), width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.5),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
                 ),
                 child: Icon(
                   _isError ? Icons.lock_clock_rounded : Icons.lock_rounded,
@@ -916,22 +926,28 @@ class _AppLockScreenContentState extends State<AppLockScreenContent>
     );
   }
 
-  /// Keypad Row (3 buttons)
+  /// Keypad Row (3 buttons centered with recommended 20px gap)
   Widget _buildKeypadRow(List<String> digits, AppAccentTheme accent) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: digits.map((d) => _buildKeypadButton(d, accent)).toList(),
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _buildKeypadButton(digits[0], accent),
+        const SizedBox(width: 20),
+        _buildKeypadButton(digits[1], accent),
+        const SizedBox(width: 20),
+        _buildKeypadButton(digits[2], accent),
+      ],
     );
   }
 
-  /// Bottom Row: [Biometric/Reset] | [0] | [Backspace]
+  /// Bottom Row: [Biometric/Reset] | [0] | [Backspace] (Balanced 70x70 with 20px gap)
   Widget _buildBottomKeypadRow(AppAccentTheme accent) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         SizedBox(
-          width: 64,
-          height: 64,
+          width: 70,
+          height: 70,
           child: widget.isSetupMode
               ? InkWell(
                   onTap: _isChecking
@@ -945,7 +961,7 @@ class _AppLockScreenContentState extends State<AppLockScreenContent>
                             _isError = false;
                           });
                         },
-                  borderRadius: BorderRadius.circular(32),
+                  borderRadius: BorderRadius.circular(35),
                   child: Container(
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
@@ -957,7 +973,7 @@ class _AppLockScreenContentState extends State<AppLockScreenContent>
                         'Reset',
                         style: TextStyle(
                           color: Color(0xFF94A3B8),
-                          fontSize: 11,
+                          fontSize: 12,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -967,7 +983,7 @@ class _AppLockScreenContentState extends State<AppLockScreenContent>
               : ((_isMobile && SecurityService.isBiometricEnabled)
                   ? InkWell(
                       onTap: _isChecking ? null : _triggerBiometricAuth,
-                      borderRadius: BorderRadius.circular(32),
+                      borderRadius: BorderRadius.circular(35),
                       child: Container(
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
@@ -995,14 +1011,18 @@ class _AppLockScreenContentState extends State<AppLockScreenContent>
                   : const SizedBox.shrink()),
         ),
 
+        const SizedBox(width: 20),
+
         _buildKeypadButton('0', accent),
 
+        const SizedBox(width: 20),
+
         SizedBox(
-          width: 64,
-          height: 64,
+          width: 70,
+          height: 70,
           child: InkWell(
             onTap: _isChecking ? null : _onBackspace,
-            borderRadius: BorderRadius.circular(32),
+            borderRadius: BorderRadius.circular(35),
             child: Container(
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
@@ -1013,7 +1033,7 @@ class _AppLockScreenContentState extends State<AppLockScreenContent>
                 child: Icon(
                   Icons.backspace_outlined,
                   color: Color(0xFF94A3B8),
-                  size: 22,
+                  size: 24,
                 ),
               ),
             ),
@@ -1023,14 +1043,14 @@ class _AppLockScreenContentState extends State<AppLockScreenContent>
     );
   }
 
-  /// Single Numeric Keypad Button
+  /// Single Numeric Keypad Button (Standard 70x70 Proportions)
   Widget _buildKeypadButton(String digit, AppAccentTheme accent) {
     return InkWell(
       onTap: _isChecking ? null : () => _onNumberTap(digit),
-      borderRadius: BorderRadius.circular(32),
+      borderRadius: BorderRadius.circular(35),
       child: Container(
-        width: 64,
-        height: 64,
+        width: 70,
+        height: 70,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: const Color(0xFF1E293B).withValues(alpha: 0.65),
@@ -1041,7 +1061,7 @@ class _AppLockScreenContentState extends State<AppLockScreenContent>
             digit,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 22,
+              fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
           ),

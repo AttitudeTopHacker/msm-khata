@@ -17,17 +17,15 @@ import '../widgets/app_desktop_sidebar.dart';
 import '../widgets/shimmer_loading.dart';
 import '../widgets/sync_status_badge.dart';
 import 'add_transaction_screen.dart';
-import 'admin_panel_screen.dart';
 import 'auth_screen.dart';
-import 'export_statement_screen.dart';
 import 'history_screen.dart';
-import '../widgets/export_backup_modal.dart';
 import '../widgets/msm_shimmer_text.dart';
 import '../widgets/transaction_detail_sheet.dart';
 import '../services/connectivity_service.dart';
 import '../services/sync_service.dart';
 import '../services/budget_service.dart';
-import '../services/theme_service.dart';
+import '../widgets/animated_currency_text.dart';
+import '../widgets/category_icon_helper.dart';
 
 class DashboardScreen extends StatefulWidget {
   final ValueChanged<int>? onNavigateToTab;
@@ -40,6 +38,7 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final ScrollController _scrollController = ScrollController();
   late Future<DashboardStats> _statsFuture;
   late Future<List<TransactionItem>> _transactionsFuture;
   bool _isSyncing = false;
@@ -73,6 +72,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void dispose() {
     AccountService.activeAccountNotifier.removeListener(_onAccountChanged);
     SyncService.dataVersion.removeListener(_onDataVersionChanged);
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -105,7 +105,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() => _isSyncing = true);
     // Refresh connectivity state on data refresh
     ConnectivityService.checkNow();
-    final activeId = AccountService.activeAccountNotifier.value.id;
     final stats = _getStats();
     final txs = SyncService.syncTransactions(limit: 100, offset: 0);
     setState(() {
@@ -161,7 +160,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final currency = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
     final isWideDesktop = _isDesktopPlatform && MediaQuery.of(context).size.width >= 850;
 
     final dashboardScrollContent = AdaptiveRefreshIndicator(
@@ -170,6 +168,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       strokeWidth: 2.5,
       onRefresh: _refreshData,
       child: SingleChildScrollView(
+        controller: _scrollController,
         physics: AdaptiveRefreshIndicator.scrollPhysics(),
         padding: EdgeInsets.symmetric(
           horizontal: isWideDesktop ? 22 : 18,
@@ -427,7 +426,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           final activeAccount = AccountService.activeAccountNotifier.value;
                           final allItems = snapshot.data ?? [];
                           final items = allItems.where((t) {
-                            final itemAccountId = t.accountId ?? 'main';
+                            final itemAccountId = t.accountId;
                             return itemAccountId == activeAccount.id;
                           }).toList();
 
@@ -463,17 +462,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             separatorBuilder: (_, __) => const SizedBox(height: 8),
                             itemBuilder: (context, index) {
                               final item = items[index];
-                              final isGiven = item.type == 'GIVEN';
-                              final isTaken = item.type == 'TAKEN';
-                              final isIncome = item.type == 'INCOME';
-
-                              final color = isGiven
-                                  ? const Color(0xFF10B981)
-                                  : isTaken
-                                      ? const Color(0xFFEF4444)
-                                      : isIncome
-                                          ? const Color(0xFF38BDF8)
-                                          : const Color(0xFFF59E0B);
+                              final visual = CategoryIconHelper.getVisual(
+                                categoryName: item.categoryName,
+                                type: item.type,
+                                categoryColorHex: item.categoryColor,
+                              );
+                              final color = visual.color;
 
                               return Material(
                                 color: Colors.transparent,
@@ -505,13 +499,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                             shape: BoxShape.circle,
                                           ),
                                           child: Icon(
-                                            isGiven
-                                                ? Icons.arrow_outward_rounded
-                                                : isTaken
-                                                    ? Icons.arrow_downward_rounded
-                                                    : isIncome
-                                                        ? Icons.account_balance_wallet_rounded
-                                                        : Icons.receipt_rounded,
+                                            visual.icon,
                                             color: color,
                                             size: 20,
                                           ),
@@ -562,8 +550,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         Column(
                                           crossAxisAlignment: CrossAxisAlignment.end,
                                           children: [
-                                            Text(
-                                              isPrivate ? '••••••' : currency.format(item.amount),
+                                            AnimatedCurrencyText(
+                                              value: item.amount,
+                                              isPrivate: isPrivate,
                                               style: TextStyle(
                                                 color: color,
                                                 fontWeight: FontWeight.bold,
@@ -600,12 +589,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     },
                   ),
                   const SizedBox(height: 20),
-                  Center(
+                  const Center(
                     child: Column(
                       children: [
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
+                          children: [
                             Icon(Icons.auto_awesome, color: Color(0xFF818CF8), size: 14),
                             SizedBox(width: 6),
                             MsmShimmerText(
@@ -616,8 +605,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             Icon(Icons.auto_awesome, color: Color(0xFF38BDF8), size: 14),
                           ],
                         ),
-                        const SizedBox(height: 4),
-                        const Text(
+                        SizedBox(height: 4),
+                        Text(
                           'Multi-User Isolated Cloud Accounting System',
                           style: TextStyle(color: Color(0xFF64748B), fontSize: 11),
                         ),
@@ -676,8 +665,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ],
             ),
-            Row(
-              children: const [
+            const Row(
+              children: [
                 MsmShimmerText(
                   text: 'ORG : msm.movin 2022',
                   style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
@@ -691,6 +680,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
         actions: [
+          // Home Icon Button (Left of Side Drawer Icon)
+          Tooltip(
+            message: 'Dashboard Home',
+            child: InkWell(
+              onTap: () {
+                if (widget.onNavigateToTab != null) {
+                  widget.onNavigateToTab!(0);
+                }
+                if (_scrollController.hasClients) {
+                  _scrollController.animateTo(
+                    0,
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeOutCubic,
+                  );
+                }
+              },
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E293B).withValues(alpha: 0.7),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: const Color(0xFF334155),
+                    width: 1,
+                  ),
+                ),
+                child: const Icon(
+                  Icons.home_rounded,
+                  color: Color(0xFF818CF8),
+                  size: 20,
+                ),
+              ),
+            ),
+          ),
           // More Tools Drawer / Desktop Sidebar Toggle Button
           Tooltip(
             message: isWideDesktop

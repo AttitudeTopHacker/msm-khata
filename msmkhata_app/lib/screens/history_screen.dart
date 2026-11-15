@@ -6,6 +6,7 @@ import '../widgets/adaptive_refresh_indicator.dart';
 import '../widgets/shimmer_loading.dart';
 import '../widgets/sync_status_badge.dart';
 import '../widgets/transaction_detail_sheet.dart';
+import '../widgets/category_icon_helper.dart';
 import '../services/connectivity_service.dart';
 import 'export_statement_screen.dart';
 
@@ -564,13 +565,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           final isTaken = item.type == 'TAKEN';
                           final isIncome = item.type == 'INCOME';
 
-                          final color = isGiven
-                              ? const Color(0xFF10B981)
-                              : isTaken
-                                  ? const Color(0xFFEF4444)
-                                  : isIncome
-                                      ? const Color(0xFF38BDF8)
-                                      : const Color(0xFFF59E0B);
+                          final visual = CategoryIconHelper.getVisual(
+                            categoryName: item.categoryName,
+                            type: item.type,
+                            categoryColorHex: item.categoryColor,
+                          );
+                          final color = visual.color;
 
                           final typeBadge = isGiven
                               ? 'Lent'
@@ -578,7 +578,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                   ? 'Borrowed'
                                   : isIncome
                                       ? 'Income'
-                                      : 'Expense';
+                                      : (item.categoryName?.isNotEmpty == true ? item.categoryName! : 'Expense');
 
                           return InkWell(
                             onTap: () async {
@@ -608,13 +608,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                       shape: BoxShape.circle,
                                     ),
                                     child: Icon(
-                                      isGiven
-                                          ? Icons.arrow_outward_rounded
-                                          : isTaken
-                                              ? Icons.arrow_downward_rounded
-                                              : isIncome
-                                                  ? Icons.account_balance_wallet_rounded
-                                                  : Icons.shopping_bag_rounded,
+                                      visual.icon,
                                       color: color,
                                       size: 20,
                                     ),

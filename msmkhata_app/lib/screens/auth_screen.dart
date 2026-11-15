@@ -5,8 +5,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
 import '../widgets/msm_shimmer_text.dart';
 import '../widgets/oauth_waiting_dialog.dart';
-import 'admin_panel_screen.dart';
-import 'grocery_dashboard_screen.dart';
 import 'landing_screen.dart';
 
 class AuthScreen extends StatefulWidget {
@@ -302,9 +300,9 @@ class _AuthScreenState extends State<AuthScreen> {
       ),
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
+            constraints: BoxConstraints(maxWidth: user != null ? 390 : 520),
             child: user != null ? _buildProfileView(user) : _buildSignInCard(),
           ),
         ),
@@ -321,16 +319,16 @@ class _AuthScreenState extends State<AuthScreen> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // 1. Account Details Card
+        // 1. Account Details Card (Compact & Centered)
         Container(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
           decoration: BoxDecoration(
             color: const Color(0xFF1E293B),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: const Color(0xFF4F46E5).withOpacity(0.4), width: 1.2),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: const Color(0xFF4F46E5).withValues(alpha: 0.4), width: 1.2),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF4F46E5).withOpacity(0.12),
+                color: const Color(0xFF4F46E5).withValues(alpha: 0.12),
                 blurRadius: 24,
                 offset: const Offset(0, 8),
               ),
@@ -339,65 +337,68 @@ class _AuthScreenState extends State<AuthScreen> {
           child: Column(
             children: [
               CircleAvatar(
-                radius: 42,
-                backgroundColor: const Color(0xFF4F46E5).withOpacity(0.25),
+                radius: 38,
+                backgroundColor: const Color(0xFF4F46E5).withValues(alpha: 0.25),
                 backgroundImage: avatar != null ? NetworkImage(avatar) : null,
                 child: avatar == null
                     ? Text(
                         name.isNotEmpty ? name[0].toUpperCase() : 'U',
-                        style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Color(0xFF818CF8)),
+                        style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF818CF8)),
                       )
                     : null,
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 12),
               Text(
                 name,
-                style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
               ),
               const SizedBox(height: 3),
               Text(
                 email.isNotEmpty ? email : 'Signed in via OAuth',
-                style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12.5),
+                textAlign: TextAlign.center,
               ),
               const SizedBox(height: 14),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 8,
+                runSpacing: 6,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF10B981).withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFF10B981), width: 0.8),
+                      color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.8), width: 0.8),
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.cloud_done_rounded, color: Color(0xFF10B981), size: 15),
-                        SizedBox(width: 6),
+                        Icon(Icons.cloud_done_rounded, color: Color(0xFF10B981), size: 14),
+                        SizedBox(width: 5),
                         Text(
                           'Cloud Sync Active',
-                          style: TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold),
+                          style: TextStyle(color: Color(0xFF10B981), fontSize: 10.5, fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF818CF8).withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFF818CF8), width: 0.8),
+                      color: const Color(0xFF818CF8).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFF818CF8).withValues(alpha: 0.8), width: 0.8),
                     ),
-                    child: Row(
+                    child: const Row(
                       mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Icon(Icons.auto_awesome, color: Color(0xFF818CF8), size: 14),
+                      children: [
+                        Icon(Icons.auto_awesome, color: Color(0xFF818CF8), size: 13),
                         SizedBox(width: 5),
                         MsmShimmerText(
                           text: 'ORG : msm.movin 2022',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
@@ -408,136 +409,7 @@ class _AuthScreenState extends State<AuthScreen> {
           ),
         ),
 
-        // Administrator Control Panel Entry Point (Exclusive to mohdsalman4151@gmail.com)
-        if (AuthService.isAdmin) ...[
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1E293B),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFFF59E0B), width: 1.4),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFFF59E0B).withOpacity(0.12),
-                  blurRadius: 16,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF59E0B).withOpacity(0.18),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.admin_panel_settings_rounded, color: Color(0xFFF59E0B), size: 24),
-                ),
-                const SizedBox(width: 14),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Administrator Control Panel',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
-                      ),
-                      SizedBox(height: 2),
-                      Text(
-                        'User governance, suspension, and policy controllers',
-                        style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 10),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFF59E0B),
-                    foregroundColor: Colors.black,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  ),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const AdminPanelScreen()),
-                    );
-                  },
-                  child: const Text('Open Panel', style: TextStyle(fontWeight: FontWeight.bold)),
-                ),
-              ],
-            ),
-          ),
-        ],
-
-        // Dedicated Grocery & Dukan Khata Entry Point (Separate World / Isolated Ledger)
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1E293B),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: const Color(0xFF10B981).withOpacity(0.5), width: 1.3),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF10B981).withOpacity(0.08),
-                blurRadius: 16,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF10B981).withOpacity(0.18),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.storefront_rounded, color: Color(0xFF10B981), size: 24),
-              ),
-              const SizedBox(width: 14),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Grocery & Dukan Khata',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      'Dukan udhaar & payments (Kirana, sabzi, dawa)',
-                      style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF10B981),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                ),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const GroceryDashboardScreen()),
-                  );
-                },
-                icon: const Icon(Icons.menu_book_rounded, size: 16),
-                label: const Text('Open Khata', style: TextStyle(fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 24),
+        const SizedBox(height: 20),
 
         // 2. Return to Dashboard Button (Desktop) / Home Page Button (Mobile APK)
         Builder(
@@ -548,7 +420,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
             return SizedBox(
               width: double.infinity,
-              height: 48,
+              height: 46,
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF4F46E5),
@@ -570,19 +442,19 @@ class _AuthScreenState extends State<AuthScreen> {
                 icon: Icon(isMobile ? Icons.home_rounded : Icons.dashboard_rounded, size: 18),
                 label: Text(
                   isMobile ? 'Home Page' : 'Return to Dashboard',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
                 ),
               ),
             );
           },
         ),
 
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
 
         // 3. Sign Out Button
         SizedBox(
           width: double.infinity,
-          height: 48,
+          height: 46,
           child: OutlinedButton.icon(
             style: OutlinedButton.styleFrom(
               side: const BorderSide(color: Color(0xFFEF4444), width: 1.2),
@@ -592,7 +464,7 @@ class _AuthScreenState extends State<AuthScreen> {
             icon: const Icon(Icons.logout_rounded, color: Color(0xFFEF4444), size: 18),
             label: const Text(
               'Sign Out',
-              style: TextStyle(color: Color(0xFFEF4444), fontWeight: FontWeight.bold, fontSize: 14),
+              style: TextStyle(color: Color(0xFFEF4444), fontWeight: FontWeight.bold, fontSize: 13.5),
             ),
           ),
         ),

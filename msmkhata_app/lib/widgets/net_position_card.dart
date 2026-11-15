@@ -55,57 +55,51 @@ class NetPositionCard extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Wrap(
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              spacing: 8,
-                              runSpacing: 4,
-                              children: [
-                                const Text(
-                                  'Net Ledger Position',
-                                  style: TextStyle(
-                                    color: Color(0xFFC7D2FE),
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: 0.5,
-                                  ),
+                            const Text(
+                              'Net Ledger Position',
+                              style: TextStyle(
+                                color: Color(0xFFC7D2FE),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            const SizedBox(height: 5),
+                            // Net Balance chip: theek Net Ledger Position ke niche, aur Lene & dene ke baad ke upper
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF10B981).withValues(alpha: 0.18),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: const Color(0xFF34D399).withValues(alpha: 0.4),
+                                  width: 0.8,
                                 ),
-                                // Chota sa Net Balance chip theek text ke side me
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF10B981).withValues(alpha: 0.18),
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(
-                                      color: const Color(0xFF34D399).withValues(alpha: 0.4),
-                                      width: 0.8,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Text(
+                                    'Net Balance: ',
+                                    style: TextStyle(
+                                      color: Color(0xFF34D399),
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
                                     ),
                                   ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Text(
-                                        'Net Balance: ',
-                                        style: TextStyle(
-                                          color: Color(0xFF34D399),
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      AnimatedCurrencyText(
-                                        value: finalNetBalance,
-                                        isPrivate: isPrivate,
-                                        style: const TextStyle(
-                                          color: Color(0xFF34D399),
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
+                                  AnimatedCurrencyText(
+                                    value: finalNetBalance,
+                                    isPrivate: isPrivate,
+                                    style: const TextStyle(
+                                      color: Color(0xFF34D399),
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                            const SizedBox(height: 3),
+                            const SizedBox(height: 4),
                             Row(
                               children: [
                                 const Text(

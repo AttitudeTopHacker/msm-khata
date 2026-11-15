@@ -19,6 +19,7 @@ import '../widgets/sync_status_badge.dart';
 import 'add_transaction_screen.dart';
 import 'auth_screen.dart';
 import 'history_screen.dart';
+import 'landing_screen.dart';
 import '../widgets/msm_shimmer_text.dart';
 import '../widgets/transaction_detail_sheet.dart';
 import '../services/connectivity_service.dart';
@@ -340,7 +341,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               _buildActionButton(
                                 label: 'Lent',
                                 sub: 'Money Given',
-                                color: const Color(0xFF10B981),
+                                color: const Color(0xFF38BDF8),
                                 icon: Icons.call_made_rounded,
                                 onTap: () => _openAddTransaction('GIVEN', availableBalance: stats.netAccountBalance),
                               ),
@@ -348,7 +349,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               _buildActionButton(
                                 label: 'Borrowed',
                                 sub: 'Money Taken',
-                                color: const Color(0xFFEF4444),
+                                color: const Color(0xFFF59E0B),
                                 icon: Icons.call_received_rounded,
                                 onTap: () => _openAddTransaction('TAKEN', availableBalance: stats.netAccountBalance),
                               ),
@@ -462,6 +463,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             separatorBuilder: (_, __) => const SizedBox(height: 8),
                             itemBuilder: (context, index) {
                               final item = items[index];
+                              final isIncome = item.type == 'INCOME';
+                              final isExpense = item.type == 'EXPENSE';
+                              final isTaken = item.type == 'TAKEN';
+                              final isGiven = item.type == 'GIVEN';
+
+                              final amountColor = isIncome
+                                  ? const Color(0xFF10B981)
+                                  : isExpense
+                                      ? const Color(0xFFEF4444)
+                                      : isTaken
+                                          ? const Color(0xFFF59E0B)
+                                          : (isGiven ? const Color(0xFF38BDF8) : const Color(0xFF94A3B8));
+
+                              final amountPrefix = isIncome ? '+₹' : (isExpense ? '-₹' : '₹');
+
                               final visual = CategoryIconHelper.getVisual(
                                 categoryName: item.categoryName,
                                 type: item.type,
@@ -552,9 +568,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                           children: [
                                             AnimatedCurrencyText(
                                               value: item.amount,
+                                              prefix: amountPrefix,
                                               isPrivate: isPrivate,
                                               style: TextStyle(
-                                                color: color,
+                                                color: amountColor,
                                                 fontWeight: FontWeight.bold,
                                                 fontSize: 16,
                                               ),
@@ -682,19 +699,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
         actions: [
           // Home Icon Button (Left of Side Drawer Icon)
           Tooltip(
-            message: 'Dashboard Home',
+            message: 'Home Page & Overview',
             child: InkWell(
               onTap: () {
-                if (widget.onNavigateToTab != null) {
-                  widget.onNavigateToTab!(0);
-                }
-                if (_scrollController.hasClients) {
-                  _scrollController.animateTo(
-                    0,
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeOutCubic,
-                  );
-                }
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const LandingScreen(isViewingFromDashboard: true),
+                  ),
+                );
               },
               borderRadius: BorderRadius.circular(10),
               child: Container(

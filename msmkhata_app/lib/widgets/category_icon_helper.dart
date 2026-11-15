@@ -293,23 +293,23 @@ class CategoryIconHelper {
     if (typeUpper == 'GIVEN') {
       return const CategoryVisual(
         icon: Icons.arrow_outward_rounded,
-        color: Color(0xFF10B981),
+        color: Color(0xFF38BDF8), // Lent: Sky Blue
       );
     } else if (typeUpper == 'TAKEN') {
       return const CategoryVisual(
         icon: Icons.arrow_downward_rounded,
-        color: Color(0xFFEF4444),
+        color: Color(0xFFF59E0B), // Borrowed: Amber Orange (Previous Expense color)
       );
     } else if (typeUpper == 'INCOME') {
       return const CategoryVisual(
         icon: Icons.account_balance_wallet_rounded,
-        color: Color(0xFF38BDF8),
+        color: Color(0xFF10B981), // Income: Green
       );
     }
 
     return const CategoryVisual(
       icon: Icons.receipt_rounded,
-      color: Color(0xFFF59E0B),
+      color: Color(0xFFEF4444), // Expense: Red
     );
   }
 }

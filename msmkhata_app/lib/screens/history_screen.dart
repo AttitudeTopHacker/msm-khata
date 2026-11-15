@@ -328,10 +328,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 child: Row(
                   children: [
                     _buildTypeChip('ALL', 'All'),
-                    _buildTypeChip('GIVEN', 'Lent', color: const Color(0xFF10B981)),
-                    _buildTypeChip('TAKEN', 'Borrowed', color: const Color(0xFFEF4444)),
-                    _buildTypeChip('EXPENSE', 'Expense', color: const Color(0xFFF59E0B)),
-                    _buildTypeChip('INCOME', 'Income', color: const Color(0xFF38BDF8)),
+                    _buildTypeChip('GIVEN', 'Lent', color: const Color(0xFF38BDF8)),
+                    _buildTypeChip('TAKEN', 'Borrowed', color: const Color(0xFFF59E0B)),
+                    _buildTypeChip('EXPENSE', 'Expense', color: const Color(0xFFEF4444)),
+                    _buildTypeChip('INCOME', 'Income', color: const Color(0xFF10B981)),
                   ],
                 ),
               ),
@@ -581,12 +581,22 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                       : 'Expense';
 
                           final badgeColor = isGiven
-                              ? const Color(0xFF10B981)
+                              ? const Color(0xFF38BDF8)
                               : isTaken
-                                  ? const Color(0xFFEF4444)
+                                  ? const Color(0xFFF59E0B)
                                   : isIncome
-                                      ? const Color(0xFF38BDF8)
-                                      : const Color(0xFFF59E0B);
+                                      ? const Color(0xFF10B981)
+                                      : const Color(0xFFEF4444);
+
+                          final amountColor = isIncome
+                              ? const Color(0xFF10B981)
+                              : (isTaken
+                                  ? const Color(0xFFF59E0B)
+                                  : (isGiven ? const Color(0xFF38BDF8) : const Color(0xFFEF4444)));
+
+                          final formattedAmount = isIncome
+                              ? '+${currency.format(item.amount)}'
+                              : (item.type == 'EXPENSE' ? '-${currency.format(item.amount)}' : currency.format(item.amount));
 
                           return InkWell(
                             onTap: () async {
@@ -690,9 +700,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                     crossAxisAlignment: CrossAxisAlignment.end,
                                     children: [
                                       Text(
-                                        currency.format(item.amount),
+                                        formattedAmount,
                                         style: TextStyle(
-                                          color: color,
+                                          color: amountColor,
                                           fontWeight: FontWeight.bold,
                                           fontSize: 16,
                                         ),

@@ -339,12 +339,12 @@ class _TransactionDetailSheetState extends State<TransactionDetailSheet> {
     final isIncome = _item.type == 'INCOME';
 
     final color = isGiven
-        ? const Color(0xFF10B981)
+        ? const Color(0xFF38BDF8)
         : isTaken
-            ? const Color(0xFFEF4444)
+            ? const Color(0xFFF59E0B)
             : isIncome
-                ? const Color(0xFF38BDF8)
-                : const Color(0xFFF59E0B);
+                ? const Color(0xFF10B981)
+                : const Color(0xFFEF4444);
 
     final typeLabel = isGiven
         ? 'Money Lent (To Receive)'
@@ -421,7 +421,9 @@ class _TransactionDetailSheetState extends State<TransactionDetailSheet> {
 
           // Amount
           Text(
-            currency.format(_item.amount),
+            isIncome
+                ? '+${currency.format(_item.amount)}'
+                : (_item.type == 'EXPENSE' ? '-${currency.format(_item.amount)}' : currency.format(_item.amount)),
             style: TextStyle(color: color, fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: -0.5),
           ),
           const SizedBox(height: 4),

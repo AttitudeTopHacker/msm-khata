@@ -1059,7 +1059,7 @@ class AppSideDrawer extends StatelessWidget {
                 style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
               ),
               Text(
-                'v1.0.17 • Created by Mohd Salman',
+                'v1.0.20 • Created by Mohd Salman',
                 style: TextStyle(color: Color(0xFF64748B), fontSize: 9.5),
               ),
             ],
@@ -1070,12 +1070,59 @@ class AppSideDrawer extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               minimumSize: Size.zero,
             ),
-            onPressed: () async {
-              Navigator.pop(context);
-              await AuthService.signOut();
+            onPressed: () {
+              _confirmSignOut(context);
             },
             icon: const Icon(Icons.logout_rounded, size: 14),
             label: const Text('Sign Out', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmSignOut(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(22),
+          side: const BorderSide(color: Color(0xFF334155), width: 1),
+        ),
+        title: const Row(
+          children: [
+            Icon(Icons.logout_rounded, color: Color(0xFFEF4444), size: 22),
+            SizedBox(width: 10),
+            Text(
+              'Confirm Sign Out',
+              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        content: const Text(
+          'Are you sure you want to sign out from your MsmKhata account?\n\nYour ledger entries, contacts, and balances will remain safe and synchronised in your isolated cloud database.',
+          style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Stay Signed In', style: TextStyle(color: Color(0xFF94A3B8))),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFEF4444),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              elevation: 0,
+            ),
+            onPressed: () async {
+              Navigator.of(ctx).pop();
+              Navigator.of(context).pop();
+              await AuthService.signOut();
+            },
+            icon: const Icon(Icons.logout_rounded, size: 16),
+            label: const Text('Sign Out', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),

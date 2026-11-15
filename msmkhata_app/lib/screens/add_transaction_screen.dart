@@ -1283,10 +1283,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  _typeChip('GIVEN', 'Lent', const Color(0xFF10B981), Icons.call_made_rounded),
-                  _typeChip('TAKEN', 'Borrowed', const Color(0xFFEF4444), Icons.call_received_rounded),
-                  _typeChip('EXPENSE', 'Expense', const Color(0xFFF59E0B), Icons.shopping_bag_outlined),
-                  _typeChip('INCOME', 'Income', const Color(0xFF38BDF8), Icons.trending_up_rounded),
+                  _typeChip('GIVEN', 'Lent', const Color(0xFF38BDF8), Icons.call_made_rounded),
+                  _typeChip('TAKEN', 'Borrowed', const Color(0xFFF59E0B), Icons.call_received_rounded),
+                  _typeChip('EXPENSE', 'Expense', const Color(0xFFEF4444), Icons.shopping_bag_outlined),
+                  _typeChip('INCOME', 'Income', const Color(0xFF10B981), Icons.trending_up_rounded),
                 ],
               ),
             ),

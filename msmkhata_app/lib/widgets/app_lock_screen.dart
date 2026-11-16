@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -52,6 +53,8 @@ class AppLockScreen extends StatefulWidget {
 class _AppLockScreenState extends State<AppLockScreen> with WidgetsBindingObserver {
   DateTime? _inactiveStartTime;
   Timer? _inactiveLockTimer;
+  Timer? _desktopSleepHeartbeatTimer;
+  DateTime? _lastDesktopHeartbeat;
 
   bool get _isMobile =>
       !kIsWeb &&
@@ -62,12 +65,48 @@ class _AppLockScreenState extends State<AppLockScreen> with WidgetsBindingObserv
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
+    // Desktop Sleep / Screen Lock Heartbeat Monitor
+    if (!_isMobile) {
+      _lastDesktopHeartbeat = DateTime.now();
+      _desktopSleepHeartbeatTimer = Timer.periodic(const Duration(seconds: 2), (t) async {
+        if (!SecurityService.isPinEnabled && !SecurityService.hasPin) return;
+        if (SecurityService.isAppLocked) return;
+        if (SecurityService.isExternalAuthInProgress || SecurityService.isPinSetupInProgress) return;
+
+        final now = DateTime.now();
+
+        // 1. Detect System Sleep / Suspend / Laptop Lid Close
+        // When system goes to sleep, timers pause. Upon waking up, the elapsed time jump >= 5s.
+        if (_lastDesktopHeartbeat != null) {
+          final diff = now.difference(_lastDesktopHeartbeat!).inSeconds;
+          if (diff >= 5) {
+            SecurityService.lockApp();
+            _lastDesktopHeartbeat = now;
+            return;
+          }
+        }
+        _lastDesktopHeartbeat = now;
+
+        // 2. Detect Linux Screen Lock / Screensaver (e.g. Super + L or Display Screen Saver)
+        if (!kIsWeb && defaultTargetPlatform == TargetPlatform.linux) {
+          try {
+            final res = await Process.run('cinnamon-screensaver-command', ['-q']);
+            if (res.exitCode == 0 && res.stdout.toString().toLowerCase().contains('is active')) {
+              SecurityService.lockApp();
+              return;
+            }
+          } catch (_) {}
+        }
+      });
+    }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _inactiveLockTimer?.cancel();
+    _desktopSleepHeartbeatTimer?.cancel();
     super.dispose();
   }
 
@@ -83,40 +122,51 @@ class _AppLockScreenState extends State<AppLockScreen> with WidgetsBindingObserv
       return;
     }
 
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
-      // 1. Mobile app minimized / moved to background, or Desktop window minimized/hidden:
-      // Lock immediately!
-      _inactiveLockTimer?.cancel();
-      _inactiveStartTime = null;
-      SecurityService.lockApp();
-    } else if (state == AppLifecycleState.inactive) {
-      // 2. Mobile screen turned off (Power button / screen timeout) OR Desktop window lost focus:
-      _inactiveStartTime = DateTime.now();
-      _inactiveLockTimer?.cancel();
-
-      // Proactively trigger lock after a short threshold so screen-off locks even while screen is black
-      final threshold = _isMobile
-          ? const Duration(milliseconds: 350)
-          : const Duration(milliseconds: 800);
-
-      _inactiveLockTimer = Timer(threshold, () {
-        if (mounted) {
-          SecurityService.lockApp();
-        }
-      });
-    } else if (state == AppLifecycleState.resumed) {
-      // 3. User turned screen back on OR brought desktop window back to focus:
-      _inactiveLockTimer?.cancel();
-      if (_inactiveStartTime != null) {
-        final elapsed = DateTime.now().difference(_inactiveStartTime!);
+    if (_isMobile) {
+      // =======================================================================
+      // MOBILE LIFECYCLE (Power Button / Screen Timeout / Home / App Switcher)
+      // =======================================================================
+      if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
+        _inactiveLockTimer?.cancel();
         _inactiveStartTime = null;
-
-        final minThreshold = _isMobile
-            ? const Duration(milliseconds: 250)
-            : const Duration(milliseconds: 600);
-
-        if (elapsed >= minThreshold) {
-          SecurityService.lockApp();
+        SecurityService.lockApp();
+      } else if (state == AppLifecycleState.inactive) {
+        _inactiveStartTime = DateTime.now();
+        _inactiveLockTimer?.cancel();
+        _inactiveLockTimer = Timer(const Duration(milliseconds: 350), () {
+          if (mounted) {
+            SecurityService.lockApp();
+          }
+        });
+      } else if (state == AppLifecycleState.resumed) {
+        _inactiveLockTimer?.cancel();
+        if (_inactiveStartTime != null) {
+          final elapsed = DateTime.now().difference(_inactiveStartTime!);
+          _inactiveStartTime = null;
+          if (elapsed >= const Duration(milliseconds: 250)) {
+            SecurityService.lockApp();
+          }
+        }
+      }
+    } else {
+      // =======================================================================
+      // DESKTOP LIFECYCLE (Smooth Multitasking: No locking on simple window blur)
+      // Lock ONLY on:
+      // - App Startup (initial login)
+      // - System Sleep / Suspend (detected by heartbeat)
+      // - Screen Off / Lock Screen (detected by screensaver command)
+      // - Long Inactivity (5+ minutes away from desktop window)
+      // =======================================================================
+      if (state == AppLifecycleState.inactive || state == AppLifecycleState.hidden) {
+        _inactiveStartTime ??= DateTime.now();
+      } else if (state == AppLifecycleState.resumed) {
+        if (_inactiveStartTime != null) {
+          final elapsed = DateTime.now().difference(_inactiveStartTime!);
+          _inactiveStartTime = null;
+          // Only auto-lock if user was away from desktop app for more than 5 minutes
+          if (elapsed >= const Duration(minutes: 5)) {
+            SecurityService.lockApp();
+          }
         }
       }
     }

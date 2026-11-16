@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/account.dart';
 import '../models/grocery_item.dart';
 import '../models/stats.dart';
 import '../services/api_service.dart';
@@ -41,6 +40,9 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
   bool _isBackingUp = false;
   String? _backupStatusMessage;
   bool _hasGoogleAuth = false;
+  String? _connectedGoogleEmail;
+  String? _connectedGoogleName;
+  String? _connectedGoogleAvatar;
   Set<String> _selectedAccountKeys = {};
 
   @override
@@ -53,6 +55,9 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
     try {
       final token = await AuthService.getGoogleAccessToken();
       final prefs = await SharedPreferences.getInstance();
+      var email = await AuthService.getGoogleDriveEmail();
+      var name = await AuthService.getGoogleDriveName();
+      var avatar = await AuthService.getGoogleDriveAvatar();
 
       final books = AccountService.accountsNotifier.value;
       final stores = GroceryService.cachedStores;
@@ -79,12 +84,31 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
         isTokenValid = await GoogleDriveDirectService.validateToken(token);
         if (!isTokenValid) {
           await AuthService.clearGoogleAccessToken();
+          email = null;
+          name = null;
+          avatar = null;
+        } else if (email == null || email.isEmpty) {
+          final profile = await GoogleDriveDirectService.getConnectedAccountProfile(token);
+          if (profile != null && profile['email'] != null && profile['email']!.isNotEmpty) {
+            email = profile['email'];
+            name = profile['name'];
+            avatar = profile['picture'];
+            await AuthService.saveGoogleAccessToken(
+              token,
+              email: email,
+              name: name,
+              avatar: avatar,
+            );
+          }
         }
       }
 
       if (mounted) {
         setState(() {
           _hasGoogleAuth = isTokenValid;
+          _connectedGoogleEmail = email;
+          _connectedGoogleName = name;
+          _connectedGoogleAvatar = avatar;
           _autoDriveBackup = prefs.getBool('gdrive_auto_backup') ?? true;
           _backupFrequency = prefs.getString('gdrive_backup_frequency') ?? 'Daily';
           _lastBackupTime = prefs.getString('gdrive_last_backup_time') ?? 'Never';
@@ -191,8 +215,8 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
           ],
         ),
         content: const Text(
-          'Google Drive backup requires authorization with your Google Account.\n\n'
-          'Would you like to connect your Google Account now to enable automatic PDF statement backups into your Drive folder?',
+          'Google Drive backup ke liye aap apna koi bhi personal ya business Google email account connect kar sakte hain (chahe wo aapke app login email se alag ho).\n\n'
+          'Ek baar connect hone par aapke sabhi financial statements aur khatas ka automated cloud backup aapke Drive folder me store hoga.',
           style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, height: 1.4),
         ),
         actions: [
@@ -201,7 +225,7 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
               Navigator.of(ctx).pop();
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Drive connection skipped. You can still export & print statements locally.'),
+                  content: Text('Drive connection cancel ho gaya. Aap local print & export use kar sakte hain.'),
                   backgroundColor: Color(0xFF64748B),
                   behavior: SnackBarBehavior.floating,
                 ),
@@ -220,10 +244,110 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
               _connectGoogleDrive();
             },
             icon: const Icon(Icons.login_rounded, size: 16),
-            label: const Text('Connect Google Account', style: TextStyle(fontWeight: FontWeight.bold)),
+            label: const Text('Choose Google Account', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _switchGoogleAccount() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.switch_account_rounded, color: Color(0xFF38BDF8), size: 22),
+            SizedBox(width: 10),
+            Text('Switch Google Account', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Text(
+          'Aap backup ke liye doosra Google account connect karna chahte hain?\n\n'
+          'Google Account Chooser khulega jisme aap apna koi bhi doosra email chunn sakte hain.',
+          style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8))),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF38BDF8),
+              foregroundColor: Colors.black,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Choose Account', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await AuthService.disconnectGoogleDrive();
+      await _connectGoogleDrive();
+    }
+  }
+
+  Future<void> _disconnectGoogleDrive() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.link_off_rounded, color: Color(0xFFEF4444), size: 22),
+            SizedBox(width: 10),
+            Text('Disconnect Google Drive?', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Text(
+          'Kya aap Google Drive cloud backup ko disconnect karna chahte hain?\n\n'
+          'Aapke Drive me pehle se uploaded files safe rahengi.',
+          style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8))),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Disconnect', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await AuthService.disconnectGoogleDrive();
+      await _loadBackupSettings();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Google Drive successfully disconnect ho gaya.'),
+            backgroundColor: Color(0xFF64748B),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _buildDefaultDriveIcon() {
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: const Color(0xFF4285F4).withValues(alpha: 0.18),
+        shape: BoxShape.circle,
+      ),
+      child: const Icon(Icons.add_to_drive_rounded, color: Color(0xFF4285F4), size: 20),
     );
   }
 
@@ -308,7 +432,6 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
     final uploadedFiles = <Map<String, String>>[];
     final failedItems = <String>[];
     bool authErrorOccurred = false;
-    String authErrorMessage = '';
 
     try {
       await UnifiedProgressModal.show(
@@ -392,7 +515,6 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
                     errStr.contains('Invalid Credentials') ||
                     errStr.contains('PERMISSION_DENIED')) {
                   authErrorOccurred = true;
-                  authErrorMessage = errStr;
                   break;
                 }
                 failedItems.add(book.name);
@@ -436,7 +558,6 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
                     errStr.contains('Invalid Credentials') ||
                     errStr.contains('PERMISSION_DENIED')) {
                   authErrorOccurred = true;
-                  authErrorMessage = errStr;
                   break;
                 }
                 failedItems.add(store.storeName);
@@ -476,7 +597,6 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
                   errStr.contains('Invalid Credentials') ||
                   errStr.contains('PERMISSION_DENIED')) {
                 authErrorOccurred = true;
-                authErrorMessage = errStr;
               } else {
                 failedItems.add('Daily Routine Diary');
               }
@@ -866,75 +986,209 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
+                    if (_hasGoogleAuth) ...[
+                      // Connected Account Card
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0F172A),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: const Color(0xFF10B981).withValues(alpha: 0.35),
+                            width: 1.2,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF4285F4).withValues(alpha: 0.18),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(Icons.add_to_drive_rounded, color: Color(0xFF4285F4), size: 24),
-                            ),
-                            const SizedBox(width: 12),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: const [
-                                Text(
-                                  'Google Drive Backup',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 15,
+                            Row(
+                              children: [
+                                ClipOval(
+                                  child: _connectedGoogleAvatar != null && _connectedGoogleAvatar!.isNotEmpty
+                                      ? Image.network(
+                                          _connectedGoogleAvatar!,
+                                          width: 38,
+                                          height: 38,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, __, ___) => _buildDefaultDriveIcon(),
+                                        )
+                                      : _buildDefaultDriveIcon(),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Flexible(
+                                            child: Text(
+                                              _connectedGoogleName ?? 'Google Drive Account',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 13,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                                              borderRadius: BorderRadius.circular(6),
+                                              border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.4), width: 0.8),
+                                            ),
+                                            child: const Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(Icons.check_circle_rounded, size: 10, color: Color(0xFF10B981)),
+                                                SizedBox(width: 3),
+                                                Text(
+                                                  'Connected',
+                                                  style: TextStyle(
+                                                    color: Color(0xFF10B981),
+                                                    fontSize: 9.5,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        _connectedGoogleEmail ?? 'Google Drive Ready',
+                                        style: const TextStyle(
+                                          color: Color(0xFF94A3B8),
+                                          fontSize: 11.5,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                SizedBox(height: 2),
-                                Text(
-                                  'PDF Statement Archival in Drive',
-                                  style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            const Divider(color: Color(0xFF1E293B), height: 1),
+                            const SizedBox(height: 6),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Destination: MsmKhata Backups/',
+                                  style: TextStyle(color: Color(0xFF64748B), fontSize: 10.5),
+                                ),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    TextButton.icon(
+                                      style: TextButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        minimumSize: Size.zero,
+                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                      onPressed: _isBackingUp ? null : _switchGoogleAccount,
+                                      icon: const Icon(Icons.switch_account_rounded, size: 13, color: Color(0xFF38BDF8)),
+                                      label: const Text(
+                                        'Switch Email',
+                                        style: TextStyle(color: Color(0xFF38BDF8), fontSize: 11, fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    TextButton.icon(
+                                      style: TextButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        minimumSize: Size.zero,
+                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                      onPressed: _isBackingUp ? null : _disconnectGoogleDrive,
+                                      icon: const Icon(Icons.link_off_rounded, size: 13, color: Color(0xFFEF4444)),
+                                      label: const Text(
+                                        'Disconnect',
+                                        style: TextStyle(color: Color(0xFFEF4444), fontSize: 11, fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
                           ],
                         ),
-                        GestureDetector(
-                          onTap: _hasGoogleAuth ? null : _showGoogleSignInPrompt,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: _hasGoogleAuth
-                                  ? const Color(0xFF10B981).withValues(alpha: 0.15)
-                                  : const Color(0xFFF59E0B).withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: _hasGoogleAuth ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
-                                width: 0.8,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
+                      ),
+                    ] else ...[
+                      // Not Connected Card
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0F172A),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0xFF334155), width: 1),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
                               children: [
-                                if (!_hasGoogleAuth) ...[
-                                  const Icon(Icons.link_rounded, size: 12, color: Color(0xFFF59E0B)),
-                                  const SizedBox(width: 4),
-                                ],
-                                Text(
-                                  _hasGoogleAuth ? 'Connected' : 'Connect Account',
-                                  style: TextStyle(
-                                    color: _hasGoogleAuth ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
-                                    fontSize: 10.5,
-                                    fontWeight: FontWeight.bold,
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF4285F4).withValues(alpha: 0.18),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(Icons.add_to_drive_rounded, color: Color(0xFF4285F4), size: 22),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: const [
+                                      Text(
+                                        'Connect Any Google Account',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13.5,
+                                        ),
+                                      ),
+                                      SizedBox(height: 2),
+                                      Text(
+                                        'Aap backup ke liye koi bhi Google email connect kar sakte hain (chahe login se alag ho)',
+                                        style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
                             ),
-                          ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 38,
+                              child: ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF4285F4),
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  elevation: 0,
+                                ),
+                                onPressed: _connectGoogleDrive,
+                                icon: const Icon(Icons.link_rounded, size: 16),
+                                label: const Text(
+                                  'Connect Google Drive Account',
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
 
                     const SizedBox(height: 16),
 

@@ -43,7 +43,31 @@ class AppLockScreen extends StatefulWidget {
   State<AppLockScreen> createState() => _AppLockScreenState();
 }
 
-class _AppLockScreenState extends State<AppLockScreen> {
+class _AppLockScreenState extends State<AppLockScreen> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // When screen turns off (power button pressed / screen timeout)
+    // or when app is minimized / moved to background:
+    // Android/iOS transitions to paused/hidden -> lock app securely!
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
+      if (SecurityService.isPinEnabled) {
+        SecurityService.lockApp();
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<bool>(
@@ -73,7 +97,7 @@ class AppLockScreenContent extends StatefulWidget {
 }
 
 class _AppLockScreenContentState extends State<AppLockScreenContent>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final FocusNode _keyboardFocusNode = FocusNode();
   late AnimationController _shakeController;
   late Animation<double> _shakeAnimation;
@@ -96,6 +120,7 @@ class _AppLockScreenContentState extends State<AppLockScreenContent>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _shakeController = AnimationController(
       duration: const Duration(milliseconds: 450),
       vsync: this,
@@ -113,9 +138,19 @@ class _AppLockScreenContentState extends State<AppLockScreenContent>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _keyboardFocusNode.dispose();
     _shakeController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // When screen turns back on and user returns to app:
+    if (state == AppLifecycleState.resumed && !widget.isSetupMode) {
+      _autoBioAttempted = false;
+      _checkAutoBiometric();
+    }
   }
 
   void _checkAutoBiometric() {

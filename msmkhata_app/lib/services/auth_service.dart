@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
 
 import 'desktop_auth_service.dart';
+import 'google_drive_service.dart';
 import 'sync_service.dart';
 import 'grocery_service.dart';
 import 'routine_service.dart';
@@ -213,16 +214,69 @@ class AuthService {
     return 'io.supabase.msmkhata://login-callback/';
   }
 
-  /// Save Google access token for Drive backup
-  static Future<void> saveGoogleAccessToken(String token) async {
+  static const String _kGoogleDriveEmailKey = 'google_drive_connected_email';
+  static const String _kGoogleDriveNameKey = 'google_drive_connected_name';
+  static const String _kGoogleDriveAvatarKey = 'google_drive_connected_avatar';
+
+  /// Save Google access token and account metadata for Drive backup
+  static Future<void> saveGoogleAccessToken(
+    String token, {
+    String? email,
+    String? name,
+    String? avatar,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('google_drive_access_token', token);
+    if (email != null && email.isNotEmpty) {
+      await prefs.setString(_kGoogleDriveEmailKey, email);
+    }
+    if (name != null && name.isNotEmpty) {
+      await prefs.setString(_kGoogleDriveNameKey, name);
+    }
+    if (avatar != null && avatar.isNotEmpty) {
+      await prefs.setString(_kGoogleDriveAvatarKey, avatar);
+    }
   }
 
-  /// Clear stored Google Drive access token (e.g. when scope is insufficient)
+  /// Get connected Google Drive email
+  static Future<String?> getGoogleDriveEmail() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_kGoogleDriveEmailKey);
+  }
+
+  /// Get connected Google Drive name
+  static Future<String?> getGoogleDriveName() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_kGoogleDriveNameKey);
+  }
+
+  /// Get connected Google Drive avatar URL
+  static Future<String?> getGoogleDriveAvatar() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_kGoogleDriveAvatarKey);
+  }
+
+  /// Clear stored Google Drive credentials
   static Future<void> clearGoogleAccessToken() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('google_drive_access_token');
+    await prefs.remove(_kGoogleDriveEmailKey);
+    await prefs.remove(_kGoogleDriveNameKey);
+    await prefs.remove(_kGoogleDriveAvatarKey);
+  }
+
+  /// Disconnect Google Drive account completely
+  static Future<void> disconnectGoogleDrive() async {
+    await clearGoogleAccessToken();
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      try {
+        final googleSignIn = GoogleSignIn(
+          clientId: ApiConfig.googleAndroidClientId,
+          serverClientId: ApiConfig.googleWebClientId,
+        );
+        await googleSignIn.signOut();
+      } catch (_) {}
+    }
   }
 
   /// Retrieve Google access token
@@ -298,8 +352,8 @@ class AuthService {
     }
   }
 
-  /// Explicitly authorize Google Drive scope for cloud backup
-  static Future<String?> authorizeGoogleDrive() async {
+  /// Explicitly authorize Google Drive scope for cloud backup with account selection
+  static Future<String?> authorizeGoogleDrive({bool forceAccountPicker = true}) async {
     try {
       if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
         final googleSignIn = GoogleSignIn(
@@ -311,12 +365,26 @@ class AuthService {
             'https://www.googleapis.com/auth/drive.file',
           ],
         );
+
+        // Sign out first so the Google Account Chooser is ALWAYS presented,
+        // allowing the user to select ANY Google email on their phone or add a new one.
+        if (forceAccountPicker) {
+          try {
+            await googleSignIn.signOut();
+          } catch (_) {}
+        }
+
         final googleUser = await googleSignIn.signIn();
         if (googleUser != null) {
           final googleAuth = await googleUser.authentication;
           final token = googleAuth.accessToken;
           if (token != null && token.isNotEmpty) {
-            await saveGoogleAccessToken(token);
+            await saveGoogleAccessToken(
+              token,
+              email: googleUser.email,
+              name: googleUser.displayName,
+              avatar: googleUser.photoUrl,
+            );
             return token;
           }
         }
@@ -331,13 +399,22 @@ class AuthService {
           OAuthProvider.google,
           redirectTo: redirect,
           scopes: 'https://www.googleapis.com/auth/drive.file',
-          queryParams: {'access_type': 'offline', 'prompt': 'consent'},
+          queryParams: {
+            'access_type': 'offline',
+            'prompt': 'select_account consent',
+          },
         );
 
         // Await loopback server to capture authorization credentials from the browser
         final token = await DesktopLoopbackAuth.waitForAuth(timeout: const Duration(minutes: 3));
         if (token != null && token.isNotEmpty) {
-          await saveGoogleAccessToken(token);
+          final profile = await GoogleDriveDirectService.getConnectedAccountProfile(token);
+          await saveGoogleAccessToken(
+            token,
+            email: profile?['email'],
+            name: profile?['name'],
+            avatar: profile?['picture'],
+          );
           return token;
         }
 
@@ -351,9 +428,22 @@ class AuthService {
         OAuthProvider.google,
         redirectTo: redirect,
         scopes: 'https://www.googleapis.com/auth/drive.file',
-        queryParams: {'access_type': 'offline', 'prompt': 'consent'},
+        queryParams: {
+          'access_type': 'offline',
+          'prompt': 'select_account consent',
+        },
       );
-      return await getGoogleAccessToken();
+      final token = await getGoogleAccessToken();
+      if (token != null && token.isNotEmpty) {
+        final profile = await GoogleDriveDirectService.getConnectedAccountProfile(token);
+        await saveGoogleAccessToken(
+          token,
+          email: profile?['email'],
+          name: profile?['name'],
+          avatar: profile?['picture'],
+        );
+      }
+      return token;
     } catch (e) {
       debugPrint('Google Drive Authorization Error: $e');
       rethrow;

@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
@@ -8,6 +7,32 @@ import 'package:http/http.dart' as http;
 class GoogleDriveDirectService {
   static const String _driveFilesEndpoint = 'https://www.googleapis.com/drive/v3/files';
   static const String _uploadEndpoint = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
+  static const String _userInfoEndpoint = 'https://www.googleapis.com/oauth2/v3/userinfo';
+
+  /// Fetches Google account profile (email, name, picture) using the Google access token
+  static Future<Map<String, String>?> getConnectedAccountProfile(String accessToken) async {
+    final clean = accessToken.trim();
+    if (clean.isEmpty || clean.startsWith('eyJ')) {
+      return null;
+    }
+    try {
+      final res = await http.get(
+        Uri.parse(_userInfoEndpoint),
+        headers: {'Authorization': 'Bearer $clean'},
+      );
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        return {
+          'email': (data['email'] as String?) ?? '',
+          'name': (data['name'] as String?) ?? '',
+          'picture': (data['picture'] as String?) ?? '',
+        };
+      }
+    } catch (e) {
+      debugPrint('Failed to fetch Google profile: $e');
+    }
+    return null;
+  }
 
   /// Checks whether Google Drive access token is valid and active.
   static Future<bool> validateToken(String accessToken) async {

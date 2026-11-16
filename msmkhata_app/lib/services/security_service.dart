@@ -21,6 +21,10 @@ class SecurityService {
 
   static String? _cachedPinHash;
   static bool _initialized = false;
+  static DateTime? _lastUnlockTime;
+  static bool isAuthenticatingBiometric = false;
+  static bool isExternalAuthInProgress = false;
+  static bool isPinSetupInProgress = false;
 
   /// Initialize security state on app startup
   static Future<void> initialize() async {
@@ -30,10 +34,11 @@ class SecurityService {
     try {
       final prefs = await SharedPreferences.getInstance();
       _cachedPinHash = prefs.getString(_kPinHashKey);
-      final pinEnabled = prefs.getBool(_kPinEnabledKey) ?? false;
+      final hasHash = _cachedPinHash != null && _cachedPinHash!.isNotEmpty;
+      final pinEnabled = prefs.getBool(_kPinEnabledKey) ?? hasHash;
       final bioEnabled = prefs.getBool(_kBiometricEnabledKey) ?? false;
 
-      isPinEnabledNotifier.value = pinEnabled && _cachedPinHash != null;
+      isPinEnabledNotifier.value = pinEnabled && hasHash;
       isBiometricEnabledNotifier.value = bioEnabled;
 
       // Lock app initially if user has PIN security enabled
@@ -105,11 +110,19 @@ class SecurityService {
   }
 
   static void unlockApp() {
+    _lastUnlockTime = DateTime.now();
     isAppLockedNotifier.value = false;
   }
 
   static void lockApp() {
-    if (isPinEnabled) {
+    if (isExternalAuthInProgress) return;
+    if (isAuthenticatingBiometric) return;
+    if (isPinSetupInProgress) return;
+    if (_lastUnlockTime != null &&
+        DateTime.now().difference(_lastUnlockTime!) < const Duration(milliseconds: 1500)) {
+      return;
+    }
+    if (isPinEnabled || hasPin) {
       isAppLockedNotifier.value = true;
     }
   }
@@ -141,6 +154,7 @@ class SecurityService {
       return false;
     }
     try {
+      isAuthenticatingBiometric = true;
       final bool? success = await _biometricChannel.invokeMethod<bool>(
         'authenticate',
         {
@@ -156,6 +170,10 @@ class SecurityService {
       return false;
     } catch (_) {
       return false;
+    } finally {
+      Future.delayed(const Duration(milliseconds: 1000), () {
+        isAuthenticatingBiometric = false;
+      });
     }
   }
 }

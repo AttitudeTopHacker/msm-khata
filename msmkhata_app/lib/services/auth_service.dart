@@ -11,6 +11,7 @@ import 'sync_service.dart';
 import 'grocery_service.dart';
 import 'routine_service.dart';
 import 'account_service.dart';
+import 'security_service.dart';
 
 class AuthService {
   static SupabaseClient get _client => Supabase.instance.client;
@@ -299,6 +300,7 @@ class AuthService {
 
   /// Sign in with Google (Uses 100% native Google Play Services bottom-sheet on Android; loopback auto-close on Desktop; Web OAuth)
   static Future<void> signInWithGoogle() async {
+    SecurityService.isExternalAuthInProgress = true;
     try {
       if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
         try {
@@ -349,11 +351,16 @@ class AuthService {
     } catch (e) {
       debugPrint('Google Sign-In Error: $e');
       rethrow;
+    } finally {
+      Future.delayed(const Duration(milliseconds: 1500), () {
+        SecurityService.isExternalAuthInProgress = false;
+      });
     }
   }
 
   /// Explicitly authorize Google Drive scope for cloud backup with account selection
   static Future<String?> authorizeGoogleDrive({bool forceAccountPicker = true}) async {
+    SecurityService.isExternalAuthInProgress = true;
     try {
       if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
         final googleSignIn = GoogleSignIn(
@@ -447,6 +454,10 @@ class AuthService {
     } catch (e) {
       debugPrint('Google Drive Authorization Error: $e');
       rethrow;
+    } finally {
+      Future.delayed(const Duration(milliseconds: 1500), () {
+        SecurityService.isExternalAuthInProgress = false;
+      });
     }
   }
 

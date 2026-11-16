@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -24,19 +25,24 @@ class AppLockScreen extends StatefulWidget {
   const AppLockScreen({super.key, required this.child});
 
   /// Opens the exact same unified screen in 2-step Setup Mode
-  static Future<bool?> showSetup(BuildContext context) {
-    return showGeneralDialog<bool>(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: 'Close Setup',
-      barrierColor: Colors.black.withValues(alpha: 0.8),
-      pageBuilder: (ctx, anim1, anim2) {
-        return const Scaffold(
-          backgroundColor: Colors.transparent,
-          body: AppLockScreenContent(isSetupMode: true),
-        );
-      },
-    );
+  static Future<bool?> showSetup(BuildContext context) async {
+    SecurityService.isPinSetupInProgress = true;
+    try {
+      return await showGeneralDialog<bool>(
+        context: context,
+        barrierDismissible: true,
+        barrierLabel: 'Close Setup',
+        barrierColor: Colors.black.withValues(alpha: 0.8),
+        pageBuilder: (ctx, anim1, anim2) {
+          return const Scaffold(
+            backgroundColor: Colors.transparent,
+            body: AppLockScreenContent(isSetupMode: true),
+          );
+        },
+      );
+    } finally {
+      SecurityService.isPinSetupInProgress = false;
+    }
   }
 
   @override
@@ -44,6 +50,14 @@ class AppLockScreen extends StatefulWidget {
 }
 
 class _AppLockScreenState extends State<AppLockScreen> with WidgetsBindingObserver {
+  DateTime? _inactiveStartTime;
+  Timer? _inactiveLockTimer;
+
+  bool get _isMobile =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
+
   @override
   void initState() {
     super.initState();
@@ -53,17 +67,57 @@ class _AppLockScreenState extends State<AppLockScreen> with WidgetsBindingObserv
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _inactiveLockTimer?.cancel();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // When screen turns off (power button pressed / screen timeout)
-    // or when app is minimized / moved to background:
-    // Android/iOS transitions to paused/hidden -> lock app securely!
+    if (!SecurityService.isPinEnabled && !SecurityService.hasPin) {
+      return;
+    }
+
+    if (SecurityService.isExternalAuthInProgress ||
+        SecurityService.isAuthenticatingBiometric ||
+        SecurityService.isPinSetupInProgress) {
+      return;
+    }
+
     if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
-      if (SecurityService.isPinEnabled) {
-        SecurityService.lockApp();
+      // 1. Mobile app minimized / moved to background, or Desktop window minimized/hidden:
+      // Lock immediately!
+      _inactiveLockTimer?.cancel();
+      _inactiveStartTime = null;
+      SecurityService.lockApp();
+    } else if (state == AppLifecycleState.inactive) {
+      // 2. Mobile screen turned off (Power button / screen timeout) OR Desktop window lost focus:
+      _inactiveStartTime = DateTime.now();
+      _inactiveLockTimer?.cancel();
+
+      // Proactively trigger lock after a short threshold so screen-off locks even while screen is black
+      final threshold = _isMobile
+          ? const Duration(milliseconds: 350)
+          : const Duration(milliseconds: 800);
+
+      _inactiveLockTimer = Timer(threshold, () {
+        if (mounted) {
+          SecurityService.lockApp();
+        }
+      });
+    } else if (state == AppLifecycleState.resumed) {
+      // 3. User turned screen back on OR brought desktop window back to focus:
+      _inactiveLockTimer?.cancel();
+      if (_inactiveStartTime != null) {
+        final elapsed = DateTime.now().difference(_inactiveStartTime!);
+        _inactiveStartTime = null;
+
+        final minThreshold = _isMobile
+            ? const Duration(milliseconds: 250)
+            : const Duration(milliseconds: 600);
+
+        if (elapsed >= minThreshold) {
+          SecurityService.lockApp();
+        }
       }
     }
   }
@@ -129,11 +183,13 @@ class _AppLockScreenContentState extends State<AppLockScreenContent>
       CurvedAnimation(parent: _shakeController, curve: Curves.easeInOut),
     );
 
-    if (!widget.isSetupMode) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_isMobile) {
+        _keyboardFocusNode.requestFocus();
+      } else if (!widget.isSetupMode) {
         _checkAutoBiometric();
-      });
-    }
+      }
+    });
   }
 
   @override
@@ -147,9 +203,13 @@ class _AppLockScreenContentState extends State<AppLockScreenContent>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // When screen turns back on and user returns to app:
-    if (state == AppLifecycleState.resumed && !widget.isSetupMode) {
-      _autoBioAttempted = false;
-      _checkAutoBiometric();
+    if (state == AppLifecycleState.resumed) {
+      if (!_isMobile) {
+        _keyboardFocusNode.requestFocus();
+      } else if (!widget.isSetupMode) {
+        _autoBioAttempted = false;
+        _checkAutoBiometric();
+      }
     }
   }
 
@@ -157,7 +217,8 @@ class _AppLockScreenContentState extends State<AppLockScreenContent>
     if (_isMobile &&
         SecurityService.isBiometricEnabled &&
         SecurityService.isAppLocked &&
-        !_autoBioAttempted) {
+        !_autoBioAttempted &&
+        !SecurityService.isAuthenticatingBiometric) {
       _autoBioAttempted = true;
       _triggerBiometricAuth();
     }
@@ -462,8 +523,11 @@ class _AppLockScreenContentState extends State<AppLockScreenContent>
   ) {
     return Center(
       child: SingleChildScrollView(
-        child: Container(
-          width: 390,
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () => _keyboardFocusNode.requestFocus(),
+          child: Container(
+            width: 390,
           margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
           padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 26),
           decoration: BoxDecoration(
@@ -611,8 +675,9 @@ class _AppLockScreenContentState extends State<AppLockScreenContent>
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   /// 4 Large Square Box Inputs for Desktop
   Widget _buildDesktopSquareBoxes(AppAccentTheme accent) {

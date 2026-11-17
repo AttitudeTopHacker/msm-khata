@@ -65,9 +65,11 @@ void main(List<String> args) async {
 
   // Initialize network monitor and offline listener
   ConnectivityService().initialize(
-    onStatusChanged: (isOnline) {
+    onStatusChanged: (isOnline) async {
+      int flushed = 0;
       if (isOnline) {
         AuthService.ensureSessionRefreshed();
+        flushed = await SyncService.syncPending();
       }
       final messenger = rootScaffoldMessengerKey.currentState;
       if (messenger != null) {
@@ -89,8 +91,10 @@ void main(List<String> args) async {
                 Expanded(
                   child: Text(
                     isOnline
-                        ? 'Internet jud gaya! MsmKhata online hai.'
-                        : 'Internet connection band hai! Kripya apna internet connection on karein.',
+                        ? (flushed > 0
+                            ? 'Internet jud gaya! $flushed offline entries cloud par sync ho gayi hain.'
+                            : 'Internet jud gaya! MsmKhata online hai.')
+                        : 'Internet connection band hai. Offline mode active (apka data safe hai).',
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,

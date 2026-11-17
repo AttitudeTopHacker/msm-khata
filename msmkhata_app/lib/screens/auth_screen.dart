@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
+import '../services/connectivity_service.dart';
 import '../widgets/msm_shimmer_text.dart';
 import '../widgets/oauth_waiting_dialog.dart';
 import 'landing_screen.dart';
@@ -269,7 +270,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = AuthService.currentUser;
+    final isAuthed = AuthService.isAuthenticated;
     final canPop = Navigator.of(context).canPop();
 
     return Scaffold(
@@ -285,7 +286,7 @@ class _AuthScreenState extends State<AuthScreen> {
               )
             : null,
         title: Text(
-          user != null ? 'My Profile' : 'MsmKhata Sign In',
+          isAuthed ? 'My Profile' : 'MsmKhata Sign In',
           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
         ),
         centerTitle: !canPop,
@@ -302,18 +303,19 @@ class _AuthScreenState extends State<AuthScreen> {
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
           child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: user != null ? 390 : 520),
-            child: user != null ? _buildProfileView(user) : _buildSignInCard(),
+            constraints: BoxConstraints(maxWidth: isAuthed ? 390 : 520),
+            child: isAuthed ? _buildProfileView() : _buildSignInCard(),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildProfileView(dynamic user) {
+  Widget _buildProfileView() {
     final avatar = AuthService.avatarUrl;
     final name = AuthService.displayName;
     final email = AuthService.email;
+    final isOnline = ConnectivityService().isOnline.value;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -339,17 +341,16 @@ class _AuthScreenState extends State<AuthScreen> {
               CircleAvatar(
                 radius: 38,
                 backgroundColor: const Color(0xFF4F46E5).withValues(alpha: 0.25),
-                backgroundImage: avatar != null ? NetworkImage(avatar) : null,
-                child: avatar == null
-                    ? Text(
-                        name.isNotEmpty ? name[0].toUpperCase() : 'U',
-                        style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF818CF8)),
-                      )
-                    : null,
+                foregroundImage: (avatar != null && avatar.isNotEmpty) ? NetworkImage(avatar) : null,
+                onForegroundImageError: (_, __) {},
+                child: Text(
+                  name.isNotEmpty ? name[0].toUpperCase() : 'U',
+                  style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF818CF8)),
+                ),
               ),
               const SizedBox(height: 12),
               Text(
-                name,
+                name.isNotEmpty ? name : 'MsmKhata User',
                 style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                 textAlign: TextAlign.center,
               ),
@@ -368,18 +369,33 @@ class _AuthScreenState extends State<AuthScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                      color: isOnline
+                          ? const Color(0xFF10B981).withValues(alpha: 0.15)
+                          : const Color(0xFFF59E0B).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.8), width: 0.8),
+                      border: Border.all(
+                        color: isOnline
+                            ? const Color(0xFF10B981).withValues(alpha: 0.8)
+                            : const Color(0xFFF59E0B).withValues(alpha: 0.8),
+                        width: 0.8,
+                      ),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.cloud_done_rounded, color: Color(0xFF10B981), size: 14),
-                        SizedBox(width: 5),
+                        Icon(
+                          isOnline ? Icons.cloud_done_rounded : Icons.cloud_off_rounded,
+                          color: isOnline ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                          size: 14,
+                        ),
+                        const SizedBox(width: 5),
                         Text(
-                          'Cloud Sync Active',
-                          style: TextStyle(color: Color(0xFF10B981), fontSize: 10.5, fontWeight: FontWeight.bold),
+                          isOnline ? 'Cloud Sync Active' : 'Offline Mode (Locally Secured)',
+                          style: TextStyle(
+                            color: isOnline ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ],
                     ),

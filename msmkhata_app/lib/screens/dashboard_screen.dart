@@ -80,9 +80,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void _onDataVersionChanged() {
     if (mounted) {
       setState(() {
-        if (SyncService.cachedStats != null) {
-          _statsFuture = Future.value(SyncService.cachedStats!);
-        }
+        final currentStats = SyncService.cachedStats ?? SyncService.recalculateStatsLocally();
+        _statsFuture = Future.value(currentStats);
         _transactionsFuture = Future.value(List.from(SyncService.cachedTransactions));
       });
     }
@@ -96,9 +95,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<DashboardStats> _getStats() async {
     final activeId = AccountService.activeAccountNotifier.value.id;
-    final s = await SyncService.syncStats();
-    if (s != null) return s;
-    return await ApiService.getDashboardStats(accountId: activeId);
+    if (ConnectivityService().isOnline.value) {
+      try {
+        final s = await SyncService.syncStats();
+        if (s != null) return s;
+        return await ApiService.getDashboardStats(accountId: activeId);
+      } catch (_) {}
+    }
+    return SyncService.cachedStats ?? SyncService.recalculateStatsLocally(accountId: activeId);
   }
 
   Future<void> _refreshData() async {
@@ -263,10 +267,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     future: _statsFuture,
                     initialData: SyncService.cachedStats,
                     builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+                      final stats = snapshot.data ?? SyncService.cachedStats ?? SyncService.recalculateStatsLocally();
+                      if (snapshot.connectionState == ConnectionState.waiting && stats == null) {
                         return const ShimmerNetPositionCard();
                       }
-                      if (snapshot.hasError) {
+                      if (stats == null && snapshot.hasError) {
                         WidgetsBinding.instance.addPostFrameCallback((_) {
                           Future.delayed(const Duration(seconds: 4), () {
                             if (mounted) _refreshData();
@@ -312,7 +317,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                         );
                       }
-                      final stats = snapshot.data!;
                       return Column(
                         children: [
                           MasterPassbookCard(

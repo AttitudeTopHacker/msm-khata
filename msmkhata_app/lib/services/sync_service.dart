@@ -43,6 +43,7 @@ class SyncService {
   static final ValueNotifier<bool> isSyncing = ValueNotifier<bool>(false);
   static final ValueNotifier<DateTime?> lastSyncTime = ValueNotifier<DateTime?>(null);
   static final ValueNotifier<int> dataVersion = ValueNotifier<int>(0);
+  static final ValueNotifier<int> pendingCountNotifier = ValueNotifier<int>(0);
 
   static bool _initialized = false;
 
@@ -58,6 +59,109 @@ class SyncService {
     bytes[8] = (bytes[8] & 0x3f) | 0x80; // Variant 10xx
     final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
     return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
+  }
+
+  /// Update the live pending offline item counter across all modules
+  static Future<int> updatePendingCount() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      int count = 0;
+      count += (prefs.getStringList(_kPendingTransactions) ?? []).length;
+      count += (prefs.getStringList(_kPendingTransactionUpdates) ?? []).length;
+      count += (prefs.getStringList(_kPendingTransactionDeletes) ?? []).length;
+      count += (prefs.getStringList(_kPendingCategories) ?? []).length;
+      count += (prefs.getStringList('msm_cache_grocery_pending_entries') ?? []).length;
+      count += (prefs.getStringList('msm_cache_grocery_pending_stores') ?? []).length;
+      count += (prefs.getStringList('msm_cache_grocery_pending_deletes') ?? []).length;
+      count += (prefs.getStringList('msm_cache_pending_routine_entries') ?? []).length;
+      count += (prefs.getStringList('msm_cache_pending_routine_deletes') ?? []).length;
+      count += (prefs.getStringList('msm_cache_pending_routine_categories') ?? []).length;
+      count += (prefs.getStringList('msm_cache_pending_routine_category_deletes') ?? []).length;
+      count += (prefs.getStringList('msm_cache_pending_account_books') ?? []).length;
+      count += (prefs.getStringList('msm_cache_pending_account_deletes') ?? []).length;
+      pendingCountNotifier.value = count;
+      return count;
+    } catch (_) {
+      return pendingCountNotifier.value;
+    }
+  }
+
+  /// Instant 0ms Local Stats Recalculation: Computes dashboard balances offline directly from local transactions cache
+  static DashboardStats recalculateStatsLocally({String? accountId}) {
+    final activeId = accountId ?? AccountService.activeAccountNotifier.value.id;
+    final filtered = cachedTransactions.where((tx) {
+      if (activeId == 'all') return true;
+      final txAid = tx.accountId ?? 'main';
+      return txAid == activeId || (activeId == 'main' && (txAid.isEmpty || txAid == 'main'));
+    }).toList();
+
+    double income = 0;
+    double expense = 0;
+    double receivable = 0;
+    double payable = 0;
+    final Map<String, double> categorySums = {};
+
+    for (final tx in filtered) {
+      final amt = tx.amount;
+      final t = tx.type.toLowerCase();
+      if (t == 'income') {
+        income += amt;
+      } else if (t == 'expense') {
+        expense += amt;
+      } else if (t == 'given' || t == 'lena' || t == 'receivable') {
+        receivable += amt;
+      } else if (t == 'taken' || t == 'diya' || t == 'payable') {
+        payable += amt;
+      }
+
+      if (t == 'expense' && tx.categoryName != null && tx.categoryName!.isNotEmpty) {
+        categorySums[tx.categoryName!] = (categorySums[tx.categoryName!] ?? 0) + amt;
+      }
+    }
+
+    final moneyIn = income + payable;
+    final moneyOut = expense + receivable;
+    final netBalance = moneyIn - moneyOut;
+    final netLenDen = receivable - payable;
+    final netSavings = income - expense;
+
+    final List<CategoryBreakdown> catList = [];
+    final totalExpenseForBreakdown = expense > 0 ? expense : 1.0;
+    categorySums.forEach((name, total) {
+      catList.add(CategoryBreakdown(
+        categoryName: name,
+        color: '#6366F1',
+        totalAmount: total,
+        percentage: (total / totalExpenseForBreakdown) * 100,
+      ));
+    });
+
+    final newStats = DashboardStats(
+      netAccountBalance: netBalance,
+      totalMoneyIn: moneyIn,
+      totalMoneyOut: moneyOut,
+      activeAccountId: activeId,
+      totalReceivable: receivable,
+      totalPayable: payable,
+      netLenDenPosition: netLenDen,
+      totalIncome: income,
+      totalExpense: expense,
+      netSavings: netSavings,
+      peopleToReceiveCount: cachedStats?.peopleToReceiveCount ?? 0,
+      peopleToPayCount: cachedStats?.peopleToPayCount ?? 0,
+      totalTransactionsCount: filtered.length,
+      categoryBreakdown: catList.isNotEmpty ? catList : (cachedStats?.categoryBreakdown ?? []),
+      topDebtors: cachedStats?.topDebtors ?? [],
+      topCreditors: cachedStats?.topCreditors ?? [],
+      monthlyTrends: cachedStats?.monthlyTrends ?? [],
+    );
+
+    cachedStats = newStats;
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.setString(_kStatsKey, jsonEncode(newStats.toJson()));
+    }).catchError((_) {});
+
+    return newStats;
   }
 
   /// Initialize local cache from persistent storage on app launch
@@ -105,6 +209,14 @@ class SyncService {
           debugPrint('Error restoring cached persons: $e');
         }
       }
+
+      // 4.5. If cached stats are missing or incomplete, calculate instantly from cached transactions
+      if (cachedStats == null && cachedTransactions.isNotEmpty) {
+        recalculateStatsLocally();
+      }
+
+      // Update pending items counter
+      await updatePendingCount();
 
       dataVersion.value++;
 
@@ -454,6 +566,7 @@ class SyncService {
       final list = prefs.getStringList(_kPendingTransactions) ?? [];
       list.add(jsonEncode(tx.toJson()));
       await prefs.setStringList(_kPendingTransactions, list);
+      await updatePendingCount();
     } catch (_) {}
   }
 
@@ -463,6 +576,7 @@ class SyncService {
       final list = prefs.getStringList(_kPendingTransactionUpdates) ?? [];
       list.add(jsonEncode(tx.toJson()));
       await prefs.setStringList(_kPendingTransactionUpdates, list);
+      await updatePendingCount();
     } catch (_) {}
   }
 
@@ -472,6 +586,7 @@ class SyncService {
       final list = prefs.getStringList(_kPendingTransactionDeletes) ?? [];
       list.add(id);
       await prefs.setStringList(_kPendingTransactionDeletes, list);
+      await updatePendingCount();
     } catch (_) {}
   }
 
@@ -482,12 +597,14 @@ class SyncService {
       final list = prefs.getStringList(_kPendingCategories) ?? [];
       list.add(jsonEncode(category.toJson()));
       await prefs.setStringList(_kPendingCategories, list);
+      await updatePendingCount();
     } catch (_) {}
   }
 
   /// Flush pending offline changes to Supabase when internet connectivity is re-established
-  static Future<void> syncPending() async {
-    if (!ConnectivityService().isOnline.value) return;
+  static Future<int> syncPending() async {
+    if (!ConnectivityService().isOnline.value) return 0;
+    int flushedCount = 0;
 
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -509,6 +626,7 @@ class SyncService {
               'color': cat.color,
               'created_at': DateTime.now().toIso8601String(),
             });
+            flushedCount++;
           } catch (e) {
             remaining.add(itemStr);
           }
@@ -541,6 +659,7 @@ class SyncService {
                 accountName: tx.accountName,
                 userId: currentUid,
               );
+              flushedCount++;
             } catch (_) {
               // Direct Supabase upsert fallback
               final row = <String, dynamic>{
@@ -560,6 +679,7 @@ class SyncService {
                 'created_at': tx.createdAt ?? DateTime.now().toIso8601String(),
               };
               await _client.from('transactions').upsert(row);
+              flushedCount++;
             }
           } catch (e) {
             remaining.add(itemStr);
@@ -592,6 +712,7 @@ class SyncService {
               if (tx.categoryId != null && _uuidRegex.hasMatch(tx.categoryId!)) 'category_id': tx.categoryId,
             };
             await _client.from('transactions').upsert(row);
+            flushedCount++;
           } catch (e) {
             remaining.add(itemStr);
           }
@@ -606,6 +727,7 @@ class SyncService {
         for (final id in pendingDeletes) {
           try {
             await _client.from('transactions').delete().eq('id', id);
+            flushedCount++;
           } catch (e) {
             remaining.add(id);
           }
@@ -614,7 +736,10 @@ class SyncService {
       }
     } catch (e) {
       debugPrint('SyncService syncPending notice: $e');
+    } finally {
+      await updatePendingCount();
     }
+    return flushedCount;
   }
 
   /// Optimistic Transaction Creation: Instantly updates local cache so UI is immediate
@@ -628,7 +753,10 @@ class SyncService {
     _sortTransactions(updated);
     cachedTransactions = updated;
 
+    // Immediately recalculate stats locally so Main Book Card updates in 0ms!
+    recalculateStatsLocally(accountId: tx.accountId);
     dataVersion.value++;
+    updatePendingCount();
 
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -638,14 +766,18 @@ class SyncService {
       );
     } catch (_) {}
 
-    // Silently recalculate stats and contacts in background
-    Future.wait([syncStats(), syncPersons()]).then((_) => dataVersion.value++);
+    // Silently recalculate stats and contacts in background if online
+    if (ConnectivityService().isOnline.value) {
+      Future.wait([syncStats(), syncPersons()]).then((_) => dataVersion.value++);
+    }
   }
 
   /// Optimistic Transaction Deletion: Instantly removes from local cache & SharedPreferences
   static void onOptimisticTransactionDeleted(String id) async {
     cachedTransactions.removeWhere((tx) => tx.id == id);
+    recalculateStatsLocally();
     dataVersion.value++;
+    updatePendingCount();
 
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -655,8 +787,10 @@ class SyncService {
       );
     } catch (_) {}
 
-    // Silently recalculate stats and contacts in background
-    Future.wait([syncStats(), syncPersons()]).then((_) => dataVersion.value++);
+    // Silently recalculate stats and contacts in background if online
+    if (ConnectivityService().isOnline.value) {
+      Future.wait([syncStats(), syncPersons()]).then((_) => dataVersion.value++);
+    }
   }
 
   /// Optimistic Transaction Update: Instantly updates item in local cache & SharedPreferences
@@ -668,7 +802,9 @@ class SyncService {
       cachedTransactions.add(tx);
     }
     _sortTransactions(cachedTransactions);
+    recalculateStatsLocally(accountId: tx.accountId);
     dataVersion.value++;
+    updatePendingCount();
 
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -678,8 +814,10 @@ class SyncService {
       );
     } catch (_) {}
 
-    // Silently recalculate stats and contacts in background
-    Future.wait([syncStats(), syncPersons()]).then((_) => dataVersion.value++);
+    // Silently recalculate stats and contacts in background if online
+    if (ConnectivityService().isOnline.value) {
+      Future.wait([syncStats(), syncPersons()]).then((_) => dataVersion.value++);
+    }
   }
 
   /// Sort transactions descending by date (tie-breaker by created_at)

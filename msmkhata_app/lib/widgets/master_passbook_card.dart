@@ -234,7 +234,7 @@ class MasterPassbookCard extends StatelessWidget {
                           const Icon(Icons.handshake_outlined, size: 13, color: Color(0xFF94A3B8)),
                           const SizedBox(width: 5),
                           const Text(
-                            'Market Lena: ',
+                            'Receivables: ',
                             style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w500),
                           ),
                           AnimatedCurrencyText(
@@ -248,7 +248,7 @@ class MasterPassbookCard extends StatelessWidget {
                       Row(
                         children: [
                           const Text(
-                            'Market Dena: ',
+                            'Payables: ',
                             style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w500),
                           ),
                           AnimatedCurrencyText(

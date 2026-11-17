@@ -77,15 +77,15 @@ class AppSideDrawer extends StatelessWidget {
                           physics: const BouncingScrollPhysics(),
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                           children: [
-                            // Section A: Business & Specialized Khatas
-                            _buildSectionLabel('BUSINESS & DUKAAN KHATA', Icons.storefront_rounded, accent),
+                            // Section A: Business & Specialized Ledgers
+                            _buildSectionLabel('BUSINESS & STORE LEDGERS', Icons.storefront_rounded, accent),
                             _buildDrawerItem(
                               context: context,
                               accent: accent,
                               icon: Icons.local_grocery_store_rounded,
                               iconColor: const Color(0xFF10B981),
-                              title: 'Grocery & Dukaan Khata',
-                              subtitle: 'Item billing, stock, and customer udhaar',
+                              title: 'Grocery & Store Ledgers',
+                              subtitle: 'Item billing, inventory, and customer credit',
                               onTap: () {
                                 Navigator.pop(context);
                                 Navigator.push(
@@ -100,7 +100,7 @@ class AppSideDrawer extends StatelessWidget {
                               icon: Icons.event_note_rounded,
                               iconColor: const Color(0xFF38BDF8),
                               title: 'Daily Routine & Work Diary',
-                              subtitle: 'Rozana kaam ka record, tareekh aur category',
+                              subtitle: 'Daily work log, dates, categories, and expenditures',
                               badge: 'NEW',
                               onTap: () {
                                 Navigator.pop(context);
@@ -159,8 +159,8 @@ class AppSideDrawer extends StatelessWidget {
                               icon: Icons.picture_as_pdf_rounded,
                               iconColor: const Color(0xFFEF4444),
                               title: 'Export PDF Statement',
-                              subtitle: 'Select account, dukaan khata or routine diary',
-                              badge: 'MULTI-KHATA',
+                              subtitle: 'Select account, store ledger or routine diary',
+                              badge: 'MULTI-BOOK',
                               onTap: () {
                                 final nav = Navigator.of(context, rootNavigator: true);
                                 Navigator.pop(context);
@@ -362,7 +362,7 @@ class AppSideDrawer extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                             ),
                             Text(
-                              activeAccount.isDefault ? 'Default Account (Primary)' : 'Isolated Khata Book',
+                              activeAccount.isDefault ? 'Default Account (Primary)' : 'Isolated Account Ledger',
                               style: TextStyle(
                                 color: accent.light,
                                 fontSize: 11,
@@ -589,7 +589,7 @@ class AppSideDrawer extends StatelessWidget {
                                     style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
                                   ),
                                   Text(
-                                    'Kis account ya book ki statement print karni hai?',
+                                    'Which account or book statement would you like to print?',
                                     style: TextStyle(color: accent.light, fontSize: 11),
                                   ),
                                 ],
@@ -625,7 +625,7 @@ class AppSideDrawer extends StatelessWidget {
                                 title: book.name,
                                 subtitle: book.isDefault
                                     ? 'Default Primary Account (Active) • Full Audit & Fast A4'
-                                    : 'Personal Isolated Khata Book • Full Audit & Fast A4',
+                                    : 'Personal Isolated Ledger Book • Full Audit & Fast A4',
                                 badge: 'A4 & AUDIT',
                                 onTap: () {
                                   Navigator.pop(ctx);
@@ -643,8 +643,8 @@ class AppSideDrawer extends StatelessWidget {
 
                       const SizedBox(height: 16),
 
-                      // Section 2: Grocery & Dukaan Khatas
-                      _buildStatementGroupHeader('🏪 GROCERY & DUKAAN KHATA', accent),
+                      // Section 2: Grocery & Store Ledgers
+                      _buildStatementGroupHeader('🏪 GROCERY & STORE LEDGERS', accent),
                       const SizedBox(height: 6),
                       if (GroceryService.cachedStores.isEmpty)
                         Container(
@@ -657,7 +657,7 @@ class AppSideDrawer extends StatelessWidget {
                             children: [
                               Icon(Icons.storefront_outlined, color: Color(0xFF64748B), size: 16),
                               SizedBox(width: 8),
-                              Text('Abhi koi dukaan khata registered nahi hai.', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                              Text('No store ledger registered yet.', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
                             ],
                           ),
                         )
@@ -671,7 +671,7 @@ class AppSideDrawer extends StatelessWidget {
                               iconColor: const Color(0xFF10B981),
                               title: store.storeName,
                               subtitle: '${store.category} • Pending Balance: ₹${store.pendingBalance.toStringAsFixed(0)}',
-                              badge: 'DUKAAN REPORT',
+                              badge: 'STORE REPORT',
                               onTap: () {
                                 Navigator.pop(ctx);
                                 UnifiedProgressModal.show(
@@ -681,7 +681,7 @@ class AppSideDrawer extends StatelessWidget {
                                   icon: Icons.storefront_rounded,
                                   iconColor: const Color(0xFF10B981),
                                   task: (progress) async {
-                                    progress.update(status: 'Loading ${store.storeName} dukaan records...');
+                                    progress.update(status: 'Loading ${store.storeName} records...');
                                     final entries = await GroceryService.fetchEntries(store.id);
 
                                     progress.update(status: 'Formatting ledger layout...');
@@ -714,7 +714,7 @@ class AppSideDrawer extends StatelessWidget {
                         icon: Icons.event_note_rounded,
                         iconColor: const Color(0xFF38BDF8),
                         title: 'Daily Routine & Work Diary Statement',
-                        subtitle: 'Rozana kaam, categories, ghante aur kharche ka complete record',
+                        subtitle: 'Comprehensive record of daily tasks, categories, hours, and expenses',
                         badge: 'WORK DIARY',
                         onTap: () {
                           Navigator.pop(ctx);
@@ -999,7 +999,7 @@ class AppSideDrawer extends StatelessWidget {
                             if (val && !SecurityService.hasPin) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text('Kripya pehle 4-digit MPIN set karein, fir Biometric enable karein.'),
+                                  content: Text('Please configure a 4-digit MPIN first before enabling biometrics.'),
                                   backgroundColor: Color(0xFFEF4444),
                                   behavior: SnackBarBehavior.floating,
                                 ),
@@ -1013,7 +1013,7 @@ class AppSideDrawer extends StatelessWidget {
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                      content: Text('Phone me koi registered Fingerprint nahi mila. Kripya phone settings me fingerprint enroll karein.'),
+                                      content: Text('No enrolled fingerprint found on this device. Please enrol a fingerprint in device settings.'),
                                       backgroundColor: Color(0xFFEF4444),
                                       behavior: SnackBarBehavior.floating,
                                     ),

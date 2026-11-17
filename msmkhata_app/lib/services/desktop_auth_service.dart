@@ -292,9 +292,9 @@ class DesktopLoopbackAuth {
 <body>
   <div class="card">
     <div class="icon-wrapper">✓</div>
-    <h1>Authorization Successful!</h1>
+    <h1>Authorisation Successful!</h1>
     <div class="tag">MsmKhata Connected</div>
-    <p>Aapka account aur Google Drive safely authorize ho gaya hai. Ab aap MsmKhata app me return kar sakte hain.</p>
+    <p>Your account and Google Drive have been authorised successfully. You may now return to the MsmKhata application.</p>
     
     <div class="status-box">
       <div class="spinner"></div>

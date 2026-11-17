@@ -148,7 +148,7 @@ class _CategoryPieChartState extends State<CategoryPieChart> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Text(
-                      'Total Kharch',
+                      'Total Expenses',
                       style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w500),
                     ),
                     const SizedBox(height: 2),

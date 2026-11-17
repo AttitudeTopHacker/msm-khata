@@ -88,16 +88,16 @@ class AppDesktopSidebar extends StatelessWidget {
                     ),
                     children: [
                       if (!isCollapsed)
-                        _buildSectionLabel('BUSINESS & KHATA', accent),
+                        _buildSectionLabel('BUSINESS & STORES', accent),
 
                       _buildSidebarItem(
                         context: context,
                         accent: accent,
                         icon: Icons.local_grocery_store_rounded,
                         iconColor: const Color(0xFF10B981),
-                        title: 'Grocery Khata',
-                        subtitle: 'Dukaan Udhaar & Jama',
-                        tooltip: 'Grocery & Dukaan Khata',
+                        title: 'Grocery Ledger',
+                        subtitle: 'Store Credit & Payments',
+                        tooltip: 'Grocery & Store Ledger',
                         onTap: () {
                           Navigator.push(
                             context,
@@ -112,7 +112,7 @@ class AppDesktopSidebar extends StatelessWidget {
                         icon: Icons.event_note_rounded,
                         iconColor: const Color(0xFF38BDF8),
                         title: 'Work Diary',
-                        subtitle: 'Rozana Kaam & Kharch',
+                        subtitle: 'Daily Routine & Expenses',
                         tooltip: 'Daily Routine & Work Diary',
                         badge: 'NEW',
                         onTap: () {

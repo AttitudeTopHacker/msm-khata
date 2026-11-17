@@ -103,7 +103,7 @@ class NetPositionCard extends StatelessWidget {
                             Row(
                               children: [
                                 const Text(
-                                  'Lene & dene ke baad: ',
+                                  'Net post-settlement: ',
                                   style: TextStyle(
                                     color: Color(0xFF94A3B8),
                                     fontSize: 11,

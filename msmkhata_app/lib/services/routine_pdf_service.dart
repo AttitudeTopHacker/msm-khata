@@ -81,7 +81,7 @@ class RoutinePdfService {
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
               pw.Text(
-                'WORK LOG ENTRIES (ROZANA KAAM RECORD)',
+                'WORK LOG ENTRIES (DAILY ACTIVITY RECORD)',
                 style: pw.TextStyle(
                   fontSize: 10,
                   fontWeight: pw.FontWeight.bold,
@@ -104,7 +104,7 @@ class RoutinePdfService {
               padding: const pw.EdgeInsets.symmetric(vertical: 24),
               alignment: pw.Alignment.center,
               child: pw.Text(
-                'Is filter ke liye koi kaam / routine entry darj nahi hai.',
+                'No routine activity entries found for this filter.',
                 style: pw.TextStyle(color: PdfColors.grey600, fontSize: 11),
               ),
             )
@@ -269,7 +269,7 @@ class RoutinePdfService {
       child: pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
         children: [
-          _buildKpiCell('TOTAL ENTRIES', '$totalCount Kaam', const PdfColor.fromInt(0xFF4F46E5), fontBold),
+          _buildKpiCell('TOTAL ENTRIES', '$totalCount tasks', const PdfColor.fromInt(0xFF4F46E5), fontBold),
           _buildKpiDivider(),
           _buildKpiCell('HOURS LOGGED', '${totalHours.toStringAsFixed(1)} hrs', const PdfColor.fromInt(0xFF0284C7), fontBold),
           _buildKpiDivider(),

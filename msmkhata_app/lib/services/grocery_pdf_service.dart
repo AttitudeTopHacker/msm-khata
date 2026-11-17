@@ -70,7 +70,7 @@ class GroceryPdfService {
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
               pw.Text(
-                'DETAILED STORE LEDGER ENTRIES (SAMAN UDHAAR & CHUKAYA)',
+                'DETAILED STORE LEDGER ENTRIES (CREDIT PURCHASES & PAYMENTS)',
                 style: pw.TextStyle(
                   font: fontBold,
                   fontSize: 10,
@@ -149,7 +149,7 @@ class GroceryPdfService {
               pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  pw.Text('GROCERY & DUKAN KHATA SUMMARY', style: pw.TextStyle(font: fontBold, fontSize: 16, color: PdfColors.blue800)),
+                  pw.Text('GROCERY & STORE LEDGER SUMMARY', style: pw.TextStyle(font: fontBold, fontSize: 16, color: PdfColors.blue800)),
                   pw.Text('Independent Store Ledger Directory', style: const pw.TextStyle(fontSize: 10, color: PdfColors.blueGrey600)),
                 ],
               ),
@@ -179,9 +179,9 @@ class GroceryPdfService {
             child: pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
               children: [
-                _buildKpiItem('Total Dukaane', '${stats.totalStores}', PdfColors.blueGrey800, fontBold),
-                _buildKpiItem('Total Udhaar Liya', currency.format(stats.totalUdhaar), PdfColors.orange800, fontBold),
-                _buildKpiItem('Total Chukaya', currency.format(stats.totalChukaya), PdfColors.green800, fontBold),
+                _buildKpiItem('Total Stores', '${stats.totalStores}', PdfColors.blueGrey800, fontBold),
+                _buildKpiItem('Total Credit Purchases', currency.format(stats.totalUdhaar), PdfColors.orange800, fontBold),
+                _buildKpiItem('Total Paid', currency.format(stats.totalChukaya), PdfColors.green800, fontBold),
                 _buildKpiItem('Net Pending Dues', currency.format(stats.netPending), PdfColors.red800, fontBold),
               ],
             ),
@@ -192,7 +192,7 @@ class GroceryPdfService {
           pw.SizedBox(height: 6),
 
           pw.TableHelper.fromTextArray(
-            headers: ['Store Name', 'Category', 'Total Udhaar', 'Total Chukaya', 'Pending Due', 'Status'],
+            headers: ['Store Name', 'Category', 'Total Credit', 'Total Paid', 'Pending Due', 'Status'],
             data: stores.map((s) => [
               s.storeName,
               s.category,
@@ -284,7 +284,7 @@ class GroceryPdfService {
               ),
               pw.SizedBox(height: 2),
               pw.Text(
-                'Dukan Khata & Store Ledger (${store.category} Store)',
+                'Store Ledger (${store.category} Store)',
                 style: const pw.TextStyle(fontSize: 9.5, color: PdfColors.blueGrey600),
               ),
             ],
@@ -322,7 +322,7 @@ class GroceryPdfService {
           pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              pw.Text('TOTAL UDHAAR LIYA', style: const pw.TextStyle(fontSize: 8, color: PdfColors.blueGrey600)),
+              pw.Text('TOTAL CREDIT PURCHASES', style: const pw.TextStyle(fontSize: 8, color: PdfColors.blueGrey600)),
               pw.SizedBox(height: 2),
               pw.Text(
                 currency.format(store.totalUdhaar),
@@ -333,7 +333,7 @@ class GroceryPdfService {
           pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              pw.Text('TOTAL CHUKAYA (PAID)', style: const pw.TextStyle(fontSize: 8, color: PdfColors.blueGrey600)),
+              pw.Text('TOTAL PAID', style: const pw.TextStyle(fontSize: 8, color: PdfColors.blueGrey600)),
               pw.SizedBox(height: 2),
               pw.Text(
                 currency.format(store.totalChukaya),
@@ -360,7 +360,7 @@ class GroceryPdfService {
               border: pw.Border.all(color: isSettled ? PdfColors.green700 : PdfColors.orange700, width: 0.8),
             ),
             child: pw.Text(
-              isSettled ? 'HISAAB CHUKTA' : 'BAAKI HAI',
+              isSettled ? 'SETTLED' : 'OUTSTANDING',
               style: pw.TextStyle(font: fontBold, fontSize: 9, color: isSettled ? PdfColors.green900 : PdfColors.orange900),
             ),
           ),
@@ -383,7 +383,7 @@ class GroceryPdfService {
     }
 
     return pw.TableHelper.fromTextArray(
-      headers: ['S.No.', 'Date & Time', 'Type', 'Kya Saman / Remarks', 'Amount (Rs.)'],
+      headers: ['S.No.', 'Date & Time', 'Type', 'Description / Items', 'Amount (Rs.)'],
       data: entries.asMap().entries.map((entry) {
         final index = entry.key + 1;
         final item = entry.value;
@@ -392,7 +392,7 @@ class GroceryPdfService {
         return [
           '$index',
           DateFormat('dd MMM yyyy, hh:mm a').format(item.entryDate),
-          isUdhaar ? 'Udhaar Saman' : 'Paise Chukaye',
+          isUdhaar ? 'Credit Purchase' : 'Payment Made',
           item.itemsDescription,
           currency.format(item.amount),
         ];
@@ -416,7 +416,7 @@ class GroceryPdfService {
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
         children: [
           pw.Text(
-            'MsmKhata — Dedicated Grocery & General Dukan Khata Statement',
+            'MsmKhata — Dedicated Grocery & General Store Ledger Statement',
             style: const pw.TextStyle(fontSize: 8, color: PdfColors.blueGrey500),
           ),
           pw.Text(

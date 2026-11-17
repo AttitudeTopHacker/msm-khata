@@ -146,7 +146,7 @@ class SecurityService {
   /// Trigger native mobile biometric prompt (Fingerprint scan)
   static Future<bool> authenticateWithBiometric({
     String title = 'MsmKhata Unlock',
-    String subtitle = 'Fingerprint scan karein app unlock karne ke liye',
+    String subtitle = 'Scan fingerprint to unlock application',
   }) async {
     if (kIsWeb) return false;
     if (defaultTargetPlatform != TargetPlatform.android &&
@@ -160,7 +160,7 @@ class SecurityService {
         {
           'title': title,
           'subtitle': subtitle,
-          'negativeButton': 'PIN Use Karein',
+          'negativeButton': 'Use MPIN',
         },
       );
       if (success == true) {

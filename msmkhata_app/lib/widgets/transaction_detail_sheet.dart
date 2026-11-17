@@ -113,7 +113,7 @@ class _TransactionDetailSheetState extends State<TransactionDetailSheet> {
               SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Aap offline hain! Date update karne ke liye internet connection zaroori hai.',
+                  'You are offline. An active internet connection is required to update the transaction date.',
                   style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                 ),
               ),
@@ -174,7 +174,7 @@ class _TransactionDetailSheetState extends State<TransactionDetailSheet> {
               SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Aap offline hain! Settlement status update karne ke liye internet connection zaroori hai.',
+                  'You are offline. An active internet connection is required to update settlement status.',
                   style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                 ),
               ),
@@ -235,7 +235,7 @@ class _TransactionDetailSheetState extends State<TransactionDetailSheet> {
               SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Aap offline hain! Ledger ko safe rakhne ke liye internet judne par hi entry delete karein.',
+                  'You are offline. To protect ledger integrity, please delete entries only when connected.',
                   style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                 ),
               ),

@@ -143,7 +143,7 @@ class _StoreLedgerScreenState extends State<StoreLedgerScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              isUdhaar ? 'Record Credit Taken (Udhaar Saman)' : 'Record Payment Made (Chukaya)',
+                              isUdhaar ? 'Record Credit Purchase' : 'Record Payment Made',
                               style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                             ),
                             Text(
@@ -175,9 +175,9 @@ class _StoreLedgerScreenState extends State<StoreLedgerScreen> {
                   ),
                   const SizedBox(height: 14),
 
-                  // "Kiya Cheez" / Items Description Input
+                  // Items Description Input
                   Text(
-                    isUdhaar ? 'Kya Saman Liya (Items Description) *' : 'Payment Remarks / Details *',
+                    isUdhaar ? 'Items Purchased / Description *' : 'Payment Remarks / Description *',
                     style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 13, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 6),
@@ -190,7 +190,7 @@ class _StoreLedgerScreenState extends State<StoreLedgerScreen> {
                         color: const Color(0xFF818CF8),
                         size: 20,
                       ),
-                      hintText: isUdhaar ? 'e.g. 2 packet doodh, chini, sabzi' : 'e.g. Cash diya, PhonePe se chukaya',
+                      hintText: isUdhaar ? 'e.g. Groceries, dairy, provisions' : 'e.g. Cash payment, Bank transfer',
                       hintStyle: const TextStyle(color: Color(0xFF64748B), fontSize: 13),
                       filled: true,
                       fillColor: const Color(0xFF0F172A),
@@ -445,7 +445,7 @@ class _StoreLedgerScreenState extends State<StoreLedgerScreen> {
               style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
             ),
             Text(
-              '${_store.category} Store Khata',
+              '${_store.category} Store Ledger',
               style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
             ),
           ],
@@ -462,7 +462,7 @@ class _StoreLedgerScreenState extends State<StoreLedgerScreen> {
                 icon: Icons.storefront_rounded,
                 iconColor: const Color(0xFF10B981),
                 task: (progress) async {
-                  progress.update(status: 'Loading ${_store.storeName} dukaan records...');
+                  progress.update(status: 'Loading ${_store.storeName} records...');
                   final entries = await GroceryService.fetchEntries(_store.id);
 
                   progress.update(status: 'Formatting ledger layout...');
@@ -517,7 +517,7 @@ class _StoreLedgerScreenState extends State<StoreLedgerScreen> {
                           ),
                           onPressed: () => _showAddEntrySheet('UDHAAR'),
                           icon: const Icon(Icons.shopping_bag_rounded, size: 18),
-                          label: const Text('+ Udhaar Saman', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          label: const Text('+ Credit Purchase', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -531,7 +531,7 @@ class _StoreLedgerScreenState extends State<StoreLedgerScreen> {
                           ),
                           onPressed: () => _showAddEntrySheet('CHUKAYA'),
                           icon: const Icon(Icons.payments_rounded, size: 18),
-                          label: const Text('+ Paise Chukaye', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          label: const Text('+ Record Payment', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                         ),
                       ),
                     ],
@@ -556,7 +556,7 @@ class _StoreLedgerScreenState extends State<StoreLedgerScreen> {
                           icon: Icons.storefront_rounded,
                           iconColor: const Color(0xFF10B981),
                           task: (progress) async {
-                            progress.update(status: 'Loading ${_store.storeName} dukaan records...');
+                            progress.update(status: 'Loading ${_store.storeName} records...');
                             final entries = await GroceryService.fetchEntries(_store.id);
 
                             progress.update(status: 'Formatting ledger layout...');
@@ -615,7 +615,7 @@ class _StoreLedgerScreenState extends State<StoreLedgerScreen> {
                           ),
                           const SizedBox(height: 4),
                           const Text(
-                            'Tap "+ Udhaar Saman" to record credit items or "+ Paise Chukaye" for payments.',
+                            'Tap "+ Credit Purchase" to record credit items or "+ Record Payment" for payments.',
                             textAlign: TextAlign.center,
                             style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
                           ),
@@ -682,7 +682,7 @@ class _StoreLedgerScreenState extends State<StoreLedgerScreen> {
                   ),
                 ),
                 child: Text(
-                  isSettled ? 'Hisaab Chukta ✅' : '₹${currency.format(_store.pendingBalance)} Baaki ⏳',
+                  isSettled ? 'Settled ✅' : '₹${currency.format(_store.pendingBalance)} Outstanding ⏳',
                   style: TextStyle(
                     color: isSettled ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
                     fontSize: 11.5,
@@ -701,7 +701,7 @@ class _StoreLedgerScreenState extends State<StoreLedgerScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Total Udhaar Liya', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5)),
+                    const Text('Total Credit Purchases', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5)),
                     const SizedBox(height: 3),
                     Text(
                       currency.format(_store.totalUdhaar),
@@ -714,7 +714,7 @@ class _StoreLedgerScreenState extends State<StoreLedgerScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Total Chukaya (Diya)', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5)),
+                    const Text('Total Paid', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5)),
                     const SizedBox(height: 3),
                     Text(
                       currency.format(_store.totalChukaya),
@@ -765,7 +765,7 @@ class _StoreLedgerScreenState extends State<StoreLedgerScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      isUdhaar ? 'Udhaar Saman' : 'Paise Chukaye',
+                      isUdhaar ? 'Credit Purchase' : 'Payment Made',
                       style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold),
                     ),
                     Text(

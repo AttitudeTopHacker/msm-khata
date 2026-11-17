@@ -63,7 +63,7 @@ class OfflineNoticeBar extends StatelessWidget {
                             Text(
                               pendingCount > 0
                                   ? '⚠️ Offline Mode ($pendingCount Pending Entries)'
-                                  : '⚠️ Internet Connection Off Hai!',
+                                  : '⚠️ Internet Connection Lost',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 13.5,
@@ -74,8 +74,8 @@ class OfflineNoticeBar extends StatelessWidget {
                             const SizedBox(height: 2),
                             Text(
                               pendingCount > 0
-                                  ? '$pendingCount entries locally safe hain. Net aate hi auto sync ho jayengi.'
-                                  : 'Kripya apna internet connection ON karein taaki ledger sync rahe.',
+                                  ? '$pendingCount entries saved locally. They will automatically synchronise when reconnected.'
+                                  : 'Please check your internet connection to keep your cloud ledger synchronised.',
                               style: const TextStyle(
                                 color: Color(0xFFFEE2E2),
                                 fontSize: 11.5,
@@ -125,8 +125,8 @@ class OfflineNoticeBar extends StatelessWidget {
                                               Expanded(
                                                 child: Text(
                                                   isNowOnline
-                                                      ? 'Internet connect ho gaya! MsmKhata online hai.'
-                                                      : 'Abhi bhi internet off hai. Kripya Wi-Fi ya Mobile Data check karein.',
+                                                      ? 'Internet reconnected. MsmKhata is online.'
+                                                      : 'Still offline. Please check your Wi-Fi or mobile data.',
                                                   style: const TextStyle(
                                                     color: Colors.white,
                                                     fontWeight: FontWeight.w600,

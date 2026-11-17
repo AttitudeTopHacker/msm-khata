@@ -117,7 +117,7 @@ class _DailyRoutineScreenState extends State<DailyRoutineScreen> {
                       style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
                     ),
                     Text(
-                      'Rozana kaam ka record aur hisab',
+                      'Daily activity record and work log',
                       style: TextStyle(color: accent.light, fontSize: 11),
                     ),
                   ],
@@ -125,14 +125,14 @@ class _DailyRoutineScreenState extends State<DailyRoutineScreen> {
                 actions: [
                   IconButton(
                     icon: const Icon(Icons.picture_as_pdf_rounded, color: Colors.white70),
-                    tooltip: 'Daily Routine PDF Print Karein',
+                    tooltip: 'Print Daily Routine PDF',
                     onPressed: () {
                       final filtered = _getFilteredEntries();
                       String dateDesc = 'All Dates';
                       if (_dateFilterMode == 'today') {
-                        dateDesc = 'Aaj • Today (${DateFormat('dd MMM').format(DateTime.now())})';
+                        dateDesc = 'Today (${DateFormat('dd MMM').format(DateTime.now())})';
                       } else if (_dateFilterMode == 'yesterday') {
-                        dateDesc = 'Kal • Yesterday';
+                        dateDesc = 'Yesterday';
                       } else if (_dateFilterMode == 'custom' && _selectedDateFilter != null) {
                         dateDesc = DateFormat('dd MMM yyyy').format(_selectedDateFilter!);
                       }
@@ -171,7 +171,7 @@ class _DailyRoutineScreenState extends State<DailyRoutineScreen> {
                   ),
                   IconButton(
                     icon: const Icon(Icons.category_rounded, color: Colors.white70),
-                    tooltip: 'Categories Manage Karein',
+                    tooltip: 'Manage Categories',
                     onPressed: () => _showManageCategoriesDialog(context, accent),
                   ),
                 ],
@@ -181,7 +181,7 @@ class _DailyRoutineScreenState extends State<DailyRoutineScreen> {
                 foregroundColor: Colors.white,
                 elevation: 6,
                 icon: const Icon(Icons.add_task_rounded, size: 20),
-                label: const Text('Kaam Darj Karein', style: TextStyle(fontWeight: FontWeight.bold)),
+                label: const Text('Log Work Entry', style: TextStyle(fontWeight: FontWeight.bold)),
                 onPressed: () => _showAddEditEntrySheet(context, accent),
               ),
               body: Column(
@@ -484,12 +484,12 @@ class _DailyRoutineScreenState extends State<DailyRoutineScreen> {
             ),
             const SizedBox(height: 16),
             const Text(
-              'Koi Kaam Darj Nahi Hai',
+              'No Routine Entries Found',
               style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 6),
             const Text(
-              'Is filter ke liye abhi koi routine entry nahi mili.\nNaya kaam log karne ke liye niche tap karein.',
+              'No routine entries found for this filter.\nTap below to log a new activity.',
               textAlign: TextAlign.center,
               style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
             ),
@@ -503,7 +503,7 @@ class _DailyRoutineScreenState extends State<DailyRoutineScreen> {
               ),
               onPressed: () => _showAddEditEntrySheet(context, accent),
               icon: const Icon(Icons.add_task_rounded, size: 18),
-              label: const Text('Naya Kaam Add Karein', style: TextStyle(fontWeight: FontWeight.bold)),
+              label: const Text('Add New Work Entry', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -660,7 +660,7 @@ class _DailyRoutineScreenState extends State<DailyRoutineScreen> {
                           if (entry.hoursSpent != null && entry.hoursSpent! > 0)
                             _buildMetaBadge(Icons.timer_outlined, '${entry.hoursSpent} hrs', const Color(0xFF38BDF8)),
                           if (entry.expense != null && entry.expense! > 0)
-                            _buildMetaBadge(Icons.currency_rupee_rounded, '₹${entry.expense!.toStringAsFixed(0)} kharch', const Color(0xFFF59E0B)),
+                            _buildMetaBadge(Icons.currency_rupee_rounded, '₹${entry.expense!.toStringAsFixed(0)} expense', const Color(0xFFF59E0B)),
                         ],
                       ),
                     ],
@@ -741,7 +741,7 @@ class _DailyRoutineScreenState extends State<DailyRoutineScreen> {
         backgroundColor: const Color(0xFF1E293B),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         title: const Text('Delete Entry?', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-        content: Text('Kya aap "${entry.title}" ko delete karna chahte hain?', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13)),
+        content: Text('Are you sure you want to delete "${entry.title}"?', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -821,7 +821,7 @@ class _DailyRoutineScreenState extends State<DailyRoutineScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          isEditing ? 'Kaam Edit Karein' : 'Naya Kaam Darj Karein',
+                          isEditing ? 'Edit Work Entry' : 'Log New Work Entry',
                           style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
                         ),
                         IconButton(
@@ -833,13 +833,13 @@ class _DailyRoutineScreenState extends State<DailyRoutineScreen> {
                     const SizedBox(height: 12),
 
                     // Title Input
-                    const Text('Kaam ka Naam / Title *', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5)),
+                    const Text('Task Title / Activity *', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5)),
                     const SizedBox(height: 6),
                     TextField(
                       controller: titleController,
                       style: const TextStyle(color: Colors.white, fontSize: 14),
                       decoration: InputDecoration(
-                        hintText: 'Jaise: Khet me paani lagaya, Market se samaan laya...',
+                        hintText: 'e.g. Field irrigation, Equipment maintenance, Procurement...',
                         hintStyle: const TextStyle(color: Color(0xFF64748B), fontSize: 13),
                         filled: true,
                         fillColor: const Color(0xFF1E293B),
@@ -914,7 +914,7 @@ class _DailyRoutineScreenState extends State<DailyRoutineScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Tareekh / Date', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5)),
+                              const Text('Date', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5)),
                               const SizedBox(height: 6),
                               InkWell(
                                 onTap: () async {
@@ -1040,7 +1040,7 @@ class _DailyRoutineScreenState extends State<DailyRoutineScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Kharch Hua? (₹)', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5)),
+                              const Text('Expense Incurred? (₹)', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5)),
                               const SizedBox(height: 6),
                               TextField(
                                 controller: expenseController,
@@ -1063,14 +1063,14 @@ class _DailyRoutineScreenState extends State<DailyRoutineScreen> {
                     const SizedBox(height: 14),
 
                     // Notes / Description
-                    const Text('Khaas Jankari / Remarks (Optional)', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5)),
+                    const Text('Remarks / Description (Optional)', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5)),
                     const SizedBox(height: 6),
                     TextField(
                       controller: notesController,
                       maxLines: 2,
                       style: const TextStyle(color: Colors.white, fontSize: 13),
                       decoration: InputDecoration(
-                        hintText: 'Kaam ke baare me kuch aur likhna chahte hain...',
+                        hintText: 'Additional details or notes about this activity...',
                         hintStyle: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
                         filled: true,
                         fillColor: const Color(0xFF1E293B),
@@ -1095,7 +1095,7 @@ class _DailyRoutineScreenState extends State<DailyRoutineScreen> {
                           if (title.isEmpty) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text('Kripya kaam ka naam / title darj karein.'),
+                                content: Text('Please enter a task title or activity name.'),
                                 backgroundColor: Color(0xFFEF4444),
                               ),
                             );
@@ -1135,7 +1135,7 @@ class _DailyRoutineScreenState extends State<DailyRoutineScreen> {
                           Navigator.pop(sheetContext);
                         },
                         child: Text(
-                          isEditing ? 'Update Kaam' : 'Save Kaam',
+                          isEditing ? 'Update Work Entry' : 'Save Work Entry',
                           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                         ),
                       ),
@@ -1176,7 +1176,7 @@ class _DailyRoutineScreenState extends State<DailyRoutineScreen> {
             children: [
               Icon(Icons.new_label_rounded, color: accent.light, size: 22),
               const SizedBox(width: 8),
-              const Text('Nayi Category Banayein', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+              const Text('Create New Category', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
             ],
           ),
           content: SingleChildScrollView(
@@ -1184,13 +1184,13 @@ class _DailyRoutineScreenState extends State<DailyRoutineScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Category ka Naam', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
+                const Text('Category Name', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
                 const SizedBox(height: 6),
                 TextField(
                   controller: nameController,
                   style: const TextStyle(color: Colors.white, fontSize: 13),
                   decoration: InputDecoration(
-                    hintText: 'Jaise: Gym & Fitness, Study, Construction...',
+                    hintText: 'e.g. Fitness & Health, Studies, Construction, Farming...',
                     hintStyle: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
                     filled: true,
                     fillColor: const Color(0xFF0F172A),
@@ -1200,7 +1200,7 @@ class _DailyRoutineScreenState extends State<DailyRoutineScreen> {
                 const SizedBox(height: 14),
 
                 // Color Picker
-                const Text('Rang / Color', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
+                const Text('Colour', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
                 const SizedBox(height: 6),
                 Wrap(
                   spacing: 8,
@@ -1319,7 +1319,7 @@ class _DailyRoutineScreenState extends State<DailyRoutineScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Aapki Custom Categories:', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
+                      const Text('Your Custom Categories:', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
                       TextButton.icon(
                         style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero),
                         onPressed: () {
@@ -1336,7 +1336,7 @@ class _DailyRoutineScreenState extends State<DailyRoutineScreen> {
                   if (customList.isEmpty)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 8),
-                      child: Text('Koi custom category nahi hai.', style: TextStyle(color: Color(0xFF64748B), fontSize: 12)),
+                      child: Text('No custom categories created yet.', style: TextStyle(color: Color(0xFF64748B), fontSize: 12)),
                     )
                   else
                     ...customList.map((cat) {

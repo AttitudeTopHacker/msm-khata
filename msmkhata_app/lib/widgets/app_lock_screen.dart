@@ -331,7 +331,7 @@ class _AppLockScreenContentState extends State<AppLockScreenContent>
       _shakeController.forward(from: 0.0);
       setState(() {
         _isError = true;
-        _errorMessage = 'Galat MPIN! Kripya sahi 4-digit PIN darj karein.';
+        _errorMessage = 'Incorrect MPIN. Please enter your 4-digit PIN.';
       });
 
       await Future.delayed(const Duration(milliseconds: 1800));
@@ -370,7 +370,7 @@ class _AppLockScreenContentState extends State<AppLockScreenContent>
                 children: [
                   Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
                   SizedBox(width: 8),
-                  Text('Naya 4-Digit MPIN successfully set ho gaya!'),
+                  Text('New 4-digit MPIN configured successfully!'),
                 ],
               ),
               backgroundColor: Color(0xFF10B981),
@@ -382,7 +382,7 @@ class _AppLockScreenContentState extends State<AppLockScreenContent>
         _shakeController.forward(from: 0.0);
         setState(() {
           _isError = true;
-          _errorMessage = 'PIN match nahi hua! Kripya dobara repeat karein.';
+          _errorMessage = 'PINs do not match. Please try again.';
         });
 
         await Future.delayed(const Duration(milliseconds: 1900));
@@ -393,7 +393,7 @@ class _AppLockScreenContentState extends State<AppLockScreenContent>
             _firstPassPin = '';
             _setupStep = 1;
             _isError = false;
-            _errorMessage = 'Dobara naya 4-digit PIN darj karein:';
+            _errorMessage = 'Re-enter your new 4-digit PIN:';
             _isChecking = false;
           });
         }
@@ -419,10 +419,10 @@ class _AppLockScreenContentState extends State<AppLockScreenContent>
         if (widget.isSetupMode) {
           if (_setupStep == 1) {
             titleText = _isMobile ? 'Setup 4-Digit MPIN' : 'Setup Desktop MPIN';
-            subtitleText = 'Naya 4-digit MPIN darj karein';
+            subtitleText = 'Enter a new 4-digit MPIN';
           } else {
             titleText = _isMobile ? 'Confirm 4-Digit MPIN' : 'Confirm Desktop MPIN';
-            subtitleText = 'Pehle wala PIN dobara enter karein';
+            subtitleText = 'Re-enter your PIN to confirm';
           }
         } else {
           titleText = _isMobile ? 'MsmKhata is Locked' : 'MsmKhata Desktop is Locked';
@@ -430,7 +430,7 @@ class _AppLockScreenContentState extends State<AppLockScreenContent>
               ? (SecurityService.isBiometricEnabled
                   ? 'Enter 4-digit MPIN or scan fingerprint'
                   : 'Enter 4-digit MPIN to unlock your ledger')
-              : 'Physical keyboard se 4-digit PIN type karein';
+              : 'Type your 4-digit PIN using your physical keyboard';
         }
 
         return Focus(
@@ -532,7 +532,7 @@ class _AppLockScreenContentState extends State<AppLockScreenContent>
                                   Navigator.of(context).pop(true);
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                      content: Text('App MPIN lock successfully remove/disable ho gaya.'),
+                                      content: Text('App MPIN lock disabled successfully.'),
                                       backgroundColor: Color(0xFF64748B),
                                     ),
                                   );

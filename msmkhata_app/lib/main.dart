@@ -92,9 +92,9 @@ void main(List<String> args) async {
                   child: Text(
                     isOnline
                         ? (flushed > 0
-                            ? 'Internet jud gaya! $flushed offline entries cloud par sync ho gayi hain.'
-                            : 'Internet jud gaya! MsmKhata online hai.')
-                        : 'Internet connection band hai. Offline mode active (apka data safe hai).',
+                            ? 'Internet reconnected. $flushed offline entries synchronised to cloud.'
+                            : 'Internet reconnected. MsmKhata is online.')
+                        : 'Internet disconnected. Offline mode active (your data is safe locally).',
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,

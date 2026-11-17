@@ -383,8 +383,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       label: _sortOrder == 'SERIAL' ? 'Order: Serial (1,2,3..)' : 'Order: Reverse (Newest..)',
                       icon: _sortOrder == 'SERIAL' ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
                       items: const [
-                        {'val': 'REVERSE_SERIAL', 'title': 'Reverse Serial (Naya se Purana)'},
-                        {'val': 'SERIAL', 'title': 'Serial Order (Purana se Naya)'},
+                        {'val': 'REVERSE_SERIAL', 'title': 'Reverse Serial (Newest to Oldest)'},
+                        {'val': 'SERIAL', 'title': 'Serial Order (Oldest to Newest)'},
                       ],
                       selectedValue: _sortOrder,
                       onSelect: (val) {

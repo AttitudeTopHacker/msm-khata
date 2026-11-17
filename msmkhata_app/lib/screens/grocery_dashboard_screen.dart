@@ -289,11 +289,11 @@ class _GroceryDashboardScreenState extends State<GroceryDashboardScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Grocery & Dukan Khata',
+              'Grocery & Store Ledgers',
               style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17),
             ),
             Text(
-              'Independent Store Ledger • Grocery, Sabzi & Medicine',
+              'Independent Store Ledgers • Groceries, Farm & Pharmacy',
               style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
             ),
           ],
@@ -535,7 +535,7 @@ class _GroceryDashboardScreenState extends State<GroceryDashboardScreen> {
                   border: Border.all(color: const Color(0xFF4F46E5), width: 0.8),
                 ),
                 child: Text(
-                  '${stats.totalStores} Dukaane',
+                  '${stats.totalStores} Stores',
                   style: const TextStyle(color: Color(0xFF818CF8), fontSize: 12, fontWeight: FontWeight.bold),
                 ),
               ),
@@ -550,7 +550,7 @@ class _GroceryDashboardScreenState extends State<GroceryDashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Total Udhaar Liya', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5)),
+                    const Text('Total Credit Purchases', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5)),
                     const SizedBox(height: 3),
                     Text(
                       currency.format(stats.totalUdhaar),
@@ -563,7 +563,7 @@ class _GroceryDashboardScreenState extends State<GroceryDashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Total Chukaya (Diya)', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5)),
+                    const Text('Total Paid', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5)),
                     const SizedBox(height: 3),
                     Text(
                       currency.format(stats.totalChukaya),
@@ -673,9 +673,9 @@ class _GroceryDashboardScreenState extends State<GroceryDashboardScreen> {
               children: [
                 Row(
                   children: [
-                    Text('Udhaar: ${currency.format(store.totalUdhaar)}', style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 12)),
+                    Text('Credit: ${currency.format(store.totalUdhaar)}', style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 12)),
                     const SizedBox(width: 12),
-                    Text('Chukaya: ${currency.format(store.totalChukaya)}', style: const TextStyle(color: Color(0xFF10B981), fontSize: 12)),
+                    Text('Paid: ${currency.format(store.totalChukaya)}', style: const TextStyle(color: Color(0xFF10B981), fontSize: 12)),
                   ],
                 ),
                 Row(

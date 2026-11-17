@@ -52,7 +52,7 @@ class AccountSwitcherModal extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Har account ka data 100% alag rahega (Book 1, Book 2, etc.)',
+                  'Each account ledger remains 100% isolated (Book 1, Book 2, etc.)',
                   style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
                 ),
                 const SizedBox(height: 14),
@@ -62,7 +62,7 @@ class AccountSwitcherModal extends StatelessWidget {
                   style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
                     labelText: 'Account / Book Name',
-                    hintText: 'e.g. Book 2, Dukan Khata, Personal',
+                    hintText: 'e.g. Book 2, Store Ledger, Personal',
                     labelStyle: const TextStyle(color: Color(0xFF94A3B8)),
                     hintStyle: const TextStyle(color: Color(0xFF64748B), fontSize: 13),
                     filled: true,
@@ -263,7 +263,7 @@ class AccountSwitcherModal extends StatelessWidget {
                           ),
                           SizedBox(height: 2),
                           Text(
-                            'Har account ka data 100% alag rehta hai',
+                            'Each account ledger is 100% isolated',
                             style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
                           ),
                         ],
@@ -445,7 +445,7 @@ class AccountSwitcherModal extends StatelessWidget {
                         SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Cold Launch Guarantee: App kholne par dashboard hamesha Book 1 (Main Account) pehle open karega.',
+                            'Cold Launch Guarantee: The application will always open Book 1 (Main Account) first on launch.',
                             style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
                           ),
                         ),

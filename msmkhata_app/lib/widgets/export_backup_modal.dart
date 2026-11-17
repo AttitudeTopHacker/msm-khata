@@ -145,7 +145,7 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
             SizedBox(width: 12),
             Expanded(
               child: Text(
-                'Waiting for Google authorization... Browser window me "Continue" per click karein.',
+                'Waiting for Google authorisation... Please click "Continue" in your browser window.',
                 style: TextStyle(fontSize: 12.5),
               ),
             ),
@@ -170,7 +170,7 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
               children: [
                 Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
                 SizedBox(width: 10),
-                Text('Google Drive jud gaya! Ab backup upload ho raha hai...'),
+                Text('Google Drive connected. Uploading ledger backup...'),
               ],
             ),
             backgroundColor: Color(0xFF10B981),
@@ -181,7 +181,7 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Google Drive authorization complete nahi hui. Kripya browser me "Continue" allow karein.'),
+            content: Text('Google Drive authorisation was not completed. Please allow access in the browser window.'),
             backgroundColor: Color(0xFFEF4444),
             behavior: SnackBarBehavior.floating,
           ),
@@ -215,8 +215,8 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
           ],
         ),
         content: const Text(
-          'Google Drive backup ke liye aap apna koi bhi personal ya business Google email account connect kar sakte hain (chahe wo aapke app login email se alag ho).\n\n'
-          'Ek baar connect hone par aapke sabhi financial statements aur khatas ka automated cloud backup aapke Drive folder me store hoga.',
+          'You can connect any personal or business Google account for Google Drive backups (even if it differs from your app sign-in email).\n\n'
+          'Once connected, automated cloud backups of all your financial statements and ledgers will be stored securely in your Drive folder.',
           style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, height: 1.4),
         ),
         actions: [
@@ -225,7 +225,7 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
               Navigator.of(ctx).pop();
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Drive connection cancel ho gaya. Aap local print & export use kar sakte hain.'),
+                  content: Text('Drive connection was cancelled. You can continue using local export and print.'),
                   backgroundColor: Color(0xFF64748B),
                   behavior: SnackBarBehavior.floating,
                 ),
@@ -265,8 +265,8 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
           ],
         ),
         content: const Text(
-          'Aap backup ke liye doosra Google account connect karna chahte hain?\n\n'
-          'Google Account Chooser khulega jisme aap apna koi bhi doosra email chunn sakte hain.',
+          'Would you like to connect a different Google account for backups?\n\n'
+          'The Google Account picker will open, allowing you to select another email account.',
           style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, height: 1.4),
         ),
         actions: [
@@ -306,8 +306,8 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
           ],
         ),
         content: const Text(
-          'Kya aap Google Drive cloud backup ko disconnect karna chahte hain?\n\n'
-          'Aapke Drive me pehle se uploaded files safe rahengi.',
+          'Are you sure you wish to disconnect Google Drive cloud backups?\n\n'
+          'Files previously uploaded to your Drive will remain safe and unaffected.',
           style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, height: 1.4),
         ),
         actions: [
@@ -330,7 +330,7 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Google Drive successfully disconnect ho gaya.'),
+            content: Text('Google Drive disconnected successfully.'),
             backgroundColor: Color(0xFF64748B),
             behavior: SnackBarBehavior.floating,
           ),
@@ -365,8 +365,8 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
           ],
         ),
         content: const Text(
-          'Google Drive me PDF statement backup upload karne ke liye Drive permissions ki zaroorat hai.\n\n'
-          'Kripya "Authorize Google Drive" per tap karein aur permission allow karein.',
+          'Google Drive permissions are required to upload PDF statement backups.\n\n'
+          'Please tap "Authorise Google Drive" and grant the required permission.',
           style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, height: 1.4),
         ),
         actions: [
@@ -416,7 +416,7 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
     if (_selectedAccountKeys.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Kripya backup ke liye kam se kam 1 account chunein.'),
+          content: Text('Please select at least 1 account or ledger for backup.'),
           backgroundColor: Color(0xFFEF4444),
           behavior: SnackBarBehavior.floating,
         ),
@@ -547,7 +547,7 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
                 uploadedFiles.add({
                   'title': store.storeName,
                   'filename': fileName,
-                  'type': 'Dukaan Khata',
+                  'type': 'Store Ledger',
                 });
               } catch (e) {
                 final errStr = e.toString();
@@ -658,7 +658,7 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '${uploadedFiles.length} official statement PDFs safely Google Drive ke "MsmKhata Backups" folder me upload ho gaye:',
+                      '${uploadedFiles.length} official statement PDFs have been securely synchronised to the "MsmKhata Backups" folder on your Google Drive:',
                       style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 12.5, height: 1.4),
                     ),
                     const SizedBox(height: 12),
@@ -763,7 +763,7 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
               ],
             ),
             content: Text(
-              'PDF statement Google Drive me upload nahi ho pa rahi:\n\n$e\n\nKripya apna internet connection check karein ya Google account reconnect karein.',
+              'Unable to upload PDF statement to Google Drive:\n\n$e\n\nPlease check your internet connection or reconnect your Google account.',
               style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 13, height: 1.4),
             ),
             actions: [
@@ -1158,7 +1158,7 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
                                       ),
                                       SizedBox(height: 2),
                                       Text(
-                                        'Aap backup ke liye koi bhi Google email connect kar sakte hain (chahe login se alag ho)',
+                                        'Connect any Google account for backups (can differ from your login email)',
                                         style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
                                       ),
                                     ],
@@ -1321,14 +1321,14 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
                           ...books.map((b) => _buildAccountToggleTile(
                                 key: 'account_${b.id}',
                                 title: b.name,
-                                subtitle: b.isDefault ? 'Default Primary Account' : 'Isolated Khata Book',
+                                subtitle: b.isDefault ? 'Default Primary Account' : 'Isolated Account Ledger',
                                 icon: Icons.book_rounded,
                                 iconColor: const Color(0xFF6366F1),
                               )),
 
                           // Grocery Khatas Group
                           if (stores.isNotEmpty) ...[
-                            _buildToggleSectionHeader('🏪 GROCERY & DUKAAN KHATA'),
+                            _buildToggleSectionHeader('🏪 GROCERY & STORE LEDGERS'),
                             ...stores.map((s) => _buildAccountToggleTile(
                                   key: 'grocery_${s.id}',
                                   title: s.storeName,
@@ -1343,7 +1343,7 @@ class _ExportBackupModalState extends State<ExportBackupModal> {
                           _buildAccountToggleTile(
                             key: 'daily_routine',
                             title: 'Daily Routine & Work Diary',
-                            subtitle: 'Rozana kaam, categories, ghante aur kharche ka log',
+                            subtitle: 'Daily activities, categories, hours, and expense log',
                             icon: Icons.event_note_rounded,
                             iconColor: const Color(0xFF38BDF8),
                           ),

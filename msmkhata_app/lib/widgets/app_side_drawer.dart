@@ -274,10 +274,19 @@ class AppSideDrawer extends StatelessWidget {
                 child: CircleAvatar(
                   radius: 20,
                   backgroundColor: const Color(0xFF1E293B),
-                  backgroundImage: AuthService.avatarUrl != null ? NetworkImage(AuthService.avatarUrl!) : null,
-                  child: AuthService.avatarUrl == null
-                      ? Icon(Icons.person, color: accent.light, size: 22)
-                      : null,
+                  child: (AuthService.isAuthenticated &&
+                          AuthService.avatarUrl != null &&
+                          AuthService.avatarUrl!.isNotEmpty)
+                      ? ClipOval(
+                          child: Image.network(
+                            AuthService.avatarUrl!,
+                            width: 40,
+                            height: 40,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => _buildDrawerAvatarInitial(accent),
+                          ),
+                        )
+                      : _buildDrawerAvatarInitial(accent),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1127,6 +1136,22 @@ class AppSideDrawer extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Widget _buildDrawerAvatarInitial(AppAccentTheme accent) {
+    if (AuthService.isAuthenticated) {
+      final name = AuthService.displayName.trim();
+      final letter = name.isNotEmpty ? name[0].toUpperCase() : 'U';
+      return Text(
+        letter,
+        style: TextStyle(
+          color: accent.light,
+          fontWeight: FontWeight.bold,
+          fontSize: 18,
+        ),
+      );
+    }
+    return Icon(Icons.person, color: accent.light, size: 22);
   }
 }
 

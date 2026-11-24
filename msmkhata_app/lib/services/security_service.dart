@@ -38,11 +38,11 @@ class SecurityService {
       final pinEnabled = prefs.getBool(_kPinEnabledKey) ?? hasHash;
       final bioEnabled = prefs.getBool(_kBiometricEnabledKey) ?? false;
 
-      isPinEnabledNotifier.value = pinEnabled && hasHash;
+      isPinEnabledNotifier.value = hasHash && pinEnabled;
       isBiometricEnabledNotifier.value = bioEnabled;
 
-      // Lock app initially if user has PIN security enabled
-      if (isPinEnabledNotifier.value) {
+      // Lock app initially if user has PIN security enabled or has a PIN set
+      if (hasHash && pinEnabled) {
         isAppLockedNotifier.value = true;
       }
     } catch (_) {}

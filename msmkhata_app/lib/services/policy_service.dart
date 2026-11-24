@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
+import 'connectivity_service.dart';
 
 /// Global System Governance & Policy Enforcement Service for MsmKhata.
 ///
@@ -39,8 +40,10 @@ class PolicyService {
       allowEntryDeleteNotifier.value = prefs.getBool(_kAllowEntryDelete) ?? true;
       allowDateEditNotifier.value = prefs.getBool(_kAllowDateEdit) ?? true;
 
-      // Fetch fresh policies from cloud
-      await fetchPolicies();
+      // Fetch fresh policies from cloud asynchronously without blocking cold startup
+      if (ConnectivityService().isOnline.value) {
+        fetchPolicies().catchError((e) => debugPrint('PolicyService initial fetch notice: $e'));
+      }
 
       // Subscribe to Realtime policy updates from Supabase
       _setupRealtimeSubscription();

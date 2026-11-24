@@ -12,8 +12,8 @@ class ConnectivityService {
   final Connectivity _connectivity = Connectivity();
   StreamSubscription<List<ConnectivityResult>>? _subscription;
 
-  /// ValueNotifier indicating whether the device has active internet
-  final ValueNotifier<bool> isOnline = ValueNotifier<bool>(true);
+  /// ValueNotifier indicating whether the device has active internet (defaults to false for offline accuracy)
+  final ValueNotifier<bool> isOnline = ValueNotifier<bool>(false);
 
   /// ValueNotifier indicating whether a connectivity check is currently in progress
   final ValueNotifier<bool> isChecking = ValueNotifier<bool>(false);
@@ -22,6 +22,21 @@ class ConnectivityService {
   Function(bool isConnected)? onStatusChanged;
 
   bool _initialized = false;
+
+  /// Fast initial verification on cold startup (<30ms)
+  Future<bool> initializeFast() async {
+    try {
+      final results = await _connectivity.checkConnectivity();
+      if (results.isEmpty || results.every((r) => r == ConnectivityResult.none)) {
+        isOnline.value = false;
+        return false;
+      }
+      return await checkActualInternet();
+    } catch (_) {
+      isOnline.value = false;
+      return false;
+    }
+  }
 
   /// Static helper to trigger an immediate check on data refresh or button tap
   static Future<bool> checkNow() => _instance.checkActualInternet();
@@ -60,10 +75,10 @@ class ConnectivityService {
 
     try {
       if (!kIsWeb) {
-        // Native (Android, Linux, Windows): Instant raw DNS socket check to Cloudflare / Google DNS (~20-50ms)
+        // Native (Android, Linux, Windows): Fast socket check with 400ms timeout
         try {
           final result = await InternetAddress.lookup('1.1.1.1')
-              .timeout(const Duration(milliseconds: 1200));
+              .timeout(const Duration(milliseconds: 400));
           if (result.isNotEmpty && result[0].rawAddress.isNotEmpty) {
             connected = true;
           }
@@ -73,7 +88,7 @@ class ConnectivityService {
           // Backup fallback to Google DNS
           try {
             final backup = await InternetAddress.lookup('google.com')
-                .timeout(const Duration(milliseconds: 1200));
+                .timeout(const Duration(milliseconds: 400));
             connected = backup.isNotEmpty && backup[0].rawAddress.isNotEmpty;
           } catch (_) {
             connected = false;
@@ -82,7 +97,7 @@ class ConnectivityService {
       } else {
         // Web platform: Fast HTTP HEAD to Cloudflare
         final res = await http.head(Uri.parse('https://1.1.1.1'))
-            .timeout(const Duration(milliseconds: 1500));
+            .timeout(const Duration(milliseconds: 600));
         connected = res.statusCode >= 200 && res.statusCode < 400;
       }
     } catch (_) {

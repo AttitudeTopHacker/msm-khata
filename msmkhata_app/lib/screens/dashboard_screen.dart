@@ -844,14 +844,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: CircleAvatar(
                     radius: 14,
                     backgroundColor: const Color(0xFF1E293B),
-                    backgroundImage: AuthService.avatarUrl != null ? NetworkImage(AuthService.avatarUrl!) : null,
-                    child: AuthService.avatarUrl == null
-                        ? Icon(
-                            AuthService.isAuthenticated ? Icons.person : Icons.account_circle_outlined,
-                            size: 18,
-                            color: AuthService.isAuthenticated ? const Color(0xFF10B981) : const Color(0xFF818CF8),
+                    child: (AuthService.isAuthenticated &&
+                            AuthService.avatarUrl != null &&
+                            AuthService.avatarUrl!.isNotEmpty)
+                        ? ClipOval(
+                            child: Image.network(
+                              AuthService.avatarUrl!,
+                              width: 28,
+                              height: 28,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => _buildAvatarInitial(),
+                            ),
                           )
-                        : null,
+                        : _buildAvatarInitial(),
                   ),
                 ),
               ),
@@ -975,6 +980,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildAvatarInitial() {
+    if (AuthService.isAuthenticated) {
+      final name = AuthService.displayName.trim();
+      final letter = name.isNotEmpty ? name[0].toUpperCase() : 'U';
+      return Text(
+        letter,
+        style: const TextStyle(
+          color: Color(0xFF10B981),
+          fontWeight: FontWeight.bold,
+          fontSize: 13,
+        ),
+      );
+    }
+    return const Icon(
+      Icons.account_circle_outlined,
+      size: 18,
+      color: Color(0xFF818CF8),
     );
   }
 }

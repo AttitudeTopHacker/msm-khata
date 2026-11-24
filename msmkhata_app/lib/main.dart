@@ -38,16 +38,19 @@ void main(List<String> args) async {
     debugPrint('Supabase init notice: $e');
   }
 
-  // Restore local offline cache for 0ms instant display
-  await AuthService.initialize();
-  await SyncService.initialize();
-  await BudgetService.initialize();
-  await AccountService.initialize();
-  await PolicyService.initialize();
-  await GroceryService.initialize();
-  await ThemeService.initialize();
-  await SecurityService.initialize();
-  await RoutineService.initialize();
+  // Restore local offline cache for 0ms instant display in parallel
+  await Future.wait([
+    AuthService.initialize(),
+    SyncService.initialize(),
+    BudgetService.initialize(),
+    AccountService.initialize(),
+    PolicyService.initialize(),
+    GroceryService.initialize(),
+    ThemeService.initialize(),
+    SecurityService.initialize(),
+    RoutineService.initialize(),
+    ConnectivityService().initializeFast(),
+  ]);
 
   // Handle initial command-line deep link argument on Desktop (Linux / Windows)
   if (args.isNotEmpty) {

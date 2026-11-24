@@ -66,10 +66,15 @@ class _AppLockScreenState extends State<AppLockScreen> with WidgetsBindingObserv
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    // Desktop Sleep / Screen Lock Heartbeat Monitor
+    // Initial lock: Always prompt for PIN when user opens the application
+    if (SecurityService.hasPin) {
+      SecurityService.lockApp();
+    }
+
+    // Desktop Sleep / Screen Lock / Screen Off Heartbeat Monitor
     if (!_isMobile) {
       _lastDesktopHeartbeat = DateTime.now();
-      _desktopSleepHeartbeatTimer = Timer.periodic(const Duration(seconds: 2), (t) async {
+      _desktopSleepHeartbeatTimer = Timer.periodic(const Duration(seconds: 1), (t) async {
         if (!SecurityService.isPinEnabled && !SecurityService.hasPin) return;
         if (SecurityService.isAppLocked) return;
         if (SecurityService.isExternalAuthInProgress || SecurityService.isPinSetupInProgress) return;
@@ -77,10 +82,10 @@ class _AppLockScreenState extends State<AppLockScreen> with WidgetsBindingObserv
         final now = DateTime.now();
 
         // 1. Detect System Sleep / Suspend / Laptop Lid Close
-        // When system goes to sleep, timers pause. Upon waking up, the elapsed time jump >= 5s.
+        // When system goes to sleep or screen turns off, timers pause.
         if (_lastDesktopHeartbeat != null) {
           final diff = now.difference(_lastDesktopHeartbeat!).inSeconds;
-          if (diff >= 5) {
+          if (diff >= 3) {
             SecurityService.lockApp();
             _lastDesktopHeartbeat = now;
             return;
@@ -88,13 +93,26 @@ class _AppLockScreenState extends State<AppLockScreen> with WidgetsBindingObserv
         }
         _lastDesktopHeartbeat = now;
 
-        // 2. Detect Linux Screen Lock / Screensaver (e.g. Super + L or Display Screen Saver)
+        // 2. Detect Linux Screen Lock / Screensaver or Monitor DPMS off
         if (!kIsWeb && defaultTargetPlatform == TargetPlatform.linux) {
           try {
             final res = await Process.run('cinnamon-screensaver-command', ['-q']);
             if (res.exitCode == 0 && res.stdout.toString().toLowerCase().contains('is active')) {
               SecurityService.lockApp();
               return;
+            }
+          } catch (_) {}
+
+          try {
+            final xsetRes = await Process.run('xset', ['q']);
+            if (xsetRes.exitCode == 0) {
+              final out = xsetRes.stdout.toString();
+              if (out.contains('Monitor is Off') ||
+                  out.contains('Monitor is Suspend') ||
+                  out.contains('Monitor is Standby')) {
+                SecurityService.lockApp();
+                return;
+              }
             }
           } catch (_) {}
         }
@@ -133,7 +151,7 @@ class _AppLockScreenState extends State<AppLockScreen> with WidgetsBindingObserv
       } else if (state == AppLifecycleState.inactive) {
         _inactiveStartTime = DateTime.now();
         _inactiveLockTimer?.cancel();
-        _inactiveLockTimer = Timer(const Duration(milliseconds: 350), () {
+        _inactiveLockTimer = Timer(const Duration(milliseconds: 250), () {
           if (mounted) {
             SecurityService.lockApp();
           }
@@ -143,28 +161,34 @@ class _AppLockScreenState extends State<AppLockScreen> with WidgetsBindingObserv
         if (_inactiveStartTime != null) {
           final elapsed = DateTime.now().difference(_inactiveStartTime!);
           _inactiveStartTime = null;
-          if (elapsed >= const Duration(milliseconds: 250)) {
+          if (elapsed >= const Duration(milliseconds: 200)) {
             SecurityService.lockApp();
           }
         }
       }
     } else {
       // =======================================================================
-      // DESKTOP LIFECYCLE (Smooth Multitasking: No locking on simple window blur)
-      // Lock ONLY on:
-      // - App Startup (initial login)
-      // - System Sleep / Suspend (detected by heartbeat)
-      // - Screen Off / Lock Screen (detected by screensaver command)
-      // - Long Inactivity (5+ minutes away from desktop window)
+      // DESKTOP LIFECYCLE (Screen Off / Lock Screen / Minimize / App Switch)
       // =======================================================================
-      if (state == AppLifecycleState.inactive || state == AppLifecycleState.hidden) {
+      if (state == AppLifecycleState.hidden) {
+        // Desktop window minimized, hidden, or user locked system screen
+        _inactiveLockTimer?.cancel();
+        SecurityService.lockApp();
+      } else if (state == AppLifecycleState.inactive) {
         _inactiveStartTime ??= DateTime.now();
+        _inactiveLockTimer?.cancel();
+        // Short grace period for fast tab switch
+        _inactiveLockTimer = Timer(const Duration(seconds: 3), () {
+          if (mounted) {
+            SecurityService.lockApp();
+          }
+        });
       } else if (state == AppLifecycleState.resumed) {
+        _inactiveLockTimer?.cancel();
         if (_inactiveStartTime != null) {
           final elapsed = DateTime.now().difference(_inactiveStartTime!);
           _inactiveStartTime = null;
-          // Only auto-lock if user was away from desktop app for more than 5 minutes
-          if (elapsed >= const Duration(minutes: 5)) {
+          if (elapsed >= const Duration(seconds: 2)) {
             SecurityService.lockApp();
           }
         }

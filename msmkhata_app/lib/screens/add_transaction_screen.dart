@@ -13,12 +13,16 @@ class AddTransactionScreen extends StatefulWidget {
   final String initialType;
   final TransactionItem? existingTransaction;
   final double? initialAvailableBalance;
+  final Person? initialPerson;
+  final double? initialAmount;
 
   const AddTransactionScreen({
     super.key,
     this.initialType = 'GIVEN',
     this.existingTransaction,
     this.initialAvailableBalance,
+    this.initialPerson,
+    this.initialAmount,
   });
 
   @override
@@ -46,6 +50,19 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   void initState() {
     super.initState();
     _selectedType = widget.initialType;
+
+    // Instant local cache restoration so contacts chips & autocomplete are never blank!
+    _persons = List.from(SyncService.cachedPersons);
+
+    if (widget.initialPerson != null) {
+      _selectedPerson = widget.initialPerson;
+      _personController.text = widget.initialPerson!.name;
+    }
+    if (widget.initialAmount != null && widget.initialAmount! > 0) {
+      _amountController.text = widget.initialAmount == widget.initialAmount!.roundToDouble()
+          ? widget.initialAmount!.toInt().toString()
+          : widget.initialAmount!.toString();
+    }
 
     if (widget.existingTransaction != null) {
       final tx = widget.existingTransaction!;
@@ -130,11 +147,26 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   }
 
   Future<void> _loadPersons() async {
+    // 1. Immediately ensure cache is displayed
+    if (SyncService.cachedPersons.isNotEmpty && mounted) {
+      setState(() {
+        _persons = List.from(SyncService.cachedPersons);
+      });
+    }
+
     try {
-      final list = await ApiService.getPersons();
-      if (mounted) {
+      final list = await SyncService.syncPersons();
+      if (mounted && list.isNotEmpty) {
         setState(() {
           _persons = list;
+          if (_selectedPerson == null && _personController.text.trim().isNotEmpty) {
+            final match = _persons.where(
+              (p) => p.name.toLowerCase() == _personController.text.trim().toLowerCase()
+            );
+            if (match.isNotEmpty) {
+              _selectedPerson = match.first;
+            }
+          }
         });
       }
     } catch (_) {
@@ -1053,6 +1085,12 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           catId = null;
         }
 
+        Person? matchedPerson = _selectedPerson;
+        if (matchedPerson == null && isLenDen && personName.isNotEmpty) {
+          final m = _persons.where((p) => p.name.toLowerCase() == personName.toLowerCase());
+          if (m.isNotEmpty) matchedPerson = m.first;
+        }
+
         final notesText = _notesController.text.trim();
         final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
         await SyncService.updateTransactionItem(
@@ -1060,7 +1098,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           type: _selectedType,
           amount: amount,
           paymentMode: _paymentMode,
-          personId: isLenDen ? _selectedPerson?.id : null,
+          personId: isLenDen ? matchedPerson?.id : null,
           personName: isLenDen ? personName : null,
           clearPerson: !isLenDen,
           categoryId: catId,
@@ -1076,13 +1114,19 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           catId = null; // Let backend resolve UUID via name
         }
 
+        Person? matchedPerson = _selectedPerson;
+        if (matchedPerson == null && isLenDen && personName.isNotEmpty) {
+          final m = _persons.where((p) => p.name.toLowerCase() == personName.toLowerCase());
+          if (m.isNotEmpty) matchedPerson = m.first;
+        }
+
         final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
         await SyncService.recordTransaction(
           type: _selectedType,
           amount: amount,
           paymentMode: _paymentMode,
           personName: isLenDen ? personName : null,
-          personId: isLenDen ? _selectedPerson?.id : null,
+          personId: isLenDen ? matchedPerson?.id : null,
           categoryName: !isLenDen ? categoryName : null,
           categoryId: catId,
           notes: _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null,
@@ -1539,6 +1583,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   controller.addListener(() {
                     if (_personController.text != controller.text) {
                       _personController.text = controller.text;
+                      final typed = controller.text.trim().toLowerCase();
+                      final match = _persons.where((p) => p.name.toLowerCase() == typed);
+                      _selectedPerson = match.isNotEmpty ? match.first : null;
                     }
                   });
                   return TextField(

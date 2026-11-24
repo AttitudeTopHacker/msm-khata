@@ -46,10 +46,13 @@ class TransactionItem {
       notes: json['notes'],
       transactionDate: json['transaction_date'],
       personId: json['person_id'],
-      personName: json['person_name'],
+      personName: json['person_name'] ??
+          (json['persons'] is Map ? json['persons']['name']?.toString() : null),
       categoryId: json['category_id'],
-      categoryName: json['category_name'],
-      categoryColor: json['category_color'],
+      categoryName: json['category_name'] ??
+          (json['categories'] is Map ? json['categories']['name']?.toString() : null),
+      categoryColor: json['category_color'] ??
+          (json['categories'] is Map ? json['categories']['color']?.toString() : null),
       accountId: json['account_id'] ?? 'main',
       accountName: json['account_name'] ?? 'Main Account',
       createdAt: json['created_at'],

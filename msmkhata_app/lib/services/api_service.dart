@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart' hide Category;
 import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/api_config.dart';
 import '../models/person.dart';
 import '../models/transaction.dart';
@@ -11,6 +13,7 @@ import 'auth_service.dart';
 
 class ApiService {
   static String get _base => ApiConfig.baseUrl;
+  static SupabaseClient get _supabase => Supabase.instance.client;
 
   // 1. Fetch Dashboard Stats (Isolated to current logged in user and active account)
   static Future<DashboardStats> getDashboardStats({String? userId, String? accountId}) async {
@@ -206,17 +209,32 @@ class ApiService {
 
   // 7. Delete Transaction
   static Future<void> deleteTransaction(String id) async {
-    final res = await http.delete(Uri.parse('$_base/transactions/$id'));
-    if (res.statusCode != 200 && res.statusCode != 204) {
+    try {
+      final res = await http.delete(Uri.parse('$_base/transactions/$id')).timeout(const Duration(seconds: 4));
+      if (res.statusCode == 200 || res.statusCode == 204) return;
+    } catch (_) {}
+    try {
+      await _supabase.from('transactions').delete().eq('id', id);
+    } catch (e) {
+      debugPrint('Direct Supabase delete error: $e');
       throw Exception('Failed to delete transaction');
     }
   }
 
   // 8. Settle Transaction
   static Future<void> settleTransaction(String id, {bool isSettled = true}) async {
-    await http.patch(
-      Uri.parse('$_base/transactions/$id/settle?is_settled=$isSettled'),
-    );
+    try {
+      await http.patch(
+        Uri.parse('$_base/transactions/$id/settle?is_settled=$isSettled'),
+      ).timeout(const Duration(seconds: 4));
+    } catch (_) {
+      try {
+        await _supabase.from('transactions').update({'is_settled': isSettled}).eq('id', id);
+      } catch (e) {
+        debugPrint('Direct Supabase settle error: $e');
+        throw Exception('Failed to update settlement status');
+      }
+    }
   }
 
   // 7. Fetch Categories (with default fallback for offline / immediate display)

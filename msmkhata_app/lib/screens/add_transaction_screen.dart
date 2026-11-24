@@ -99,6 +99,30 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     setState(() {});
   }
 
+  List<Person> get _relevantContacts {
+    final list = List<Person>.from(_persons);
+    if (_selectedType == 'GIVEN') {
+      // When giving / repaying: prioritize contacts we borrowed from (we owe them)
+      list.sort((a, b) {
+        final aDue = a.netBalance < 0 ? 1 : 0;
+        final bDue = b.netBalance < 0 ? 1 : 0;
+        if (aDue != bDue) return bDue.compareTo(aDue);
+        if (a.totalTaken != b.totalTaken) return b.totalTaken.compareTo(a.totalTaken);
+        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      });
+    } else if (_selectedType == 'TAKEN') {
+      // When borrowing: prioritize contacts who owe us or frequent contacts
+      list.sort((a, b) {
+        final aLent = a.netBalance > 0 ? 1 : 0;
+        final bLent = b.netBalance > 0 ? 1 : 0;
+        if (aLent != bLent) return bLent.compareTo(aLent);
+        if (a.totalGiven != b.totalGiven) return b.totalGiven.compareTo(a.totalGiven);
+        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      });
+    }
+    return list;
+  }
+
   Future<void> _loadAccountBalance() async {
     try {
       final activeAccount = AccountService.activeAccountNotifier.value;
@@ -1565,27 +1589,34 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               Autocomplete<String>(
                 initialValue: TextEditingValue(text: _personController.text),
                 optionsBuilder: (TextEditingValue textVal) {
-                  if (textVal.text.isEmpty) {
-                    return _persons.map((p) => p.name).take(6);
+                  final query = textVal.text.trim().toLowerCase();
+                  if (query.isEmpty) {
+                    return _relevantContacts.map((p) => p.name).take(8);
                   }
-                  return _persons
-                      .map((p) => p.name)
-                      .where((name) => name.toLowerCase().contains(textVal.text.toLowerCase()));
+                  return _relevantContacts
+                      .where((p) => p.name.toLowerCase().contains(query))
+                      .map((p) => p.name);
                 },
                 onSelected: (String selection) {
                   _personController.text = selection;
-                  final match = _persons.where((p) => p.name.toLowerCase() == selection.toLowerCase());
+                  final match = _persons.where((p) => p.name.trim().toLowerCase() == selection.trim().toLowerCase());
                   setState(() {
                     _selectedPerson = match.isNotEmpty ? match.first : null;
                   });
                 },
                 fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {
                   controller.addListener(() {
-                    if (_personController.text != controller.text) {
-                      _personController.text = controller.text;
-                      final typed = controller.text.trim().toLowerCase();
-                      final match = _persons.where((p) => p.name.toLowerCase() == typed);
-                      _selectedPerson = match.isNotEmpty ? match.first : null;
+                    final currentText = controller.text;
+                    if (_personController.text != currentText) {
+                      _personController.text = currentText;
+                      final typed = currentText.trim().toLowerCase();
+                      final match = _persons.where((p) => p.name.trim().toLowerCase() == typed);
+                      final newPerson = match.isNotEmpty ? match.first : null;
+                      if (_selectedPerson != newPerson) {
+                        setState(() {
+                          _selectedPerson = newPerson;
+                        });
+                      }
                     }
                   });
                   return TextField(
@@ -1596,7 +1627,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     decoration: InputDecoration(
                       labelText: 'Contact Name',
                       labelStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
-                      hintText: 'e.g. Arthur, David, Oliver (Auto-creates if new)',
+                      hintText: 'e.g. Alkab, Jeeshan, Rehaan (Existing or new)',
                       hintStyle: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
                       prefixIcon: const Icon(Icons.badge_outlined, color: Color(0xFF64748B), size: 20),
                       filled: true,
@@ -1613,18 +1644,43 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                       borderRadius: BorderRadius.circular(14),
                       color: const Color(0xFF1E293B),
                       child: Container(
-                        width: 300,
-                        constraints: const BoxConstraints(maxHeight: 180),
+                        width: 320,
+                        constraints: const BoxConstraints(maxHeight: 200),
                         child: ListView.builder(
                           padding: EdgeInsets.zero,
                           shrinkWrap: true,
                           itemCount: options.length,
                           itemBuilder: (context, index) {
                             final option = options.elementAt(index);
+                            final pMatch = _persons.where((p) => p.name.trim().toLowerCase() == option.trim().toLowerCase());
+                            final pObj = pMatch.isNotEmpty ? pMatch.first : null;
+
                             return ListTile(
                               dense: true,
-                              leading: const Icon(Icons.person_outline, color: Color(0xFF10B981), size: 18),
-                              title: Text(option, style: const TextStyle(color: Colors.white, fontSize: 13)),
+                              leading: CircleAvatar(
+                                radius: 11,
+                                backgroundColor: const Color(0xFF10B981).withValues(alpha: 0.2),
+                                child: Text(
+                                  option.isNotEmpty ? option[0].toUpperCase() : '?',
+                                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF10B981)),
+                                ),
+                              ),
+                              title: Text(option, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                              subtitle: pObj != null && (pObj.totalGiven > 0 || pObj.totalTaken > 0)
+                                  ? Text(
+                                      pObj.netBalance < 0
+                                          ? 'You owe: ₹${pObj.netBalance.abs().toStringAsFixed(0)}'
+                                          : (pObj.netBalance > 0
+                                              ? 'Owes you: ₹${pObj.netBalance.toStringAsFixed(0)}'
+                                              : 'Settled (₹0)'),
+                                      style: TextStyle(
+                                        color: pObj.netBalance < 0
+                                            ? const Color(0xFFEF4444)
+                                            : (pObj.netBalance > 0 ? const Color(0xFF10B981) : const Color(0xFF94A3B8)),
+                                        fontSize: 11,
+                                      ),
+                                    )
+                                  : null,
                               onTap: () => onSelected(option),
                             );
                           },
@@ -1635,34 +1691,52 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 },
               ),
 
-              // Existing Contact Chips
-              if (_persons.isNotEmpty) ...[
+              // Existing Contact Quick Chips (Prioritised by debt/repayment)
+              if (_relevantContacts.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
-                    children: _persons.take(6).map((p) {
-                      final isSel = _personController.text.trim().toLowerCase() == p.name.toLowerCase();
+                    children: _relevantContacts.take(8).map((p) {
+                      final isSel = _personController.text.trim().toLowerCase() == p.name.trim().toLowerCase();
+
+                      String chipLabel = p.name;
+                      if (_selectedType == 'GIVEN' && p.netBalance < 0) {
+                        chipLabel = '${p.name} (Owe ₹${p.netBalance.abs().toStringAsFixed(0)})';
+                      } else if (_selectedType == 'TAKEN' && p.netBalance > 0) {
+                        chipLabel = '${p.name} (Owes ₹${p.netBalance.toStringAsFixed(0)})';
+                      }
+
+                      final hasDue = (_selectedType == 'GIVEN' && p.netBalance < 0) || (_selectedType == 'TAKEN' && p.netBalance > 0);
+
                       return Padding(
                         padding: const EdgeInsets.only(right: 6),
                         child: ActionChip(
                           avatar: CircleAvatar(
                             radius: 10,
-                            backgroundColor: const Color(0xFF10B981),
+                            backgroundColor: hasDue
+                                ? (_selectedType == 'GIVEN' ? const Color(0xFFEF4444) : const Color(0xFF10B981))
+                                : const Color(0xFF10B981),
                             child: Text(
                               p.name.isNotEmpty ? p.name[0].toUpperCase() : '?',
                               style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
                             ),
                           ),
-                          label: Text(p.name),
-                          backgroundColor: isSel ? const Color(0xFF10B981).withOpacity(0.25) : const Color(0xFF0F172A),
+                          label: Text(chipLabel),
+                          backgroundColor: isSel
+                              ? const Color(0xFF10B981).withValues(alpha: 0.25)
+                              : (hasDue ? const Color(0xFFEF4444).withValues(alpha: 0.12) : const Color(0xFF0F172A)),
                           labelStyle: TextStyle(
-                            color: isSel ? const Color(0xFF10B981) : const Color(0xFF94A3B8),
+                            color: isSel
+                                ? const Color(0xFF10B981)
+                                : (hasDue ? const Color(0xFFFCA5A5) : const Color(0xFF94A3B8)),
                             fontSize: 11.5,
-                            fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
+                            fontWeight: (isSel || hasDue) ? FontWeight.bold : FontWeight.normal,
                           ),
                           side: BorderSide(
-                            color: isSel ? const Color(0xFF10B981) : const Color(0xFF334155),
+                            color: isSel
+                                ? const Color(0xFF10B981)
+                                : (hasDue ? const Color(0xFFEF4444).withValues(alpha: 0.5) : const Color(0xFF334155)),
                             width: 1,
                           ),
                           onPressed: () {
@@ -1674,6 +1748,195 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                         ),
                       );
                     }).toList(),
+                  ),
+                ),
+              ],
+
+              // Contact Profile & Live Ledger Balance Card
+              if (_selectedPerson != null) ...[
+                Container(
+                  margin: const EdgeInsets.only(top: 10),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: _selectedPerson!.netBalance < 0
+                          ? const Color(0xFFEF4444).withValues(alpha: 0.4)
+                          : (_selectedPerson!.netBalance > 0
+                              ? const Color(0xFF10B981).withValues(alpha: 0.4)
+                              : const Color(0xFF38BDF8).withValues(alpha: 0.3)),
+                      width: 1.2,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 14,
+                            backgroundColor: const Color(0xFF10B981).withValues(alpha: 0.2),
+                            child: Text(
+                              _selectedPerson!.name.isNotEmpty ? _selectedPerson!.name[0].toUpperCase() : '?',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF10B981)),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Text(
+                                  _selectedPerson!.name,
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5),
+                                ),
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF0F172A),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Text('Existing Contact', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 10)),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF0F172A),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Total Lent', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 10)),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '₹${_selectedPerson!.totalGiven.toStringAsFixed(0)}',
+                                    style: const TextStyle(color: Color(0xFF38BDF8), fontWeight: FontWeight.bold, fontSize: 12),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF0F172A),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Total Borrowed', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 10)),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '₹${_selectedPerson!.totalTaken.toStringAsFixed(0)}',
+                                    style: const TextStyle(color: Color(0xFFF59E0B), fontWeight: FontWeight.bold, fontSize: 12),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF0F172A),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _selectedPerson!.netBalance < 0
+                                        ? 'You Owe'
+                                        : (_selectedPerson!.netBalance > 0 ? 'Owes You' : 'Status'),
+                                    style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 10),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _selectedPerson!.netBalance == 0
+                                        ? 'Settled'
+                                        : '₹${_selectedPerson!.netBalance.abs().toStringAsFixed(0)}',
+                                    style: TextStyle(
+                                      color: _selectedPerson!.netBalance < 0
+                                          ? const Color(0xFFEF4444)
+                                          : (_selectedPerson!.netBalance > 0 ? const Color(0xFF10B981) : const Color(0xFF94A3B8)),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_selectedPerson!.netBalance.abs() > 0) ...[
+                        const SizedBox(height: 8),
+                        InkWell(
+                          onTap: () {
+                            setState(() {
+                              _amountController.text = _selectedPerson!.netBalance.abs().toStringAsFixed(0);
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.flash_on_rounded, size: 13, color: Color(0xFF10B981)),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Auto-fill exact due balance (₹${_selectedPerson!.netBalance.abs().toStringAsFixed(0)})',
+                                  style: const TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ] else if (_personController.text.trim().isNotEmpty) ...[
+                Container(
+                  margin: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0F172A),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFF334155)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.person_add_alt_1_rounded, size: 14, color: Color(0xFF38BDF8)),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'New contact "${_personController.text.trim()}" will be auto-saved.',
+                          style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],

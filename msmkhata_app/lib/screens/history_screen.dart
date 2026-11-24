@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/transaction.dart';
+import '../services/api_service.dart';
 import '../services/sync_service.dart';
 import '../widgets/adaptive_refresh_indicator.dart';
 import '../widgets/shimmer_loading.dart';
@@ -97,7 +98,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     ConnectivityService.checkNow();
     try {
       final list = await SyncService.syncTransactions(
-        limit: 100,
+        limit: 5000,
         offset: 0,
         replaceCache: false,
       );
@@ -565,8 +566,18 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           final isTaken = item.type == 'TAKEN';
                           final isIncome = item.type == 'INCOME';
 
+                          String? resolvedCategoryName = item.categoryName;
+                          if ((resolvedCategoryName == null || resolvedCategoryName.isEmpty) && item.categoryId != null) {
+                            for (final c in ApiService.defaultCategories) {
+                              if (c.id == item.categoryId) {
+                                resolvedCategoryName = c.name;
+                                break;
+                              }
+                            }
+                          }
+
                           final visual = CategoryIconHelper.getVisual(
-                            categoryName: item.categoryName,
+                            categoryName: resolvedCategoryName,
                             type: item.type,
                             categoryColorHex: item.categoryColor,
                           );
@@ -640,7 +651,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                           children: [
                                             Expanded(
                                               child: Text(
-                                                item.personName ?? item.categoryName ?? item.type,
+                                                item.personName ??
+                                                    resolvedCategoryName ??
+                                                    (item.type == 'EXPENSE'
+                                                        ? 'Expense'
+                                                        : item.type == 'INCOME'
+                                                            ? 'Income'
+                                                            : item.type),
                                                 style: const TextStyle(
                                                   color: Colors.white,
                                                   fontWeight: FontWeight.bold,

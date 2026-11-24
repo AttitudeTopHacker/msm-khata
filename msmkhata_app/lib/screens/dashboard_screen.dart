@@ -22,6 +22,7 @@ import 'history_screen.dart';
 import 'landing_screen.dart';
 import '../widgets/msm_shimmer_text.dart';
 import '../widgets/transaction_detail_sheet.dart';
+import '../widgets/quick_modules_modal.dart';
 import '../services/connectivity_service.dart';
 import '../services/sync_service.dart';
 import '../services/budget_service.dart';
@@ -111,7 +112,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     // Refresh connectivity state on data refresh
     ConnectivityService.checkNow();
     final stats = _getStats();
-    final txs = SyncService.syncTransactions(limit: 100, offset: 0);
+    final txs = SyncService.syncTransactions(limit: 5000, offset: 0);
     setState(() {
       _statsFuture = stats;
       _transactionsFuture = txs;
@@ -268,10 +269,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     initialData: SyncService.cachedStats,
                     builder: (context, snapshot) {
                       final stats = snapshot.data ?? SyncService.cachedStats ?? SyncService.recalculateStatsLocally();
-                      if (snapshot.connectionState == ConnectionState.waiting && stats == null) {
+                      if (snapshot.connectionState == ConnectionState.waiting && snapshot.data == null && SyncService.cachedStats == null) {
                         return const ShimmerNetPositionCard();
                       }
-                      if (stats == null && snapshot.hasError) {
+                      if (snapshot.hasError && snapshot.data == null && SyncService.cachedStats == null) {
                         WidgetsBinding.instance.addPostFrameCallback((_) {
                           Future.delayed(const Duration(seconds: 4), () {
                             if (mounted) _refreshData();
@@ -429,10 +430,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             return const ShimmerTransactionList(count: 4);
                           }
                           final activeAccount = AccountService.activeAccountNotifier.value;
-                          final allItems = snapshot.data ?? [];
+                          final allItems = snapshot.data ?? SyncService.cachedTransactions;
                           final items = allItems.where((t) {
+                            if (activeAccount.id == 'all') return true;
                             final itemAccountId = t.accountId;
-                            return itemAccountId == activeAccount.id;
+                            return itemAccountId == activeAccount.id ||
+                                (activeAccount.id == 'main' && (itemAccountId.isEmpty || itemAccountId == 'main'));
                           }).toList();
 
                           if (items.isEmpty) {
@@ -482,8 +485,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                               final amountPrefix = isIncome ? '+₹' : (isExpense ? '-₹' : '₹');
 
+                              String? resolvedCategoryName = item.categoryName;
+                              if ((resolvedCategoryName == null || resolvedCategoryName.isEmpty) && item.categoryId != null) {
+                                for (final c in ApiService.defaultCategories) {
+                                  if (c.id == item.categoryId) {
+                                    resolvedCategoryName = c.name;
+                                    break;
+                                  }
+                                }
+                              }
+
                               final visual = CategoryIconHelper.getVisual(
-                                categoryName: item.categoryName,
+                                categoryName: resolvedCategoryName,
                                 type: item.type,
                                 categoryColorHex: item.categoryColor,
                               );
@@ -530,7 +543,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
                                               Text(
-                                                item.personName ?? item.categoryName ?? item.type,
+                                                item.personName ??
+                                                    resolvedCategoryName ??
+                                                    (item.type == 'EXPENSE'
+                                                        ? 'Expense'
+                                                        : item.type == 'INCOME'
+                                                            ? 'Income'
+                                                            : item.type),
                                                 style: const TextStyle(
                                                   color: Colors.white,
                                                   fontWeight: FontWeight.bold,
@@ -701,43 +720,70 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
         actions: [
-          // Home Icon Button (Left of Side Drawer Icon)
-          Tooltip(
-            message: 'Home Page & Overview',
-            child: InkWell(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const LandingScreen(isViewingFromDashboard: true),
+          // Quick Modules Hub (Grocery & Work Diary) - Desktop Only
+          if (isWideDesktop)
+            Tooltip(
+              message: 'Quick Modules Hub (Grocery & Work Diary) • Pinch in to open',
+              child: InkWell(
+                onTap: () => QuickModulesModal.show(context),
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B).withValues(alpha: 0.7),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: const Color(0xFF10B981).withValues(alpha: 0.5),
+                      width: 1,
+                    ),
                   ),
-                );
-              },
-              borderRadius: BorderRadius.circular(10),
-              child: Container(
-                padding: const EdgeInsets.all(6),
-                margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B).withValues(alpha: 0.7),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: const Color(0xFF334155),
-                    width: 1,
+                  child: const Icon(
+                    Icons.widgets_rounded,
+                    color: Color(0xFF10B981),
+                    size: 20,
                   ),
-                ),
-                child: const Icon(
-                  Icons.home_rounded,
-                  color: Color(0xFF818CF8),
-                  size: 20,
                 ),
               ),
             ),
-          ),
+          // Home Icon Button (Left of Side Drawer Icon) - Desktop Only
+          if (isWideDesktop)
+            Tooltip(
+              message: 'Home Page & Overview',
+              child: InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const LandingScreen(isViewingFromDashboard: true),
+                    ),
+                  );
+                },
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B).withValues(alpha: 0.7),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: const Color(0xFF334155),
+                      width: 1,
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.home_rounded,
+                    color: Color(0xFF818CF8),
+                    size: 20,
+                  ),
+                ),
+              ),
+            ),
           // More Tools Drawer / Desktop Sidebar Toggle Button
           Tooltip(
             message: isWideDesktop
                 ? (_isDesktopSidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar')
-                : 'More Tools & Navigation',
+                : 'Sidebar Menu & Tools',
             child: InkWell(
               onTap: () {
                 if (isWideDesktop) {
@@ -765,7 +811,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Icon(
                   isWideDesktop
                       ? (_isDesktopSidebarCollapsed ? Icons.view_sidebar_outlined : Icons.view_sidebar_rounded)
-                      : Icons.widgets_outlined,
+                      : Icons.menu_rounded,
                   color: isWideDesktop ? const Color(0xFF818CF8) : Colors.white,
                   size: 20,
                 ),

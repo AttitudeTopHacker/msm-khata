@@ -93,7 +93,7 @@ class SyncService {
     final activeId = accountId ?? AccountService.activeAccountNotifier.value.id;
     final filtered = cachedTransactions.where((tx) {
       if (activeId == 'all') return true;
-      final txAid = tx.accountId ?? 'main';
+      final txAid = tx.accountId;
       return txAid == activeId || (activeId == 'main' && (txAid.isEmpty || txAid == 'main'));
     }).toList();
 
@@ -102,22 +102,50 @@ class SyncService {
     double receivable = 0;
     double payable = 0;
     final Map<String, double> categorySums = {};
+    final Map<String, Map<String, double>> monthlyAggregates = {};
 
     for (final tx in filtered) {
       final amt = tx.amount;
       final t = tx.type.toLowerCase();
+      final dateStr = tx.transactionDate ?? '';
+
+      if (dateStr.length >= 7) {
+        final monthKey = dateStr.substring(0, 7);
+        monthlyAggregates.putIfAbsent(monthKey, () => {
+          'income': 0.0,
+          'expense': 0.0,
+          'given': 0.0,
+          'taken': 0.0,
+        });
+        if (t == 'income') {
+          monthlyAggregates[monthKey]!['income'] = monthlyAggregates[monthKey]!['income']! + amt;
+        } else if (t == 'expense') {
+          monthlyAggregates[monthKey]!['expense'] = monthlyAggregates[monthKey]!['expense']! + amt;
+        } else if (t == 'given' || t == 'lena' || t == 'receivable') {
+          monthlyAggregates[monthKey]!['given'] = monthlyAggregates[monthKey]!['given']! + amt;
+        } else if (t == 'taken' || t == 'diya' || t == 'payable') {
+          monthlyAggregates[monthKey]!['taken'] = monthlyAggregates[monthKey]!['taken']! + amt;
+        }
+      }
+
       if (t == 'income') {
         income += amt;
       } else if (t == 'expense') {
         expense += amt;
+        String catName = tx.categoryName?.trim() ?? '';
+        if (catName.isEmpty && tx.categoryId != null) {
+          final matched = ApiService.defaultCategories.firstWhere(
+            (c) => c.id == tx.categoryId,
+            orElse: () => Category(id: '', name: '', type: ''),
+          );
+          if (matched.name.isNotEmpty) catName = matched.name;
+        }
+        if (catName.isEmpty) catName = 'Other Expenses';
+        categorySums[catName] = (categorySums[catName] ?? 0) + amt;
       } else if (t == 'given' || t == 'lena' || t == 'receivable') {
         receivable += amt;
       } else if (t == 'taken' || t == 'diya' || t == 'payable') {
         payable += amt;
-      }
-
-      if (t == 'expense' && tx.categoryName != null && tx.categoryName!.isNotEmpty) {
-        categorySums[tx.categoryName!] = (categorySums[tx.categoryName!] ?? 0) + amt;
       }
     }
 
@@ -130,13 +158,56 @@ class SyncService {
     final List<CategoryBreakdown> catList = [];
     final totalExpenseForBreakdown = expense > 0 ? expense : 1.0;
     categorySums.forEach((name, total) {
+      final matched = ApiService.defaultCategories.firstWhere(
+        (c) => c.name.toLowerCase() == name.toLowerCase(),
+        orElse: () => Category(id: '', name: name, type: 'EXPENSE', color: '#6366F1'),
+      );
       catList.add(CategoryBreakdown(
         categoryName: name,
-        color: '#6366F1',
+        color: matched.color,
         totalAmount: total,
         percentage: (total / totalExpenseForBreakdown) * 100,
       ));
     });
+    catList.sort((a, b) => b.totalAmount.compareTo(a.totalAmount));
+
+    final sortedMonths = monthlyAggregates.keys.toList()..sort();
+    final List<MonthlyTrendItem> trends = sortedMonths.map((m) {
+      final data = monthlyAggregates[m]!;
+      return MonthlyTrendItem(
+        month: m,
+        totalIncome: data['income']!,
+        totalExpense: data['expense']!,
+        totalGiven: data['given']!,
+        totalTaken: data['taken']!,
+      );
+    }).toList();
+
+    final debtors = cachedPersons
+        .where((p) => p.netBalance > 0)
+        .toList()
+      ..sort((a, b) => b.netBalance.compareTo(a.netBalance));
+    final topDebtors = debtors.take(5).map((p) => PersonBalanceSummary(
+      personId: p.id,
+      name: p.name,
+      totalGiven: p.totalGiven,
+      totalTaken: p.totalTaken,
+      netBalance: p.netBalance,
+      status: 'OWES_YOU',
+    )).toList();
+
+    final creditors = cachedPersons
+        .where((p) => p.netBalance < 0)
+        .toList()
+      ..sort((a, b) => b.netBalance.abs().compareTo(a.netBalance.abs()));
+    final topCreditors = creditors.take(5).map((p) => PersonBalanceSummary(
+      personId: p.id,
+      name: p.name,
+      totalGiven: p.totalGiven,
+      totalTaken: p.totalTaken,
+      netBalance: p.netBalance.abs(),
+      status: 'YOU_OWE',
+    )).toList();
 
     final newStats = DashboardStats(
       netAccountBalance: netBalance,
@@ -149,13 +220,13 @@ class SyncService {
       totalIncome: income,
       totalExpense: expense,
       netSavings: netSavings,
-      peopleToReceiveCount: cachedStats?.peopleToReceiveCount ?? 0,
-      peopleToPayCount: cachedStats?.peopleToPayCount ?? 0,
+      peopleToReceiveCount: debtors.length,
+      peopleToPayCount: creditors.length,
       totalTransactionsCount: filtered.length,
       categoryBreakdown: catList.isNotEmpty ? catList : (cachedStats?.categoryBreakdown ?? []),
-      topDebtors: cachedStats?.topDebtors ?? [],
-      topCreditors: cachedStats?.topCreditors ?? [],
-      monthlyTrends: cachedStats?.monthlyTrends ?? [],
+      topDebtors: topDebtors.isNotEmpty ? topDebtors : (cachedStats?.topDebtors ?? []),
+      topCreditors: topCreditors.isNotEmpty ? topCreditors : (cachedStats?.topCreditors ?? []),
+      monthlyTrends: trends.isNotEmpty ? trends : (cachedStats?.monthlyTrends ?? []),
     );
 
     cachedStats = newStats;
@@ -195,7 +266,22 @@ class SyncService {
       if (txsJson != null) {
         try {
           final List<dynamic> list = jsonDecode(txsJson);
-          cachedTransactions = list.map((e) => TransactionItem.fromJson(e)).toList();
+          cachedTransactions = list.map((e) {
+            final tx = TransactionItem.fromJson(e);
+            if ((tx.categoryName == null || tx.categoryName!.isEmpty) && tx.categoryId != null) {
+              final matched = ApiService.defaultCategories.firstWhere(
+                (c) => c.id == tx.categoryId,
+                orElse: () => Category(id: '', name: '', type: ''),
+              );
+              if (matched.name.isNotEmpty) {
+                return tx.copyWith(
+                  categoryName: matched.name,
+                  categoryColor: matched.color,
+                );
+              }
+            }
+            return tx;
+          }).toList();
         } catch (e) {
           debugPrint('Error restoring cached transactions: $e');
         }
@@ -212,9 +298,10 @@ class SyncService {
         }
       }
 
-      // 4.5. If cached stats are missing or incomplete, calculate instantly from cached transactions
-      if (cachedStats == null && cachedTransactions.isNotEmpty) {
+      // 4.5. Always recalculate stats and persons locally from cached transactions on launch to guarantee 100% accurate balances
+      if (cachedTransactions.isNotEmpty) {
         recalculateStatsLocally();
+        recalculatePersonsLocally();
       }
 
       // Update pending items counter
@@ -281,11 +368,173 @@ class SyncService {
       await prefs.setString(_kStatsKey, jsonEncode(stats.toJson()));
       return stats;
     } catch (e) {
-      debugPrint('Sync stats notice: $e');
-      final local = recalculateStatsLocally();
-      cachedStats = local;
-      return cachedStats;
+      debugPrint('Sync stats notice, fallback to direct Supabase: $e');
+      return await fetchStatsDirectly();
     }
+  }
+
+  /// Direct Supabase fetch for dashboard stats (calculates accurately across all records in Supabase)
+  static Future<DashboardStats> fetchStatsDirectly({String? accountId}) async {
+    final uid = AuthService.currentUserId;
+    final activeId = accountId ?? AccountService.activeAccountNotifier.value.id;
+
+    try {
+      if (cachedPersons.isEmpty) {
+        await fetchPersonsDirectly();
+      }
+
+      var query = _client.from('transactions').select('type, amount, account_id, transaction_date, categories(id, name, color)');
+      if (uid != null) {
+        query = query.eq('user_id', uid);
+      }
+      if (activeId.isNotEmpty && activeId != 'all') {
+        query = query.eq('account_id', activeId);
+      }
+
+      final dynamic rows = await query;
+      if (rows is List) {
+        double income = 0;
+        double expense = 0;
+        double receivable = 0;
+        double payable = 0;
+        final Map<String, double> categorySums = {};
+        final Map<String, String> categoryColors = {};
+        final Map<String, Map<String, double>> monthlyAggregates = {};
+
+        for (final dynamic row in rows) {
+          final amt = (row['amount'] as num?)?.toDouble() ?? 0.0;
+          final type = (row['type'] as String?)?.toUpperCase() ?? '';
+          final dateStr = (row['transaction_date'] as String?) ?? '';
+
+          if (dateStr.length >= 7) {
+            final monthKey = dateStr.substring(0, 7);
+            monthlyAggregates.putIfAbsent(monthKey, () => {
+              'income': 0.0,
+              'expense': 0.0,
+              'given': 0.0,
+              'taken': 0.0,
+            });
+            if (type == 'INCOME') {
+              monthlyAggregates[monthKey]!['income'] = monthlyAggregates[monthKey]!['income']! + amt;
+            } else if (type == 'EXPENSE') {
+              monthlyAggregates[monthKey]!['expense'] = monthlyAggregates[monthKey]!['expense']! + amt;
+            } else if (type == 'GIVEN') {
+              monthlyAggregates[monthKey]!['given'] = monthlyAggregates[monthKey]!['given']! + amt;
+            } else if (type == 'TAKEN') {
+              monthlyAggregates[monthKey]!['taken'] = monthlyAggregates[monthKey]!['taken']! + amt;
+            }
+          }
+
+          if (type == 'INCOME') {
+            income += amt;
+          } else if (type == 'EXPENSE') {
+            expense += amt;
+            final catObj = row['categories'];
+            String catName = 'Other Expenses';
+            String catColor = '#6366F1';
+            if (catObj is Map) {
+              final n = catObj['name'] as String?;
+              if (n != null && n.isNotEmpty) catName = n;
+              final c = catObj['color'] as String?;
+              if (c != null && c.isNotEmpty) catColor = c;
+            }
+            categorySums[catName] = (categorySums[catName] ?? 0) + amt;
+            categoryColors[catName] = catColor;
+          } else if (type == 'GIVEN') {
+            receivable += amt;
+          } else if (type == 'TAKEN') {
+            payable += amt;
+          }
+        }
+
+        final moneyIn = income + payable;
+        final moneyOut = expense + receivable;
+        final netBalance = moneyIn - moneyOut;
+        final netLenDen = receivable - payable;
+        final netSavings = income - expense;
+
+        final List<CategoryBreakdown> catList = [];
+        final totalExpenseForBreakdown = expense > 0 ? expense : 1.0;
+        categorySums.forEach((name, total) {
+          catList.add(CategoryBreakdown(
+            categoryName: name,
+            color: categoryColors[name] ?? '#6366F1',
+            totalAmount: total,
+            percentage: (total / totalExpenseForBreakdown) * 100,
+          ));
+        });
+        catList.sort((a, b) => b.totalAmount.compareTo(a.totalAmount));
+
+        final sortedMonths = monthlyAggregates.keys.toList()..sort();
+        final List<MonthlyTrendItem> trends = sortedMonths.map((m) {
+          final data = monthlyAggregates[m]!;
+          return MonthlyTrendItem(
+            month: m,
+            totalIncome: data['income']!,
+            totalExpense: data['expense']!,
+            totalGiven: data['given']!,
+            totalTaken: data['taken']!,
+          );
+        }).toList();
+
+        final debtors = cachedPersons
+            .where((p) => p.netBalance > 0)
+            .toList()
+          ..sort((a, b) => b.netBalance.compareTo(a.netBalance));
+        final topDebtors = debtors.take(5).map((p) => PersonBalanceSummary(
+          personId: p.id,
+          name: p.name,
+          totalGiven: p.totalGiven,
+          totalTaken: p.totalTaken,
+          netBalance: p.netBalance,
+          status: 'OWES_YOU',
+        )).toList();
+
+        final creditors = cachedPersons
+            .where((p) => p.netBalance < 0)
+            .toList()
+          ..sort((a, b) => b.netBalance.abs().compareTo(a.netBalance.abs()));
+        final topCreditors = creditors.take(5).map((p) => PersonBalanceSummary(
+          personId: p.id,
+          name: p.name,
+          totalGiven: p.totalGiven,
+          totalTaken: p.totalTaken,
+          netBalance: p.netBalance.abs(),
+          status: 'YOU_OWE',
+        )).toList();
+
+        final freshStats = DashboardStats(
+          netAccountBalance: netBalance,
+          totalMoneyIn: moneyIn,
+          totalMoneyOut: moneyOut,
+          activeAccountId: activeId,
+          totalReceivable: receivable,
+          totalPayable: payable,
+          netLenDenPosition: netLenDen,
+          totalIncome: income,
+          totalExpense: expense,
+          netSavings: netSavings,
+          peopleToReceiveCount: debtors.length,
+          peopleToPayCount: creditors.length,
+          totalTransactionsCount: rows.length,
+          categoryBreakdown: catList.isNotEmpty ? catList : (cachedStats?.categoryBreakdown ?? []),
+          topDebtors: topDebtors.isNotEmpty ? topDebtors : (cachedStats?.topDebtors ?? []),
+          topCreditors: topCreditors.isNotEmpty ? topCreditors : (cachedStats?.topCreditors ?? []),
+          monthlyTrends: trends.isNotEmpty ? trends : (cachedStats?.monthlyTrends ?? []),
+        );
+
+        cachedStats = freshStats;
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_kStatsKey, jsonEncode(freshStats.toJson()));
+        return freshStats;
+      }
+    } catch (e) {
+      debugPrint('Direct Supabase fetchStatsDirectly notice: $e');
+    }
+
+    final fallback = recalculateStatsLocally(accountId: activeId);
+    cachedStats = fallback;
+    return fallback;
   }
 
   /// Sync Contacts / Persons
@@ -352,7 +601,7 @@ class SyncService {
         }
       }
 
-      final List<Person> result = [];
+      final Map<String, Person> dedupedResult = {};
       for (final p in pRows) {
         final pid = p['id'].toString();
         final s = stats[pid] ?? {'given': 0.0, 'taken': 0.0, 'count': 0};
@@ -371,20 +620,46 @@ class SyncService {
           continue;
         }
 
-        result.add(Person(
-          id: pid,
-          name: p['name'] ?? '',
-          phone: p['phone'],
-          notes: p['notes'],
-          totalGiven: given,
-          totalTaken: taken,
-          netBalance: net,
-          status: pStatus,
-          transactionCount: s['count'] as int,
-        ));
+        final pName = (p['name'] as String?)?.trim() ?? '';
+        final normKey = pName.replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
+        if (normKey.isEmpty) continue;
+
+        if (!dedupedResult.containsKey(normKey)) {
+          dedupedResult[normKey] = Person(
+            id: pid,
+            name: pName,
+            phone: p['phone'],
+            notes: p['notes'],
+            totalGiven: given,
+            totalTaken: taken,
+            netBalance: net,
+            status: pStatus,
+            transactionCount: s['count'] as int,
+          );
+        } else {
+          final existing = dedupedResult[normKey]!;
+          final mergedGiven = existing.totalGiven + given;
+          final mergedTaken = existing.totalTaken + taken;
+          final mergedNet = double.parse((mergedGiven - mergedTaken).toStringAsFixed(2));
+          String mergedStatus = 'SETTLED';
+          if (mergedNet > 0) mergedStatus = 'TO_RECEIVE';
+          else if (mergedNet < 0) mergedStatus = 'TO_PAY';
+
+          dedupedResult[normKey] = Person(
+            id: existing.id,
+            name: existing.name,
+            phone: existing.phone ?? p['phone'],
+            notes: existing.notes ?? p['notes'],
+            totalGiven: mergedGiven,
+            totalTaken: mergedTaken,
+            netBalance: mergedNet,
+            status: mergedStatus,
+            transactionCount: existing.transactionCount + (s['count'] as int),
+          );
+        }
       }
 
-      return result;
+      return dedupedResult.values.toList();
     } catch (e) {
       debugPrint('fetchPersonsDirectly error: $e');
       return cachedPersons;
@@ -393,7 +668,7 @@ class SyncService {
 
   /// Direct Supabase fetch for transactions with table joins
   static Future<List<TransactionItem>> fetchTransactionsDirectly({
-    int limit = 100,
+    int limit = 5000,
     int offset = 0,
     String? accountId,
   }) async {
@@ -418,7 +693,22 @@ class SyncService {
           .range(offset, offset + limit - 1);
 
       final List<dynamic> rows = data as List<dynamic>;
-      return rows.map((r) => TransactionItem.fromJson(r as Map<String, dynamic>)).toList();
+      return rows.map((r) {
+        final tx = TransactionItem.fromJson(r as Map<String, dynamic>);
+        if ((tx.categoryName == null || tx.categoryName!.isEmpty) && tx.categoryId != null) {
+          final matched = ApiService.defaultCategories.firstWhere(
+            (c) => c.id == tx.categoryId,
+            orElse: () => Category(id: '', name: '', type: ''),
+          );
+          if (matched.name.isNotEmpty) {
+            return tx.copyWith(
+              categoryName: matched.name,
+              categoryColor: matched.color,
+            );
+          }
+        }
+        return tx;
+      }).toList();
     } catch (e) {
       debugPrint('fetchTransactionsDirectly error: $e');
       return [];
@@ -427,7 +717,7 @@ class SyncService {
 
   /// Incremental / Paged sync for transactions with 100% deterministic UUID deduplication
   static Future<List<TransactionItem>> syncTransactions({
-    int limit = 100,
+    int limit = 5000,
     int offset = 0,
     bool replaceCache = false,
   }) async {
@@ -474,36 +764,42 @@ class SyncService {
     return remoteList;
   }
 
-  /// Find person by name or create in Supabase, returning their valid UUID
+  /// Find person by name or create in Supabase, returning their valid UUID (with strict deduplication)
   static Future<String> getOrCreatePersonId(String name, {String? userId}) async {
     final uid = userId ?? AuthService.currentUserId;
-    final cleaned = name.trim();
+    final cleaned = name.trim().replaceAll(RegExp(r'\s+'), ' ');
     if (cleaned.isEmpty) return '';
+    final normalized = cleaned.toLowerCase();
 
-    // 1. Check local cached persons
+    // 1. Check local cached persons (case-insensitive & trimmed)
     final localMatch = cachedPersons.where(
-      (p) => p.name.trim().toLowerCase() == cleaned.toLowerCase() && _uuidRegex.hasMatch(p.id)
+      (p) => p.name.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase() == normalized && _uuidRegex.hasMatch(p.id)
     );
     if (localMatch.isNotEmpty) {
       return localMatch.first.id;
     }
 
-    // 2. Check Supabase directly
+    // 2. Check Supabase directly for this user (never create duplicates)
     try {
-      var query = _client.from('persons').select('id, name').ilike('name', cleaned);
+      var query = _client.from('persons').select('id, name');
       if (uid != null) {
         query = query.eq('user_id', uid);
       }
-      final existing = await query.maybeSingle();
-      if (existing != null && existing['id'] != null) {
-        final foundId = existing['id'].toString();
-        if (!cachedPersons.any((p) => p.id == foundId)) {
-          cachedPersons.add(Person(id: foundId, name: cleaned));
+      final existingRows = await query;
+      if (existingRows is List) {
+        for (final row in existingRows) {
+          final rName = (row['name'] as String?)?.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase() ?? '';
+          if (rName == normalized && row['id'] != null) {
+            final foundId = row['id'].toString();
+            if (!cachedPersons.any((p) => p.id == foundId)) {
+              cachedPersons.add(Person(id: foundId, name: row['name']?.toString() ?? cleaned));
+            }
+            return foundId;
+          }
         }
-        return foundId;
       }
 
-      // 3. Create new person in Supabase
+      // 3. Create new person in Supabase only if truly unique
       final newPerson = await _client.from('persons').insert({
         'name': cleaned,
         if (uid != null) 'user_id': uid,
@@ -522,6 +818,50 @@ class SyncService {
       await _queuePendingPerson(p);
       return offlineId;
     }
+  }
+
+  /// Find category by name or create in Supabase, returning its valid UUID (with strict fallback)
+  static Future<String?> getOrCreateCategoryId(String? name, {String? type = 'EXPENSE', String? userId}) async {
+    if (name == null || name.trim().isEmpty) return null;
+    final cleaned = name.trim();
+    final norm = cleaned.toLowerCase();
+
+    // 1. Check in defaultCategories
+    final match = ApiService.defaultCategories.firstWhere(
+      (c) => c.name.toLowerCase() == norm ||
+             c.name.toLowerCase().startsWith(norm) ||
+             norm.startsWith(c.name.toLowerCase()),
+      orElse: () => Category(id: '', name: '', type: ''),
+    );
+    if (match.id.isNotEmpty && _uuidRegex.hasMatch(match.id)) {
+      return match.id;
+    }
+
+    // 2. Query Supabase categories table
+    try {
+      final uid = userId ?? AuthService.currentUserId;
+      final dynamic rows = await _client
+          .from('categories')
+          .select('id, name')
+          .ilike('name', cleaned);
+      if (rows is List && rows.isNotEmpty) {
+        final id = rows.first['id']?.toString();
+        if (id != null && _uuidRegex.hasMatch(id)) return id;
+      }
+
+      // 3. Create category in Supabase
+      final inserted = await _client.from('categories').insert({
+        'name': cleaned,
+        'type': type ?? 'EXPENSE',
+        'color': '#3B82F6',
+        if (uid != null) 'user_id': uid,
+      }).select().single();
+      final newId = inserted['id']?.toString();
+      if (newId != null && _uuidRegex.hasMatch(newId)) return newId;
+    } catch (e) {
+      debugPrint('getOrCreateCategoryId notice: $e');
+    }
+    return null;
   }
 
   /// Recalculates cachedPersons balances instantly in 0ms from cachedTransactions
@@ -634,6 +974,24 @@ class SyncService {
     }
 
     String? validCategoryId = (categoryId != null && _uuidRegex.hasMatch(categoryId)) ? categoryId : null;
+    final isExpenseOrIncome = type == 'EXPENSE' || type == 'INCOME';
+    if (isExpenseOrIncome && validCategoryId == null && categoryName != null && categoryName.trim().isNotEmpty) {
+      validCategoryId = await getOrCreateCategoryId(categoryName, type: type, userId: userId);
+    }
+
+    // Resolve category name and color if missing
+    String? resolvedCatName = categoryName;
+    String? resolvedCatColor;
+    if (validCategoryId != null) {
+      final matchedCat = ApiService.defaultCategories.firstWhere(
+        (c) => c.id == validCategoryId,
+        orElse: () => Category(id: '', name: '', type: ''),
+      );
+      if (matchedCat.name.isNotEmpty) {
+        resolvedCatName ??= matchedCat.name;
+        resolvedCatColor ??= matchedCat.color;
+      }
+    }
 
     final localTx = TransactionItem(
       id: txId,
@@ -642,8 +1000,9 @@ class SyncService {
       paymentMode: paymentMode,
       personName: personName,
       personId: validPersonId,
-      categoryName: categoryName,
+      categoryName: resolvedCatName,
       categoryId: validCategoryId,
+      categoryColor: resolvedCatColor,
       notes: notes,
       dueDate: dueDate,
       transactionDate: tDate,
@@ -665,7 +1024,7 @@ class SyncService {
           paymentMode: paymentMode,
           personName: personName,
           personId: validPersonId,
-          categoryName: categoryName,
+          categoryName: resolvedCatName,
           categoryId: validCategoryId,
           notes: notes,
           dueDate: dueDate,
@@ -729,6 +1088,11 @@ class SyncService {
     String? accountId,
     String? accountName,
   }) async {
+    String? validCatId = (categoryId != null && _uuidRegex.hasMatch(categoryId)) ? categoryId : null;
+    if (validCatId == null && categoryName != null && categoryName.trim().isNotEmpty) {
+      validCatId = await getOrCreateCategoryId(categoryName, type: type);
+    }
+
     // 1. Optimistic memory & local cache update
     final existingIdx = cachedTransactions.indexWhere((t) => t.id == id);
     TransactionItem updatedTx;
@@ -744,7 +1108,7 @@ class SyncService {
         isSettled: isSettled ?? old.isSettled,
         personId: clearPerson ? null : (personId ?? old.personId),
         personName: clearPerson ? null : (personName ?? old.personName),
-        categoryId: clearCategory ? null : (categoryId ?? old.categoryId),
+        categoryId: clearCategory ? null : (validCatId ?? old.categoryId),
         categoryName: clearCategory ? null : (categoryName ?? old.categoryName),
         accountId: accountId ?? old.accountId,
         accountName: accountName ?? old.accountName,
@@ -762,7 +1126,7 @@ class SyncService {
         isSettled: isSettled ?? false,
         personId: personId,
         personName: personName,
-        categoryId: categoryId,
+        categoryId: validCatId,
         categoryName: categoryName,
         accountId: accountId ?? 'main',
         accountName: accountName ?? 'Main Account',
@@ -787,7 +1151,7 @@ class SyncService {
           personId: personId,
           personName: personName,
           clearPerson: clearPerson,
-          categoryId: categoryId,
+          categoryId: validCatId,
           categoryName: categoryName,
           clearCategory: clearCategory,
           accountId: accountId,
@@ -796,7 +1160,27 @@ class SyncService {
         onOptimisticTransactionUpdated(serverUpdated);
         return serverUpdated;
       } catch (e) {
-        await _queuePendingUpdate(updatedTx);
+        try {
+          final Map<String, dynamic> updateFields = {
+            if (type != null) 'type': type,
+            if (amount != null) 'amount': amount,
+            if (paymentMode != null) 'payment_mode': paymentMode,
+            if (transactionDate != null) 'transaction_date': transactionDate,
+            if (notes != null) 'notes': notes,
+            if (clearNotes) 'notes': null,
+            if (dueDate != null) 'due_date': dueDate,
+            if (clearDueDate) 'due_date': null,
+            if (isSettled != null) 'is_settled': isSettled,
+            if (personId != null) 'person_id': personId,
+            if (clearPerson) 'person_id': null,
+            if (validCatId != null) 'category_id': validCatId,
+            if (clearCategory) 'category_id': null,
+            if (accountId != null) 'account_id': accountId,
+          };
+          await _client.from('transactions').update(updateFields).eq('id', id);
+        } catch (_) {
+          await _queuePendingUpdate(updatedTx);
+        }
       }
     } else {
       await _queuePendingUpdate(updatedTx);
@@ -805,23 +1189,31 @@ class SyncService {
     return updatedTx;
   }
 
-  /// Delete a transaction (Works 100% Offline with Auto-Sync)
+  /// Delete a transaction (Works 100% Offline with Auto-Sync and Guaranteed Instant Delete)
   static Future<void> deleteTransaction(String id) async {
+    // 1. Instantly remove from local memory & persistent storage in 0ms
     onOptimisticTransactionDeleted(id);
 
+    // 2. Perform direct Supabase deletion FIRST and await it so it is gone from DB before any refresh
     if (ConnectivityService().isOnline.value) {
       try {
-        await ApiService.deleteTransaction(id);
+        await _client.from('transactions').delete().eq('id', id);
+        ApiService.deleteTransaction(id).catchError((_) {});
       } catch (e) {
-        try {
-          await _client.from('transactions').delete().eq('id', id);
-        } catch (_) {
-          await _queuePendingDelete(id);
-        }
+        debugPrint('Direct Supabase delete notice: $e');
+        await _queuePendingDelete(id);
       }
+
+      // 3. Now that DB has deleted the row, sync fresh stats and persons
+      try {
+        await Future.wait([fetchStatsDirectly(), fetchPersonsDirectly()]);
+      } catch (_) {}
     } else {
       await _queuePendingDelete(id);
     }
+
+    // 4. Trigger global reactive UI update
+    dataVersion.value++;
   }
 
   // ---------------------------------------------------------------------------
@@ -1094,11 +1486,6 @@ class SyncService {
         jsonEncode(cachedTransactions.map((e) => e.toJson()).toList()),
       );
     } catch (_) {}
-
-    // Silently recalculate stats and contacts in background if online
-    if (ConnectivityService().isOnline.value) {
-      Future.wait([syncStats(), syncPersons()]).then((_) => dataVersion.value++);
-    }
   }
 
   /// Optimistic Transaction Update: Instantly updates item in local cache & SharedPreferences

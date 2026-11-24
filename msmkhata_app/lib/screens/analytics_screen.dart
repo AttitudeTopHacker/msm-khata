@@ -44,6 +44,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   }
 
   Future<DashboardStats> _getStats() async {
+    if (SyncService.cachedTransactions.isEmpty) {
+      await SyncService.syncTransactions(limit: 5000);
+    }
+    if (SyncService.cachedPersons.isEmpty) {
+      await SyncService.syncPersons();
+    }
     final s = await SyncService.syncStats();
     if (s != null) return s;
     return await ApiService.getDashboardStats();
@@ -57,7 +63,16 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       _statsFuture = f;
     });
     try {
-      await f;
+      await Future.wait([
+        SyncService.syncTransactions(limit: 5000, replaceCache: true),
+        SyncService.syncPersons(),
+      ]);
+      final fresh = await SyncService.syncStats();
+      if (mounted && fresh != null) {
+        setState(() {
+          _statsFuture = Future.value(fresh);
+        });
+      }
     } catch (_) {
     } finally {
       if (mounted) setState(() => _isSyncing = false);

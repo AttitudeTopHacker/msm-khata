@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'config/api_config.dart';
 import 'screens/landing_screen.dart';
@@ -20,6 +21,8 @@ import 'services/sync_service.dart';
 import 'services/theme_service.dart';
 import 'widgets/app_lock_screen.dart';
 import 'widgets/offline_banner.dart';
+import 'widgets/pinch_gesture_detector.dart';
+import 'widgets/quick_modules_modal.dart';
 
 final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
@@ -243,12 +246,21 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       const HistoryScreen(),
     ];
 
-    return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: screens,
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyM, control: true): () =>
+            QuickModulesModal.show(context),
+      },
+      child: Scaffold(
+        body: PinchGestureDetector(
+          onPinchIn: () => QuickModulesModal.show(context),
+          child: IndexedStack(
+            index: _currentIndex,
+            children: screens,
+          ),
+        ),
+        bottomNavigationBar: _buildCustomBottomBar(),
       ),
-      bottomNavigationBar: _buildCustomBottomBar(),
     );
   }
 

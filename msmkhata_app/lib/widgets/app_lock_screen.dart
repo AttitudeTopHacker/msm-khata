@@ -51,8 +51,7 @@ class AppLockScreen extends StatefulWidget {
 }
 
 class _AppLockScreenState extends State<AppLockScreen> with WidgetsBindingObserver {
-  DateTime? _inactiveStartTime;
-  Timer? _inactiveLockTimer;
+  DateTime? _backgroundStartTime;
   Timer? _desktopSleepHeartbeatTimer;
   DateTime? _lastDesktopHeartbeat;
 
@@ -123,7 +122,6 @@ class _AppLockScreenState extends State<AppLockScreen> with WidgetsBindingObserv
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _inactiveLockTimer?.cancel();
     _desktopSleepHeartbeatTimer?.cancel();
     super.dispose();
   }
@@ -140,57 +138,21 @@ class _AppLockScreenState extends State<AppLockScreen> with WidgetsBindingObserv
       return;
     }
 
-    if (_isMobile) {
-      // =======================================================================
-      // MOBILE LIFECYCLE (Power Button / Screen Timeout / Home / App Switcher)
-      // =======================================================================
-      if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
-        _inactiveLockTimer?.cancel();
-        _inactiveStartTime = null;
-        SecurityService.lockApp();
-      } else if (state == AppLifecycleState.inactive) {
-        _inactiveStartTime = DateTime.now();
-        _inactiveLockTimer?.cancel();
-        _inactiveLockTimer = Timer(const Duration(milliseconds: 250), () {
-          if (mounted) {
-            SecurityService.lockApp();
-          }
-        });
-      } else if (state == AppLifecycleState.resumed) {
-        _inactiveLockTimer?.cancel();
-        if (_inactiveStartTime != null) {
-          final elapsed = DateTime.now().difference(_inactiveStartTime!);
-          _inactiveStartTime = null;
-          if (elapsed >= const Duration(milliseconds: 200)) {
-            SecurityService.lockApp();
-          }
-        }
-      }
-    } else {
-      // =======================================================================
-      // DESKTOP LIFECYCLE (Screen Off / Lock Screen / Minimize / App Switch)
-      // =======================================================================
-      if (state == AppLifecycleState.hidden) {
-        // Desktop window minimized, hidden, or user locked system screen
-        _inactiveLockTimer?.cancel();
-        SecurityService.lockApp();
-      } else if (state == AppLifecycleState.inactive) {
-        _inactiveStartTime ??= DateTime.now();
-        _inactiveLockTimer?.cancel();
-        // Short grace period for fast tab switch
-        _inactiveLockTimer = Timer(const Duration(seconds: 3), () {
-          if (mounted) {
-            SecurityService.lockApp();
-          }
-        });
-      } else if (state == AppLifecycleState.resumed) {
-        _inactiveLockTimer?.cancel();
-        if (_inactiveStartTime != null) {
-          final elapsed = DateTime.now().difference(_inactiveStartTime!);
-          _inactiveStartTime = null;
-          if (elapsed >= const Duration(seconds: 2)) {
-            SecurityService.lockApp();
-          }
+    // Smart Auto-Lock: When leaving the app, record timestamp.
+    // When returning, if user was away for longer than the grace timeout (default: 60s), prompt for PIN.
+    // If user returned quickly within the timeout, keep app smoothly unlocked.
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.inactive) {
+      _backgroundStartTime ??= DateTime.now();
+    } else if (state == AppLifecycleState.resumed) {
+      if (_backgroundStartTime != null) {
+        final elapsed = DateTime.now().difference(_backgroundStartTime!);
+        _backgroundStartTime = null;
+
+        final timeoutSeconds = SecurityService.autoLockTimeout;
+        if (timeoutSeconds == 0 || elapsed.inSeconds >= timeoutSeconds) {
+          SecurityService.lockApp();
         }
       }
     }

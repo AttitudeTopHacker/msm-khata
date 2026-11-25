@@ -168,6 +168,8 @@ class AppDesktopSidebar extends StatelessWidget {
                         },
                       ),
 
+                      _buildAutoLockTimerTile(context, accent),
+
                       const SizedBox(height: 10),
                       if (!isCollapsed)
                         _buildSectionLabel('STATEMENTS & SYNC', accent),
@@ -634,6 +636,148 @@ class AppDesktopSidebar extends StatelessWidget {
                   value: hideBalance,
                   activeColor: accent.light,
                   onChanged: (val) => ThemeService.toggleHideBalance(val),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// Auto-Lock Timer Dropdown Tile for Desktop
+  Widget _buildAutoLockTimerTile(BuildContext context, AppAccentTheme accent) {
+    return ValueListenableBuilder<int>(
+      valueListenable: SecurityService.autoLockTimeoutNotifier,
+      builder: (ctx, timeout, _) {
+        String timeoutLabel(int t) {
+          switch (t) {
+            case 0:
+              return 'Immediately';
+            case 30:
+              return 'After 30s';
+            case 60:
+              return 'After 1 min';
+            case 120:
+              return 'After 2 min';
+            case 300:
+              return 'After 5 min';
+            default:
+              return 'After ${t}s';
+          }
+        }
+
+        if (isCollapsed) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Tooltip(
+              message: 'Auto-Lock: ${timeoutLabel(timeout)}',
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    final RenderBox box = ctx.findRenderObject() as RenderBox;
+                    final Offset offset = box.localToGlobal(Offset.zero);
+                    showMenu<int>(
+                      context: ctx,
+                      position: RelativeRect.fromLTRB(
+                        offset.dx + 52,
+                        offset.dy,
+                        offset.dx + 220,
+                        offset.dy + 220,
+                      ),
+                      color: const Color(0xFF1E293B),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        side: const BorderSide(color: Color(0xFF334155), width: 1),
+                      ),
+                      items: const [
+                        PopupMenuItem(value: 60, child: Text('After 1 min (Default)', style: TextStyle(color: Colors.white, fontSize: 12))),
+                        PopupMenuItem(value: 120, child: Text('After 2 min', style: TextStyle(color: Colors.white, fontSize: 12))),
+                        PopupMenuItem(value: 300, child: Text('After 5 min', style: TextStyle(color: Colors.white, fontSize: 12))),
+                        PopupMenuItem(value: 30, child: Text('After 30s', style: TextStyle(color: Colors.white, fontSize: 12))),
+                        PopupMenuItem(value: 0, child: Text('Immediately', style: TextStyle(color: Colors.white, fontSize: 12))),
+                      ],
+                    ).then((val) {
+                      if (val != null) SecurityService.setAutoLockTimeout(val);
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      color: const Color(0xFF38BDF8).withValues(alpha: 0.15),
+                      border: Border.all(
+                        color: const Color(0xFF38BDF8).withValues(alpha: 0.3),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        Icons.timer_outlined,
+                        color: Color(0xFF38BDF8),
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+
+        return Container(
+          margin: const EdgeInsets.symmetric(vertical: 2.5),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            color: const Color(0xFF1E293B).withValues(alpha: 0.4),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF38BDF8).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: const Icon(
+                  Icons.timer_outlined,
+                  color: Color(0xFF38BDF8),
+                  size: 17,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Auto-Lock Timer', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                    Text(timeoutLabel(timeout), style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 9.5, fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ),
+              DropdownButtonHideUnderline(
+                child: DropdownButton<int>(
+                  value: [0, 30, 60, 120, 300].contains(timeout) ? timeout : 60,
+                  dropdownColor: const Color(0xFF1E293B),
+                  icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF94A3B8), size: 16),
+                  style: TextStyle(color: accent.light, fontSize: 10.5, fontWeight: FontWeight.bold),
+                  items: const [
+                    DropdownMenuItem(value: 60, child: Text('1 min')),
+                    DropdownMenuItem(value: 120, child: Text('2 min')),
+                    DropdownMenuItem(value: 300, child: Text('5 min')),
+                    DropdownMenuItem(value: 30, child: Text('30s')),
+                    DropdownMenuItem(value: 0, child: Text('Instant')),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) {
+                      SecurityService.setAutoLockTimeout(val);
+                    }
+                  },
                 ),
               ),
             ],

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/transaction.dart';
-import '../services/api_service.dart';
 import '../services/connectivity_service.dart';
 import '../services/policy_service.dart';
 import '../services/sync_service.dart';
 import '../screens/add_transaction_screen.dart';
+import 'person_detail_sheet.dart';
 
 class TransactionDetailSheet extends StatefulWidget {
   final TransactionItem item;
@@ -102,38 +102,15 @@ class _TransactionDetailSheetState extends State<TransactionDetailSheet> {
 
     if (pickedDate == null || !mounted) return;
 
-    if (!ConnectivityService().isOnline.value) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: Color(0xFFEF4444),
-          content: Row(
-            children: [
-              Icon(Icons.wifi_off_rounded, color: Colors.white, size: 20),
-              SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'You are offline. An active internet connection is required to update the transaction date.',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-      return;
-    }
-
     final dateStr = DateFormat('yyyy-MM-dd').format(pickedDate);
 
     setState(() => _isLoading = true);
 
     try {
-      final updated = await ApiService.updateTransaction(
+      final updated = await SyncService.updateTransactionItem(
         id: _item.id,
         transactionDate: dateStr,
       );
-      SyncService.onOptimisticTransactionUpdated(updated);
       if (mounted) {
         setState(() {
           _item = updated;
@@ -162,60 +139,326 @@ class _TransactionDetailSheetState extends State<TransactionDetailSheet> {
     }
   }
 
-  void _handleToggleSettle() async {
-    if (!ConnectivityService().isOnline.value) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: Color(0xFFEF4444),
-          content: Row(
+  void _openPersonLedger() {
+    PersonDetailSheet.showForTransaction(context, _item, onChanged: () {
+      widget.onTransactionChanged?.call();
+      final updated = SyncService.cachedTransactions.firstWhere(
+        (t) => t.id == _item.id,
+        orElse: () => _item,
+      );
+      if (mounted) {
+        setState(() {
+          _item = updated;
+        });
+      }
+    });
+  }
+
+  void _showSettlementChoiceDialog() {
+    final hasPerson = (_item.personName != null && _item.personName!.trim().isNotEmpty) ||
+        (_item.personId != null && _item.personId!.isNotEmpty);
+    final personName = _item.personName ?? 'Contact';
+    final currency = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
+
+    if (!hasPerson) {
+      _confirmToggleSettlementOnly();
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          decoration: const BoxDecoration(
+            color: Color(0xFF0F172A),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            border: Border(top: BorderSide(color: Color(0xFF334155), width: 1.2)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Icon(Icons.wifi_off_rounded, color: Colors.white, size: 20),
-              SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'You are offline. An active internet connection is required to update settlement status.',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              // Drag handle
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF475569),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ),
+
+              // Header
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.handshake_rounded, color: Color(0xFFF59E0B), size: 22),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Settlement & Ledger Action',
+                          style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Manage settlement for $personName',
+                          style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: Color(0xFF64748B), size: 20),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // Option 1: Open Full Khata & Settle (Chukta)
+              Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E293B),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.4), width: 1.2),
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _openPersonLedger();
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(Icons.menu_book_rounded, color: Color(0xFF10B981), size: 22),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        'Open $personName\'s Khata',
+                                        style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: const Text(
+                                        'Chukta',
+                                        style: TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                const Text(
+                                  'View total lent, borrowed & full history to do complete settlement',
+                                  style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Icon(Icons.chevron_right_rounded, color: Color(0xFF64748B), size: 20),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Option 2: Mark only this entry as Settled / Unsettled
+              Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E293B),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFF334155), width: 1),
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _confirmToggleSettlementOnly();
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: (_item.isSettled ? const Color(0xFFF59E0B) : const Color(0xFF10B981)).withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              _item.isSettled ? Icons.undo_rounded : Icons.check_circle_outline_rounded,
+                              color: _item.isSettled ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
+                              size: 22,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _item.isSettled ? 'Mark Entry as Pending (Unsettled)' : 'Mark only this entry as Settled',
+                                  style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _item.isSettled
+                                      ? 'Reopen this ${currency.format(_item.amount)} transaction in outstanding balance'
+                                      : 'Mark only this ${currency.format(_item.amount)} transaction as paid / settled',
+                                  style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Icon(Icons.chevron_right_rounded, color: Color(0xFF64748B), size: 20),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ],
           ),
-        ),
-      );
-      return;
-    }
+        );
+      },
+    );
+  }
 
+  void _confirmToggleSettlementOnly() async {
+    final willSettle = !_item.isSettled;
+    final actionText = willSettle ? 'Mark as Settled' : 'Mark as Pending';
+    final currency = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Row(
+          children: [
+            Icon(
+              willSettle ? Icons.check_circle_outline_rounded : Icons.pending_outlined,
+              color: willSettle ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+              size: 22,
+            ),
+            const SizedBox(width: 10),
+            Text(
+              '$actionText?',
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17),
+            ),
+          ],
+        ),
+        content: Text(
+          willSettle
+              ? 'Are you sure you want to mark this ${currency.format(_item.amount)} entry as settled?'
+              : 'Are you sure you want to reopen this ${currency.format(_item.amount)} entry as pending settlement?',
+          style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8))),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: willSettle ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(actionText, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      _handleToggleSettle();
+    }
+  }
+
+  void _handleToggleSettle() async {
     setState(() => _isLoading = true);
+    final willSettle = !_item.isSettled;
     try {
-      await ApiService.settleTransaction(_item.id, isSettled: !_item.isSettled);
-      final updatedItem = TransactionItem(
+      final updatedItem = await SyncService.updateTransactionItem(
         id: _item.id,
-        type: _item.type,
-        amount: _item.amount,
-        paymentMode: _item.paymentMode,
-        dueDate: _item.dueDate,
-        isSettled: !_item.isSettled,
-        notes: _item.notes,
-        transactionDate: _item.transactionDate,
-        personId: _item.personId,
-        personName: _item.personName,
-        categoryId: _item.categoryId,
-        categoryName: _item.categoryName,
-        categoryColor: _item.categoryColor,
-        accountId: _item.accountId,
-        accountName: _item.accountName,
+        isSettled: willSettle,
       );
-      SyncService.onOptimisticTransactionUpdated(updatedItem);
       if (mounted) {
         setState(() {
           _item = updatedItem;
         });
         widget.onTransactionChanged?.call();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(
+                  willSettle ? Icons.check_circle_rounded : Icons.pending_outlined,
+                  color: Colors.white,
+                  size: 20,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    willSettle
+                        ? 'Transaction marked as settled successfully'
+                        : 'Transaction reopened as pending settlement',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: willSettle ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: const Color(0xFFEF4444)),
+          SnackBar(content: Text('Error updating status: $e'), backgroundColor: const Color(0xFFEF4444)),
         );
       }
     } finally {
@@ -413,7 +656,7 @@ class _TransactionDetailSheetState extends State<TransactionDetailSheet> {
                     color: _item.isSettled ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
                     width: 0.8,
                   ),
-                  onPressed: _isLoading ? null : _handleToggleSettle,
+                  onPressed: _isLoading ? null : _showSettlementChoiceDialog,
                 ),
             ],
           ),
@@ -429,10 +672,49 @@ class _TransactionDetailSheetState extends State<TransactionDetailSheet> {
           const SizedBox(height: 4),
 
           // Contact or Category
-          Text(
-            _item.personName ?? _item.categoryName ?? 'General Transaction',
-            style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
-          ),
+          if (_item.personName != null && _item.personName!.trim().isNotEmpty)
+            InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: _openPersonLedger,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _item.personName!,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF4F46E5).withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.4), width: 0.8),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('Khata', style: TextStyle(color: Color(0xFF818CF8), fontSize: 11, fontWeight: FontWeight.bold)),
+                          SizedBox(width: 3),
+                          Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFF818CF8), size: 10),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            Text(
+              _item.categoryName ?? 'General Transaction',
+              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+            ),
           const SizedBox(height: 18),
 
           // 📅 TRANSACTION DATE CARD (CUSTOM EDITABLE)

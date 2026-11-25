@@ -99,8 +99,8 @@ class SyncService {
 
     double income = 0;
     double expense = 0;
-    double receivable = 0;
-    double payable = 0;
+    double totalGivenCashOut = 0;
+    double totalTakenCashIn = 0;
     final Map<String, double> categorySums = {};
     final Map<String, Map<String, double>> monthlyAggregates = {};
 
@@ -143,16 +143,15 @@ class SyncService {
         if (catName.isEmpty) catName = 'Other Expenses';
         categorySums[catName] = (categorySums[catName] ?? 0) + amt;
       } else if (t == 'given' || t == 'lena' || t == 'receivable') {
-        receivable += amt;
+        totalGivenCashOut += amt;
       } else if (t == 'taken' || t == 'diya' || t == 'payable') {
-        payable += amt;
+        totalTakenCashIn += amt;
       }
     }
 
-    final moneyIn = income + payable;
-    final moneyOut = expense + receivable;
+    final moneyIn = income + totalTakenCashIn;
+    final moneyOut = expense + totalGivenCashOut;
     final netBalance = moneyIn - moneyOut;
-    final netLenDen = receivable - payable;
     final netSavings = income - expense;
 
     final List<CategoryBreakdown> catList = [];
@@ -183,6 +182,9 @@ class SyncService {
       );
     }).toList();
 
+    // Ensure person balances are up to date
+    recalculatePersonsLocally();
+
     final debtors = cachedPersons
         .where((p) => p.netBalance > 0)
         .toList()
@@ -209,13 +211,18 @@ class SyncService {
       status: 'YOU_OWE',
     )).toList();
 
+    // Calculate total receivable & payable based on net party balances (Khata accounting)
+    final totalReceivable = debtors.fold<double>(0.0, (sum, p) => sum + p.netBalance);
+    final totalPayable = creditors.fold<double>(0.0, (sum, p) => sum + p.netBalance.abs());
+    final netLenDen = totalReceivable - totalPayable;
+
     final newStats = DashboardStats(
       netAccountBalance: netBalance,
       totalMoneyIn: moneyIn,
       totalMoneyOut: moneyOut,
       activeAccountId: activeId,
-      totalReceivable: receivable,
-      totalPayable: payable,
+      totalReceivable: totalReceivable,
+      totalPayable: totalPayable,
       netLenDenPosition: netLenDen,
       totalIncome: income,
       totalExpense: expense,
@@ -395,8 +402,8 @@ class SyncService {
       if (rows is List) {
         double income = 0;
         double expense = 0;
-        double receivable = 0;
-        double payable = 0;
+        double totalGivenCashOut = 0;
+        double totalTakenCashIn = 0;
         final Map<String, double> categorySums = {};
         final Map<String, String> categoryColors = {};
         final Map<String, Map<String, double>> monthlyAggregates = {};
@@ -441,16 +448,15 @@ class SyncService {
             categorySums[catName] = (categorySums[catName] ?? 0) + amt;
             categoryColors[catName] = catColor;
           } else if (type == 'GIVEN') {
-            receivable += amt;
+            totalGivenCashOut += amt;
           } else if (type == 'TAKEN') {
-            payable += amt;
+            totalTakenCashIn += amt;
           }
         }
 
-        final moneyIn = income + payable;
-        final moneyOut = expense + receivable;
+        final moneyIn = income + totalTakenCashIn;
+        final moneyOut = expense + totalGivenCashOut;
         final netBalance = moneyIn - moneyOut;
-        final netLenDen = receivable - payable;
         final netSavings = income - expense;
 
         final List<CategoryBreakdown> catList = [];
@@ -503,13 +509,18 @@ class SyncService {
           status: 'YOU_OWE',
         )).toList();
 
+        // Calculate total receivable & payable based on net party balances (Khata accounting)
+        final totalReceivable = debtors.fold<double>(0.0, (sum, p) => sum + p.netBalance);
+        final totalPayable = creditors.fold<double>(0.0, (sum, p) => sum + p.netBalance.abs());
+        final netLenDen = totalReceivable - totalPayable;
+
         final freshStats = DashboardStats(
           netAccountBalance: netBalance,
           totalMoneyIn: moneyIn,
           totalMoneyOut: moneyOut,
           activeAccountId: activeId,
-          totalReceivable: receivable,
-          totalPayable: payable,
+          totalReceivable: totalReceivable,
+          totalPayable: totalPayable,
           netLenDenPosition: netLenDen,
           totalIncome: income,
           totalExpense: expense,

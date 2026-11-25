@@ -10,6 +10,7 @@ class SecurityService {
   static const String _kPinHashKey = 'msm_sec_pin_hash';
   static const String _kPinEnabledKey = 'msm_sec_pin_enabled';
   static const String _kBiometricEnabledKey = 'msm_sec_biometric_enabled';
+  static const String _kAutoLockTimeoutKey = 'msm_sec_autolock_timeout';
   static const String _kSalt = 'msm_khata_2026_salt_sec_';
 
   static const MethodChannel _biometricChannel =
@@ -18,6 +19,7 @@ class SecurityService {
   static final ValueNotifier<bool> isPinEnabledNotifier = ValueNotifier<bool>(false);
   static final ValueNotifier<bool> isBiometricEnabledNotifier = ValueNotifier<bool>(false);
   static final ValueNotifier<bool> isAppLockedNotifier = ValueNotifier<bool>(false);
+  static final ValueNotifier<int> autoLockTimeoutNotifier = ValueNotifier<int>(60); // In seconds (default: 60s / 1 min)
 
   static String? _cachedPinHash;
   static bool _initialized = false;
@@ -37,9 +39,11 @@ class SecurityService {
       final hasHash = _cachedPinHash != null && _cachedPinHash!.isNotEmpty;
       final pinEnabled = prefs.getBool(_kPinEnabledKey) ?? hasHash;
       final bioEnabled = prefs.getBool(_kBiometricEnabledKey) ?? false;
+      final savedTimeout = prefs.getInt(_kAutoLockTimeoutKey) ?? 60;
 
       isPinEnabledNotifier.value = hasHash && pinEnabled;
       isBiometricEnabledNotifier.value = bioEnabled;
+      autoLockTimeoutNotifier.value = savedTimeout;
 
       // Lock app initially if user has PIN security enabled or has a PIN set
       if (hasHash && pinEnabled) {
@@ -52,6 +56,15 @@ class SecurityService {
   static bool get isPinEnabled => isPinEnabledNotifier.value;
   static bool get isBiometricEnabled => isBiometricEnabledNotifier.value;
   static bool get isAppLocked => isAppLockedNotifier.value;
+  static int get autoLockTimeout => autoLockTimeoutNotifier.value;
+
+  static Future<void> setAutoLockTimeout(int seconds) async {
+    autoLockTimeoutNotifier.value = seconds;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_kAutoLockTimeoutKey, seconds);
+    } catch (_) {}
+  }
 
   static String _hashPin(String pin) {
     final bytes = utf8.encode('$_kSalt$pin');

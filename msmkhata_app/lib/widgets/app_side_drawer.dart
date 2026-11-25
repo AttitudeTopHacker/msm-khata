@@ -1038,6 +1038,58 @@ class AppSideDrawer extends StatelessWidget {
                   },
                 ),
               ],
+
+              // Auto-Lock Timeout Dropdown (Always visible in Security settings)
+              const SizedBox(height: 8),
+              const Divider(color: Color(0xFF334155), height: 1, thickness: 0.8),
+              const SizedBox(height: 6),
+              ValueListenableBuilder<int>(
+                valueListenable: SecurityService.autoLockTimeoutNotifier,
+                builder: (context, timeout, _) {
+                  return Row(
+                    children: [
+                      Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF38BDF8).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.timer_outlined, color: Color(0xFF38BDF8), size: 18),
+                      ),
+                      const SizedBox(width: 10),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Auto-Lock Timer', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                            Text('Lock when leaving app', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 10)),
+                          ],
+                        ),
+                      ),
+                      DropdownButton<int>(
+                        value: [0, 30, 60, 120, 300].contains(timeout) ? timeout : 60,
+                        dropdownColor: const Color(0xFF1E293B),
+                        underline: const SizedBox(),
+                        icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF94A3B8), size: 18),
+                        style: TextStyle(color: accent.light, fontSize: 11, fontWeight: FontWeight.bold),
+                        items: const [
+                          DropdownMenuItem(value: 60, child: Text('After 1 min')),
+                          DropdownMenuItem(value: 120, child: Text('After 2 min')),
+                          DropdownMenuItem(value: 300, child: Text('After 5 min')),
+                          DropdownMenuItem(value: 30, child: Text('After 30s')),
+                          DropdownMenuItem(value: 0, child: Text('Immediately')),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) {
+                            SecurityService.setAutoLockTimeout(val);
+                          }
+                        },
+                      ),
+                    ],
+                  );
+                },
+              ),
             ],
           ),
         );

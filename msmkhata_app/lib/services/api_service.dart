@@ -196,14 +196,60 @@ class ApiService {
       if (accountName != null) 'account_name': accountName,
     };
 
-    final res = await http.put(
-      Uri.parse('$_base/transactions/$id'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(payload),
-    );
-    if (res.statusCode == 200) {
-      return TransactionItem.fromJson(jsonDecode(res.body));
+    // 1. Update directly in Supabase FIRST for guaranteed 100% reliable execution
+    try {
+      final dbFields = <String, dynamic>{
+        if (type != null) 'type': type,
+        if (amount != null) 'amount': amount,
+        if (paymentMode != null) 'payment_mode': paymentMode,
+        if (notes != null) 'notes': notes,
+        if (clearNotes) 'notes': null,
+        if (transactionDate != null) 'transaction_date': transactionDate,
+        if (dueDate != null) 'due_date': dueDate,
+        if (clearDueDate) 'due_date': null,
+        if (isSettled != null) 'is_settled': isSettled,
+        if (personId != null) 'person_id': personId,
+        if (clearPerson) 'person_id': null,
+        if (categoryId != null) 'category_id': categoryId,
+        if (clearCategory) 'category_id': null,
+        if (accountId != null) 'account_id': accountId,
+        if (accountName != null) 'account_name': accountName,
+      };
+
+      final data = await _supabase
+          .from('transactions')
+          .update(dbFields)
+          .eq('id', id)
+          .select('*, persons(name), categories(name, color)');
+
+      if (data is List && data.isNotEmpty) {
+        final updatedTx = TransactionItem.fromJson(data.first as Map<String, dynamic>);
+        // Also fire to backend asynchronously without blocking
+        try {
+          http.put(
+            Uri.parse('$_base/transactions/$id'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode(payload),
+          ).timeout(const Duration(seconds: 1)).catchError((_) => http.Response('', 500));
+        } catch (_) {}
+        return updatedTx;
+      }
+    } catch (e) {
+      debugPrint('Direct Supabase update error: $e');
     }
+
+    // 2. Fallback to backend API
+    try {
+      final res = await http.put(
+        Uri.parse('$_base/transactions/$id'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(payload),
+      ).timeout(const Duration(seconds: 3));
+      if (res.statusCode == 200) {
+        return TransactionItem.fromJson(jsonDecode(res.body));
+      }
+    } catch (_) {}
+
     throw Exception('Failed to update transaction');
   }
 

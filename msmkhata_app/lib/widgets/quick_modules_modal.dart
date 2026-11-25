@@ -100,7 +100,7 @@ class QuickModulesModal extends StatelessWidget {
                               ),
                               SizedBox(height: 2),
                               Text(
-                                'Pinch in detected • Select specialized ledger module',
+                                'Pinch in detected • Select specialised ledger module',
                                 style: TextStyle(
                                   color: Color(0xFF94A3B8),
                                   fontSize: 12,
@@ -125,7 +125,7 @@ class QuickModulesModal extends StatelessWidget {
                               _buildModuleCard(
                                 context: context,
                                 title: 'Grocery Ledger',
-                                hindiTitle: 'किराना और राशन बहीखाता',
+                                tagline: 'Groceries & Provisions Ledger',
                                 subtitle: 'Manage store credits, monthly grocery bills & daily ration item list',
                                 icon: Icons.local_grocery_store_rounded,
                                 badge: 'Grocery & Stores',
@@ -144,7 +144,7 @@ class QuickModulesModal extends StatelessWidget {
                               _buildModuleCard(
                                 context: context,
                                 title: 'Work Diary',
-                                hindiTitle: 'काम डायरी और दैनिक रूटीन',
+                                tagline: 'Daily Routine & Work Log',
                                 subtitle: 'Log daily farming routine, tractor hours, labour entries & tasks',
                                 icon: Icons.menu_book_rounded,
                                 badge: 'Work & Routine',
@@ -168,7 +168,7 @@ class QuickModulesModal extends StatelessWidget {
                                 child: _buildModuleCard(
                                   context: context,
                                   title: 'Grocery Ledger',
-                                  hindiTitle: 'किराना और राशन बहीखाता',
+                                  tagline: 'Groceries & Provisions Ledger',
                                   subtitle: 'Manage store credits, monthly grocery bills & daily ration items',
                                   icon: Icons.local_grocery_store_rounded,
                                   badge: 'Grocery & Stores',
@@ -189,7 +189,7 @@ class QuickModulesModal extends StatelessWidget {
                                 child: _buildModuleCard(
                                   context: context,
                                   title: 'Work Diary',
-                                  hindiTitle: 'काम डायरी और दैनिक रूटीन',
+                                  tagline: 'Daily Routine & Work Log',
                                   subtitle: 'Log daily farming routine, tractor hours, labour entries & tasks',
                                   icon: Icons.menu_book_rounded,
                                   badge: 'Work & Routine',
@@ -247,7 +247,7 @@ class QuickModulesModal extends StatelessWidget {
   Widget _buildModuleCard({
     required BuildContext context,
     required String title,
-    required String hindiTitle,
+    required String tagline,
     required String subtitle,
     required IconData icon,
     required String badge,
@@ -326,7 +326,7 @@ class QuickModulesModal extends StatelessWidget {
                 ),
                 const SizedBox(height: 14),
 
-                // Title & Hindi Title
+                // Title & Tagline
                 Text(
                   title,
                   style: const TextStyle(
@@ -337,7 +337,7 @@ class QuickModulesModal extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  hindiTitle,
+                  tagline,
                   style: TextStyle(
                     color: accentColor,
                     fontSize: 12,
